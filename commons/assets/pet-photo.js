@@ -1,5 +1,5 @@
 /* Pet photos, shared by the Pets page and Organizer Tools (R5d-2a: moved out of pets.js unchanged).
-   Load after api.js (rpc, jcDb, jcErr, JC_URL, esc, hObj) and icons.js (jcIcon), before the page script.
+   Load after api.js (rpc, jcDb, jcErr, JC_URL, esc, jcObj) and icons.js (jcIcon), before the page script.
    A page that shows photos needs the signed pet-photos origin in its CSP img-src. */
 
 /* ---------- photos (R5c) ----------
@@ -90,7 +90,7 @@ function jcPetPhotoShrink(file){
 }
 function jcPetPhotoUpload(id, dataUrl){
   return rpc("jc_pet_photo_begin", { p_pet: id, p_ext: "jpg" }).then(function(b){
-    if (!hObj(b) || typeof b.path !== "string") throw jcErr("UNKNOWN");
+    if (!jcObj(b) || typeof b.path !== "string") throw jcErr("UNKNOWN");
     var bin = atob(dataUrl.slice(dataUrl.indexOf(",") + 1)), buf = new Uint8Array(bin.length);
     for (var i = 0; i < bin.length; i++) buf[i] = bin.charCodeAt(i);
     /* raw bytes, not a Blob: a Blob would go up as a multipart form */
