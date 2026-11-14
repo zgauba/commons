@@ -139,105 +139,8 @@ function ptWrite(b, call, done, fail){
   });
 }
 
-/* ---------- photos (R5c) ----------
-   Private bucket: the server picks the path (jc_pet_photo_begin), the household uploads, the server checks and
-   swaps it in (jc_pet_photo_commit). Shown through short-lived signed URLs, asked once per path per page view;
-   until (or unless) one loads, the paw stays. Photos are shrunk on the phone first (≤ 1280 px JPEG). */
-var PHOTO_MAX = 1280, PHOTO_TTL = 3600;
-var PHOTO_IN_MAX = 25e6, PHOTO_PX_MAX = 50e6;        /* refuse before decoding: a huge file / bitmap can kill the tab */
-var photoUrls = {}, photoAsked = {};                 /* path → { url, exp } · path → true while being signed */
+/* photos: assets/pet-photo.js (R5d-2a). The last file picked in the form wins: */
 var shrinkSeq = 0;
-function photoHtml(p, size, cls){
-  var path = typeof p.photo_path === "string" && p.photo_path ? p.photo_path : null;
-  if (!path) return cls === "tile" ? '<span class="ptph tile">' + jcIcon("pets", size) + '</span>' : jcIcon("pets", size);
-  return '<span class="ptph ' + cls + '" data-photo="' + esc(path) + '">' + jcIcon("pets", size) + '</span>';
-}
-/* a signed URL is good for an hour; re-sign 5 minutes early so a long-open page never keeps a dead one (review) */
-function photoUrl(path){ var u = photoUrls[path]; return u && u.exp > Date.now() ? u.url : null; }
-function placePhotos(){
-  Array.prototype.forEach.call(document.querySelectorAll("[data-photo]"), function(s){
-    var path = s.dataset.photo, u = photoUrl(path);
-    if (!u || s.querySelector("img")) return;
-    var img = document.createElement("img");
-    img.alt = ""; img.decoding = "async";
-    img.addEventListener("load", function(){ s.classList.add("has"); });
-    img.addEventListener("error", function(){
-      img.remove(); s.classList.remove("has");                                     /* the paw stays */
-      var c = photoUrls[path];
-      if (c && c.url === u && !c.retried) { photoUrls[path] = { url: u, exp: 0, retried: true }; fillPhotos(); }   /* one fresh signing */
-    });
-    img.src = u;
-    s.appendChild(img);
-  });
-}
-function fillPhotos(){
-  var need = [];
-  Array.prototype.forEach.call(document.querySelectorAll("[data-photo]"), function(s){
-    var path = s.dataset.photo;
-    if (!photoUrl(path) && !photoAsked[path] && need.indexOf(path) < 0) need.push(path);
-  });
-  placePhotos();
-  if (!need.length) return;
-  need.forEach(function(path){ photoAsked[path] = true; });
-  var exp = Date.now() + (PHOTO_TTL - 300) * 1000;
-  function done(){ need.forEach(function(path){ delete photoAsked[path]; }); }
-  jcDb.storage.from("pet-photos").createSignedUrls(need, PHOTO_TTL).then(function(r){
-    done();
-    (r && Array.isArray(r.data) ? r.data : []).forEach(function(x){
-      if (x && !x.error && typeof x.path === "string" && typeof x.signedUrl === "string" && x.signedUrl.indexOf(JC_URL + "/") === 0) {
-        var was = photoUrls[x.path];
-        if (was && was.retried && was.url === x.signedUrl) return;                  /* same dead URL: leave the paw */
-        photoUrls[x.path] = { url: x.signedUrl, exp: exp, retried: !!(was && was.retried) };
-      }
-    });
-    placePhotos();
-  }, function(){ done(); /* unreadable now: the paw stays; tried again on the next redraw */ });
-}
-var PHOTO_TYPES = /^image\/(jpeg|png|webp|heic|heif|gif)$/;
-/* the picked file → a JPEG data URL ≤ 1280 px. Drawing an <img> onto a canvas applies the photo's EXIF rotation and
-   leaves the EXIF (incl. GPS) behind: only the canvas output is ever sent. */
-function shrinkPhoto(file){
-  return new Promise(function(done, fail){
-    var bad = function(){ fail(jcErr("PHOTO_UNREADABLE")); };
-    if (!file || (file.type && !PHOTO_TYPES.test(file.type)) || file.size > PHOTO_IN_MAX) return bad();
-    var r = new FileReader();
-    r.onerror = bad;
-    r.onload = function(){
-      var img = new Image();
-      img.onerror = bad;
-      img.onload = function(){
-        try {
-          var w = img.naturalWidth, h = img.naturalHeight;
-          if (!w || !h || w * h > PHOTO_PX_MAX) return bad();
-          var k = Math.min(1, PHOTO_MAX / Math.max(w, h)), c = document.createElement("canvas");
-          c.width = Math.max(1, Math.round(w * k)); c.height = Math.max(1, Math.round(h * k));
-          var g = c.getContext("2d");
-          if (!g) return bad();
-          g.drawImage(img, 0, 0, c.width, c.height);
-          var url = c.toDataURL("image/jpeg", 0.82);
-          c.width = c.height = 0;                                                /* iOS keeps canvas memory otherwise */
-          var n = Math.floor((url.length - url.indexOf(",") - 1) * 3 / 4);
-          if (url.indexOf("data:image/jpeg") !== 0 || n < 1024 || n > 2000000) return bad();   /* blank or too big */
-          done(url);
-        } catch (e) { bad(); }
-      };
-      img.src = r.result;
-    };
-    r.readAsDataURL(file);
-  });
-}
-function uploadPhoto(id, dataUrl){
-  return rpc("jc_pet_photo_begin", { p_pet: id, p_ext: "jpg" }).then(function(b){
-    if (!hObj(b) || typeof b.path !== "string") throw jcErr("UNKNOWN");
-    var bin = atob(dataUrl.slice(dataUrl.indexOf(",") + 1)), buf = new Uint8Array(bin.length);
-    for (var i = 0; i < bin.length; i++) buf[i] = bin.charCodeAt(i);
-    /* raw bytes, not a Blob: a Blob would go up as a multipart form */
-    return jcDb.storage.from("pet-photos").upload(b.path, buf.buffer, { contentType: "image/jpeg", upsert: false }).then(function(r){
-      if (!r || r.error) throw jcErr("PHOTO_UPLOAD_FAILED");
-      return rpc("jc_pet_photo_commit", { p_pet: id });
-    });
-  });
-}
 
 /* ---------- data ---------- */
 function loadList(then){
@@ -309,7 +212,7 @@ function backToList(code, okText){
   loadList(code || okText ? function(){ if (code) ptMsg(code); else showOk(okText); } : null);
   show("list");
 }
-function draw(){ var r = jcFocusKeep(); VIEWS[current](); r(); fillPhotos(); }
+function draw(){ var r = jcFocusKeep(); VIEWS[current](); r(); jcPetPhotoFill(); }
 
 /* ---------- views ---------- */
 function dropMap(){
@@ -329,7 +232,7 @@ function show(name){
   var refocus = jcFocusKeep();
   VIEWS[name]();
   refocus();
-  fillPhotos();
+  jcPetPhotoFill();
 }
 
 /* noState: the pet page lists the status in its facts, so its chip row doesn't repeat it */
@@ -353,7 +256,7 @@ function card(p, i, all, near){
   var miss = p.missing === true, out = seenOut(p);
   var seen = p.kind === "stray" && p.care_state !== "rehomed" && recent(p.last_seen_at, 30 * DAY) ? jcAgo(p.last_seen_at) : "";
   return '<li class="' + (miss ? "missing" : "") + '" data-pet="' + esc(p.id) + '">' +
-    '<button class="ptcard" type="button" data-open="' + esc(p.id) + '">' + photoHtml(p, 34, "tile") +
+    '<button class="ptcard" type="button" data-open="' + esc(p.id) + '">' + jcPetPhotoHtml(p, 34, "tile") +
     '<span class="ptbody"><b dir="auto">' + esc(p.name) + '</b>' +
     '<span class="meta">' + esc(speciesText(p) + " · " + kindText(p)) + '</span>' +
     (where ? '<span class="meta where" dir="auto">' + esc(where) + '</span>' : '') +
@@ -487,7 +390,7 @@ var VIEWS = {
     /* header: photo, name, species · kind, badges; the missing alarm (with the owner's "is back home") on every tab */
     /* compact: photo beside the name, so the tabs stay on the first screen */
     var badges = chips(p, true, true);
-    h += '<div class="pthero">' + photoHtml(p, 34, "tile") + '<div class="ptwho"><div class="evtitle"><h1 dir="auto">' + esc(p.name) + '</h1>' +
+    h += '<div class="pthero">' + jcPetPhotoHtml(p, 34, "tile") + '<div class="ptwho"><div class="evtitle"><h1 dir="auto">' + esc(p.name) + '</h1>' +
       /* pets / community admins: the way into Organizer Tools → Pets, as on a court's page (R5d-1) */
       (canAdmin() ? '<a class="lang adminbtn" id="ptAdmin" href="../admin/?tab=pets&pet=' + encodeURIComponent(p.id) + '">' + esc(jcT("ev_admin")) + '</a>' : '') + '</div>' +
       '<p class="meta">' + esc(speciesText(p) + " · " + kindText(p)) + '</p>' +
@@ -869,7 +772,7 @@ VIEWS.edit = function(){
     '<label>' + esc(jcT("pt_name")) + '<input type="text" id="ptName" maxlength="40" dir="auto" autocomplete="off" required></label>' +
     '<fieldset id="ptPhotoBox"><legend>' + esc(jcT("pt_photo")) + '</legend><div class="ptphotoedit">' +
       (f.photo ? '<span class="ptph big has"><img id="ptPhotoNew" alt="" src="' + esc(f.photo) + '"></span>'
-       : f.photo_path ? photoHtml({ photo_path: f.photo_path }, 44, "big") : '') +
+       : f.photo_path ? jcPetPhotoHtml({ photo_path: f.photo_path }, 44, "big") : '') +
       /* the input sits before its label so the label can show the keyboard focus (review a11y) */
       '<input type="file" id="ptPhotoIn" class="sr-only" accept="image/*"' + (ptBusy ? ' disabled' : '') + '>' +
       '<div class="row"><label class="btn ghost" id="ptPhotoPick" for="ptPhotoIn">' + esc(jcT(f.photo || f.photo_path ? "pt_photo_change" : "pt_photo_add")) + '</label>' +
@@ -905,7 +808,7 @@ VIEWS.edit = function(){
     f.shrinking = mine;
     el("ptPhotoHelp").textContent = jcT("working");
     if (el("ptSave")) el("ptSave").disabled = true;
-    shrinkPhoto(file).then(function(url){
+    jcPetPhotoShrink(file).then(function(url){
       if (f.shrinking !== mine) return;
       f.shrinking = null;
       if (form !== f) return;
@@ -964,7 +867,7 @@ VIEWS.edit = function(){
         var id = isPet(c) ? c.id : f.id;
         if (!photo || !id) return { c: c };
         /* the details are saved either way: a photo that fails is said plainly, never loses the rest */
-        return uploadPhoto(id, photo).then(function(){ return { c: c }; }, function(e){ return { c: c, photoErr: (e && e.code) || "UNKNOWN" }; });
+        return jcPetPhotoUpload(id, photo).then(function(){ return { c: c }; }, function(e){ return { c: c, photoErr: (e && e.code) || "UNKNOWN" }; });
       });
     }, function(r){
       var c = r.c, id = isPet(c) ? c.id : f.id, added = !f.id;
