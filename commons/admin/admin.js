@@ -68,6 +68,8 @@ var paFocus = null;       /* an animal to show once, from its Admin button on Pe
 var pe = null;            /* R5d-2b stray editor: { f (list card) | null, v {name, species, description, care_state, territory},
                              pin {lat, lng} | null, photo (data URL picked, not yet sent) | null, shrinking, saving } */
 var peShrink = 0;         /* the last photo picked wins */
+var pv = null;            /* R5d-3a Manage (one animal): { id, detail (jc_pet_get) | null, err, loading, item (care item open) | null,
+                             cd {s, d, n} (that item's draft), log {kind, note} (the log line's draft), busy } */
 var cd = null;            /* R4b-2 court day view: { f (court row), date "YYYY-MM-DD" (community time), slots [] | null, err, loading,
                              form null | {kind:"block"} | {kind:"cancel", id}, draft (form values across a language switch) } */
 var cdBusy = false, cdSeq = 0;
@@ -265,6 +267,7 @@ function show(name){
        : name === "adminlog" ? function(){ show("households"); }
        : name === "court" ? function(){ ctEd = null; show("home"); }
        : name === "petedit" ? peLeave
+       : name === "petadmin" ? pmLeave
        : name === "courtday" ? function(){ cd = null; admTab = "courts"; show("home"); }
        : name === "hhpin" ? function(){ if (hhBusy) return; hhPin = null; show("households"); } : null, "back");
   jcHelp(name === "lock" ? null : "admin");
@@ -676,6 +679,105 @@ var VIEWS = {
     on("peCancel", peLeave);
     el("peForm").addEventListener("submit", function(e){ e.preventDefault(); peSave(); });
     jcPetPhotoFill();
+  },
+
+  /* R5d-3a — Manage one animal: Edit details, the care record (one item at a time), the care log */
+  petadmin: function(){
+    if (!pv || !isPetsAdmin()) { pv = null; return show("home"); }
+    if (!pa || pa.err) {
+      el("view").innerHTML = msgBox() + (pa ? '<div class="row"><button class="btn ghost" type="button" id="pmListRetry">' + esc(jcT("adm_ad_retry")) + '</button></div>'
+                                            : '<p class="help">' + esc(jcT("working")) + '</p>');
+      on("pmListRetry", function(){ pa = null; show("petadmin"); });
+      if (!pa) loadPets(); else showErr(pa.err);
+      return;
+    }
+    var f = petById(pv.id);
+    if (!f || !pmCan(f)) return pmGone();
+    var live = jcModuleOn(cfg, "pets") && pv.err !== "MODULE_OFF", busyOff = pv.busy ? ' disabled' : '';
+    if (live && !pv.detail && !pv.err && !pv.loading) pmLoad();
+    var care = hObj(f.care) || {}, sp = PE_SPECIES.indexOf(f.species) >= 0 ? f.species : "other";
+    function opts(id, attr, keys, cur, pre){
+      return '<div class="opts" id="' + id + '">' + keys.map(function(k){
+        return '<button type="button" ' + attr + '="' + k + '" aria-pressed="' + (cur === k) + '">' + esc(jcT(pre + k)) + '</button>';
+      }).join("") + '</div>';
+    }
+    var html = '<h1 dir="auto">' + esc(petName(f)) + '</h1>' +
+      '<p class="sub">' + esc(jcT("pt_sp_" + sp) + " · " + jcT("pt_kind_stray")) + (f.territory ? ' · <span dir="auto">' + esc(f.territory) + '</span>' : '') + '</p>' +
+      msgBox() +
+      '<div class="row"><button class="btn ghost" type="button" id="pmEdit">' + esc(jcT("pm_edit")) + '</button>' +
+      '<a class="btn ghost" href="../pets/?pet=' + encodeURIComponent(f.id) + '">' + esc(jcT("pm_view")) + '</a></div>' +
+      (live ? '' : '<p class="notice" id="pmOff">' + esc(jcT("pm_off")) + '</p>') +
+      '<h2 class="group">' + esc(jcT("pt_care_record")) + '</h2><p class="help">' + esc(jcT("pm_care_help")) + '</p>' +
+      '<ul class="care" id="pmCare">' + PM_CARE.map(function(k){
+        var it = hObj(care[k]), s = it && PM_ST.indexOf(it.s) >= 0 ? it.s : null;
+        var d = it && jcIsDate(it.d) ? jcDayText(it.d, { weekday: undefined, year: "numeric" }) : "";
+        var head = '<span class="nm">' + esc(jcT("pt_ci_" + k)) + '</span>';
+        if (pv.item !== k) return '<li data-care="' + k + '">' + head +
+          '<span class="st st-' + (s || "unknown") + '">' + esc(jcT("pt_cs_" + (s || "unknown"))) + (d ? " · ⁦" + esc(d) + "⁩" : "") + '</span>' +
+          '<button class="mini" type="button" data-pmcare="' + k + '"' + busyOff + '>' + esc(jcT("pm_item_edit")) + '</button>' +
+          (it && typeof it.n === "string" && it.n ? '<span class="note" dir="auto">' + esc(it.n) + '</span>' : '') + '</li>';
+        return '<li data-care="' + k + '" class="editing">' + head + '<div class="pmform">' +
+          '<fieldset><legend>' + esc(jcT("pm_status")) + '</legend>' + opts("pmSt", "data-pmst", PM_ST, pv.cd.s, "pt_cs_") + '</fieldset>' +
+          '<label>' + esc(jcT("pm_date")) + '<input type="date" id="pmDate" min="2000-01-01" max="' + esc(jcDateAdd(jcTzToday(cfg), 730)) + '"></label>' +
+          '<label>' + esc(jcT("pm_note")) + '<input type="text" id="pmNote" maxlength="120" dir="auto" autocomplete="off"></label>' +
+          '<div class="row"><button class="btn" type="button" id="pmCareSave"' + busyOff + '>' + esc(jcT("pa_save")) + '</button>' +
+          '<button class="btn ghost" type="button" id="pmCareCancel">' + esc(jcT("ct_cancel")) + '</button>' +
+          (it ? '<button class="btn ghost danger" type="button" id="pmCareClear"' + busyOff + '>' + esc(jcT("pm_clear")) + '</button>' : '') +
+          '</div></div></li>';
+      }).join("") + '</ul>' +
+      '<h2 class="group">' + esc(jcT("pt_log")) + '</h2>' +
+      '<div class="panel" id="pmLogForm"><fieldset><legend>' + esc(jcT("pm_log_kind")) + '</legend>' + opts("pmLogKind", "data-pmlog", PM_LOG, pv.log.kind, "pt_log_") + '</fieldset>' +
+        '<label>' + esc(jcT("pm_log_note")) + '<textarea id="pmLogNote" maxlength="280" dir="auto"></textarea></label>' +
+        '<div class="row"><button class="btn" type="button" id="pmLogAdd"' + busyOff + '>' + esc(jcT("pm_log_add")) + '</button></div></div>';
+    if (live) {
+      var logs = pv.detail && Array.isArray(pv.detail.care_log) ? pv.detail.care_log.filter(hObj) : null;
+      html += pv.err ? '<div class="row"><button class="btn ghost" type="button" id="pmRetry">' + esc(jcT("adm_ad_retry")) + '</button></div>'
+        : !logs ? '<p class="help">' + esc(jcT("working")) + '</p>'
+        : !logs.length ? '<p class="help" id="pmLogNone">' + esc(jcT("pm_log_none")) + '</p>'
+        : '<ul class="sulist" id="pmLog">' + logs.map(function(c){
+            var k = PM_LOG.indexOf(c.kind) >= 0 ? c.kind : "note";
+            return '<li><div class="meta">' + esc(jcT("pt_log_" + k) + " · " + hDate(c.at)) + '</div>' + (c.note ? '<div dir="auto">' + esc(c.note) + '</div>' : '') + '</li>';
+          }).join("") + '</ul>';
+    }
+    el("view").innerHTML = html;
+    if (el("pmDate")) { el("pmDate").value = pv.cd.d; el("pmNote").value = pv.cd.n; }      /* values, not markup */
+    el("pmLogNote").value = pv.log.note;
+    if (pv.err && pv.err !== "MODULE_OFF") showErr(pv.err);
+    function pick(attr, set){
+      each("[" + attr + "]", function(b){
+        set(b.getAttribute(attr));
+        Array.prototype.forEach.call(document.querySelectorAll("[" + attr + "]"), function(x){ x.setAttribute("aria-pressed", String(x === b)); });
+      });
+    }
+    pick("data-pmst", function(v){
+      pv.cd.s = v;
+      var m = el("msg");                                   /* "Choose a status" is answered: it goes */
+      if (m && / err/.test(" " + m.className)) { m.className = "msg"; m.textContent = ""; }
+    });
+    pick("data-pmlog", function(v){ pv.log.kind = v; });
+    if (el("pmDate")) {
+      el("pmDate").addEventListener("input", function(){ pv.cd.d = el("pmDate").value; });
+      el("pmNote").addEventListener("input", function(){ pv.cd.n = el("pmNote").value; });
+    }
+    el("pmLogNote").addEventListener("input", function(){ pv.log.note = el("pmLogNote").value; });
+    each("[data-pmcare]", function(b){
+      var k = b.dataset.pmcare, it = hObj(care[k]);
+      if (pv.busy || PM_CARE.indexOf(k) < 0) return;
+      pv.item = k;
+      pv.cd = { s: it && PM_ST.indexOf(it.s) >= 0 ? it.s : "", d: it && jcIsDate(it.d) ? it.d : "", n: it && typeof it.n === "string" ? it.n : "" };
+      show("petadmin");
+      var first = document.querySelector("[data-pmst]");
+      if (first) first.focus();
+    });
+    on("pmCareCancel", function(){ var k = pv.item; pv.item = null; show("petadmin"); pmFocusItem(k); });
+    on("pmCareSave", function(){ pmCareSet(pv.cd.s, "pmCareSave"); });
+    on("pmCareClear", function(){
+      if (!window.confirm(jcFmt("pm_clear_q", { i: jcT("pt_ci_" + pv.item), n: petName(f) }))) return;
+      pmCareSet("unknown", "pmCareClear");
+    });
+    on("pmLogAdd", pmLogAdd);
+    on("pmEdit", function(){ if (!pv.busy) peOpen(f); });
+    on("pmRetry", function(){ pv.err = null; pv.detail = null; show("petadmin"); });
   },
 
   codes: function(){
@@ -1799,7 +1901,13 @@ function loadPets(){
     paLoading = false;
     if (seq !== paSeq || !isPetsAdmin()) return;         /* the right ended while it was on its way (as Courts) */
     pa = { list: Array.isArray(r[0]) ? r[0].filter(function(p){ return hObj(p) && typeof p.id === "string"; }) : [], link: r[1], linkErr: linkErr };
-    if (OPEN_PET) { paFocus = OPEN_PET; OPEN_PET = null; jcSetUrl("tab=pets"); }   /* once: never a jump later */
+    if (OPEN_PET) {                                      /* once: never a jump later */
+      var want = OPEN_PET, oc = petById(want);
+      OPEN_PET = null; jcSetUrl("tab=pets");
+      if (oc && pmCan(oc) && current === "home" && admTab === "pets") return pmOpen(oc);   /* R5d-3a: straight to Manage */
+      paFocus = want;
+    }
+    if (current === "petadmin") return pmKeep();
     if (current === "petsgroup") VIEWS.petsgroup();
     if (current === "home" && admTab === "pets") {
       /* the list lands after the page: a message already on screen ("Done…") survives the redraw (as Courts) */
@@ -1843,9 +1951,9 @@ function petRow(p){
     (chips ? '<div class="ctchips">' + chips + '</div>' : '') +
     '<div class="meta">' + esc(jcT("pt_sp_" + sp) + " · " + jcT(p.kind === "owned" ? "pt_kind_owned" : "pt_kind_stray")) + '</div>' +
     (where ? '<div class="meta" dir="auto">' + esc(where) + '</div>' : '') +
-    /* R5d-2b: strays are the community's to edit; a household's pet is theirs (the server refuses it too) */
-    '<div class="acts">' + (p.kind === "stray" && p.status === "active"
-      ? '<button class="btn ghost small" type="button" data-paedit="' + esc(p.id) + '">' + esc(jcT("pa_edit")) + '</button>' : '') +
+    /* R5d-3a (Zee Q2): one way in — Manage (care, edit details); a household's pet gets it with moderation (3b) */
+    '<div class="acts">' + (pmCan(p)
+      ? '<button class="btn ghost small" type="button" data-pamanage="' + esc(p.id) + '">' + esc(jcT("pa_manage")) + '</button>' : '') +
     '<a class="btn ghost small" href="../pets/?pet=' + encodeURIComponent(p.id) + '">' + esc(jcT("pa_view")) + '</a></div></li>';
 }
 /* OT-3 (Zee 2026-11-14): the group link is a settings row with its own screen in plain words; the animals get chips
@@ -1909,9 +2017,9 @@ function wirePets(){
   on("paNew", function(){ peOpen(null); });
   /* one listener on the box: the search redraws the rows inside it */
   if (el("paListBox")) el("paListBox").addEventListener("click", function(e){
-    var b = e.target.closest && e.target.closest("[data-paedit]");
-    var f = b && petById(b.dataset.paedit);
-    if (f) peOpen(f);                                    /* never "Add" for a row the list lost (review L2) */
+    var b = e.target.closest && e.target.closest("[data-pamanage]");
+    var f = b && petById(b.dataset.pamanage);
+    if (f) pmOpen(f);
   });
   if (!el("paChips")) return;
   wirePaChips();
@@ -1957,6 +2065,107 @@ function petsLinkSave(v, btn){
   });
 }
 
+/* ---------- R5d-3a: Manage one animal (server R5a care_set, S4 care_add; reads jc_pet_get) ---------- */
+var PM_CARE = ["sterilized", "dewormed", "vaccination", "treatment"];
+var PM_ST = ["done", "due", "ongoing"];                 /* "unknown" is Clear: its own button, with a confirm */
+var PM_LOG = ["fed", "vet", "note", "state"];
+function pmCan(p){ return !!p && p.kind === "stray" && p.status === "active"; }   /* 3b adds households' pets (moderation) */
+function pmOpen(f){
+  if (!isPetsAdmin() || !pmCan(f)) return;
+  pv = { id: f.id, detail: null, err: null, loading: false, item: null, cd: { s: "", d: "", n: "" }, log: { kind: "fed", note: "" }, busy: false };
+  admTab = "pets";
+  show("petadmin");
+  try { window.scrollTo(0, 0); } catch(e){}
+}
+/* Back: the list as it was (chip, search), that animal's row in view */
+function pmLeave(){
+  if (pv && pv.busy) return;
+  var id = pv && pv.id;
+  pv = null; admTab = "pets";
+  show("home");
+  var li = id && document.querySelector('#view [data-pet="' + CSS.escape(id) + '"]');
+  if (li) { li.setAttribute("tabindex", "-1"); if (li.scrollIntoView) li.scrollIntoView({ block: "center" }); li.focus({ preventScroll: true }); }
+}
+function pmGone(){
+  pv = null; pa = null; admTab = "pets";
+  jcSetUrl("tab=pets");
+  show("home");
+  jcShowErrFor("pa_err_", "NOT_FOUND");                 /* archived or gone meanwhile */
+}
+/* a redraw after an answer lands: a message already on screen ("Saved.") stays */
+function pmKeep(){
+  if (current !== "petadmin") return;
+  var m = el("msg"), keep = m && m.textContent ? { c: m.className, t: m.textContent } : null;
+  show("petadmin");
+  if (keep && el("msg") && !el("msg").textContent) { el("msg").className = keep.c; el("msg").textContent = keep.t; }
+}
+function pmFocusItem(k){ var b = k && document.querySelector('[data-pmcare="' + k + '"]'); if (b) b.focus(); }
+function pmLoad(){
+  var me = pv;
+  me.loading = true;
+  rpc("jc_pet_get", { p_pet: me.id }).then(function(d){
+    me.loading = false;
+    if (pv !== me) return;
+    me.detail = hObj(d) || { care_log: [] }; me.err = null;
+    pmKeep();
+  }, function(e){
+    me.loading = false;
+    var code = (e && e.code) || "UNKNOWN";
+    if (code === "NOT_ADMIN") return fail(e);
+    if (pv !== me) return;
+    if (code === "NOT_FOUND") return current === "petadmin" ? pmGone() : null;
+    me.err = code;                                       /* MODULE_OFF → the "once Pets is on" notice (Zee Q1 = A) */
+    pmKeep();
+  });
+}
+/* one write at a time; NOT_FOUND = archived or no longer a stray → the list; anything else stays on the form */
+function pmWrite(btn, call, done){
+  var me = pv;
+  if (!me || me.busy) return;
+  me.busy = true; busy(btn, true);
+  call().then(function(r){
+    me.busy = false;
+    if (pv !== me) return;
+    done(r, me);
+  }, function(e){
+    me.busy = false;
+    var code = (e && e.code) || "UNKNOWN";
+    if (code === "NOT_ADMIN") return fail(e);
+    if (pv !== me || current !== "petadmin") return;
+    if (code === "NOT_FOUND") return pmGone();
+    show("petadmin");
+    jcShowErrFor("pm_err_", code);
+  });
+}
+function pmCareSet(status, btn){
+  var k = pv && pv.item;
+  if (!k) return;
+  if (status !== "unknown" && PM_ST.indexOf(status) < 0) return jcShowErrFor("pm_err_", "NO_STATUS");
+  var d = pv.cd.d, n = pv.cd.n.trim();
+  if (d && !jcIsDate(d)) return jcShowErrFor("pm_err_", "BAD_FIELDS");
+  var args = status === "unknown" ? { p_pet: pv.id, p_item: k, p_status: "unknown", p_date: null, p_note: null }
+                                  : { p_pet: pv.id, p_item: k, p_status: status, p_date: d || null, p_note: n || null };
+  pmWrite(btn, function(){ return rpc("jc_admin_pet_care_set", args); }, function(c, me){
+    var f = petById(me.id);
+    if (f && hObj(c)) Object.assign(f, c);              /* the card's care; the list keeps status, counts, dates */
+    me.item = null;
+    show("petadmin");
+    showOk(jcFmt(status === "unknown" ? "pm_care_cleared" : "pm_care_saved", { i: jcT("pt_ci_" + k) }));
+    pmFocusItem(k);
+  });
+}
+function pmLogAdd(){
+  if (!pv) return;
+  var kind = PM_LOG.indexOf(pv.log.kind) >= 0 ? pv.log.kind : "note", note = pv.log.note.trim();
+  if (!note) { jcShowErrFor("pm_err_", "LOG_EMPTY"); el("pmLogNote").focus(); return; }
+  pmWrite("pmLogAdd", function(){ return rpc("jc_admin_pet_care_add", { p_pet: pv.id, p_kind: kind, p_note: note }); }, function(r, me){
+    me.log.note = "";
+    me.detail = null;                                    /* the server returns no log: read it again */
+    show("petadmin");
+    showOk(jcT("pm_log_added"));
+  });
+}
+
 /* ---------- R5d-2b: the stray editor (server jc_admin_stray_save, R5a) ---------- */
 var PE_SPECIES = ["cat", "dog", "bird", "rabbit", "other"];
 var PE_CARE = ["needs_help", "under_care", "known_fine", "rehomed"];
@@ -1973,7 +2182,7 @@ function peValues(f){
 function pePin(f){ return f && jcFinite(f.territory_lat) && jcFinite(f.territory_lng) ? { lat: f.territory_lat, lng: f.territory_lng } : null; }
 function peOpen(f){
   if (!isPetsAdmin() || (f && (f.kind !== "stray" || f.status !== "active"))) return;
-  pe = { f: f, v: peValues(f), pin: pePin(f), photo: null, shrinking: null, saving: false };
+  pe = { f: f, v: peValues(f), pin: pePin(f), photo: null, shrinking: null, saving: false, manage: !!(f && pv && pv.id === f.id) };
   show("petedit");
   try { window.scrollTo(0, 0); } catch(e){}
 }
@@ -1988,11 +2197,19 @@ function peRedraw(toPhoto){
 }
 function peLeave(){
   if (pe && pe.saving) return;
+  var back = pe && pe.manage && pv;
   pe = null; admTab = "pets";
-  show("home");
+  show(back ? "petadmin" : "home");
 }
 /* back to the list, re-read, that animal focused (as from its Admin button); then say how it went */
 function peDone(id, say){
+  if (pe && pe.manage && pv && id === pv.id) {          /* R5d-3a: an edit from Manage goes back to Manage (re-read) */
+    pe = null; pa = null; admTab = "pets";
+    show("petadmin");
+    try { window.scrollTo(0, 0); } catch(e){}
+    if (say) say();
+    return;
+  }
   pe = null; pa = null; paFocus = id || null; admTab = "pets";
   jcSetUrl("tab=pets");
   show("home");
@@ -3478,6 +3695,7 @@ el("langBtn").addEventListener("click", function(){
   if (current === "invite") return inviteView();
   if (current === "court" && ctEd) { ctEd.draft = courtForm(); return show("court"); }   /* never throw away the form */
   if (current === "petedit" && pe) return show("petedit");   /* the form's values live in pe as they're typed */
+  if (current === "petadmin" && pv) return show("petadmin");   /* drafts live in pv as they're typed */
   if (current === "courtday" && cd) { cd.draft = cdDraft(); return show("courtday"); }   /* same day, same open form */
   if (current === "admins" && ad) return VIEWS.admins();   /* keeps a just-made invite link on screen */
   if (current === "names") { mnDraft = mnRead(); return VIEWS.names(); }   /* never throw away a half-typed name */

@@ -55,7 +55,31 @@ function backend(opts = {}) {
     },
     jc_pet_photo_remove: (a) => { st.removes.push(a.p_pet); st.list.find((p) => p.id === a.p_pet).photo_path = null; return ok({}); },
   });
-  st.saves = []; st.removes = [];
+  // R5d-3a: care (strays, active only, as the server); the log comes back only through jc_pet_get
+  Object.assign(ab.rpc, {
+    jc_pet_get: (a) => {
+      if (opts.getRaises) return raise(opts.getRaises);
+      const c = st.list.find((p) => p.id === a.p_pet && p.status === "active");
+      return c ? ok(Object.assign({}, c, { sightings: [], care_log: c.kind === "stray" ? (st.logs[c.id] || []).slice() : null })) : raise("NOT_FOUND");
+    },
+    jc_admin_pet_care_set: (a) => {
+      st.cares.push(a);
+      const c = st.list.find((p) => p.id === a.p_pet && p.kind === "stray" && p.status === "active");
+      if (!c) return raise("NOT_FOUND");
+      if (st.careRaises) return raise(st.careRaises);
+      const care = Object.assign({}, c.care || {});
+      if (a.p_status === "unknown") delete care[a.p_item]; else care[a.p_item] = { s: a.p_status, d: a.p_date, n: a.p_note };
+      c.care = care;
+      const { status, created_at, updated_at, sightings_7d, ...card } = c;           // the card, not the admin row
+      return ok(card);
+    },
+    jc_admin_pet_care_add: (a) => {
+      st.adds.push(a);
+      (st.logs[a.p_pet] = st.logs[a.p_pet] || []).unshift({ kind: a.p_kind, note: a.p_note, at: "2026-11-14T10:00:00Z" });
+      return ok({ pet_id: a.p_pet, logged: true });
+    },
+  });
+  st.saves = []; st.removes = []; st.cares = []; st.adds = []; st.logs = {};
   if (opts.petsOn) ab.rpc.jc_config_get = () => ok(Object.assign({}, CONFIG, { modules: Object.assign({}, CONFIG.modules, { pets: { enabled: true } }) }));
   return { ab, st, rpc: ab.rpc };
 }
@@ -266,9 +290,9 @@ test("search: name, home, area or village narrows every count; the box keeps foc
 });
 
 test("an animal's Admin button wins over a chip or a search: it's always shown", async ({ page }) => {
-  await openPets(page, backend(), "&show=missing&pet=" + ID(5));                   // Archie isn't missing
+  await openPets(page, backend(), "&show=missing&pet=" + ID(1));                   // Rex (a home's pet) isn't missing
   await expect(page.locator("#paShow-all")).toHaveAttribute("aria-pressed", "true");
-  await expect(page.locator(`[data-pet="${ID(5)}"]`)).toHaveClass(/focus/);
+  await expect(page.locator(`[data-pet="${ID(1)}"]`)).toHaveClass(/focus/);
 });
 
 test("the group row says whether a link is set; the screen explains it, step by step, and Test It opens the group", async ({ page }) => {
@@ -319,13 +343,19 @@ async function jpeg(page) {
 }
 const loaded = (loc) => loc.evaluate((s) => !!(s.classList.contains("has") && s.querySelector("img") && s.querySelector("img").naturalWidth > 0));
 const saves = (calls) => calls.filter((c) => c.name === "jc_admin_stray_save").map((c) => c.args);
+// R5d-3a (Zee Q2): Edit lives inside Manage — from the list, or from Manage itself (after a save it's back there)
+async function editStray(page, id) {
+  if (!(await page.locator("#pmEdit").count())) await page.locator(`li[data-pet="${id}"] [data-pamanage]`).click();
+  await page.locator("#pmEdit").click();
+  await expect(page.locator("#peForm")).toBeVisible();
+}
 
 test("R5d-2b: Edit only on active strays (a household's pet is theirs); Add an Animal opens an empty form", async ({ page }) => {
   await openPets(page, backend());
-  await expect(page.locator("#paListBox [data-paedit]")).toHaveCount(2);                   // Ginger, Archie
-  await expect(page.locator(`li[data-pet="${ID(1)}"] [data-paedit]`)).toHaveCount(0);       // Rex (a home's)
+  await expect(page.locator("#paListBox [data-pamanage]")).toHaveCount(2);                   // Ginger, Archie
+  await expect(page.locator(`li[data-pet="${ID(1)}"] [data-pamanage]`)).toHaveCount(0);       // Rex (a home's)
   await page.locator("#paShow-archived").click();
-  await expect(page.locator("#paListBox [data-paedit]")).toHaveCount(0);                    // Old Tom: names only
+  await expect(page.locator("#paListBox [data-pamanage]")).toHaveCount(0);                    // Old Tom: names only
   await page.locator("#paShow-all").click();
   await page.locator("#paNew").click();
   await expect(page.locator("h1")).toHaveText("Add a stray or community animal");
@@ -385,7 +415,7 @@ test("R5d-2b: an edit sends only what changed — a rename alone; a cleared area
   const { calls } = await stubBackend(page, { rpc: b.rpc });
   await signIn(page);
   await page.goto("admin/?tab=pets");
-  await page.locator(`li[data-pet="${ID(3)}"] [data-paedit]`).click();
+  await editStray(page, ID(3));
   await expect(page.locator("h1")).toHaveText("Edit Ginger");
   await expect(page.locator("#peDesc")).toHaveValue("Ginger tabby, torn left ear");
   await expect(page.locator("#peArea")).toHaveValue("Behind the mosque");
@@ -395,14 +425,14 @@ test("R5d-2b: an edit sends only what changed — a rename alone; a cleared area
   await page.locator("#peSave").click();
   await expect(page.locator("#msg")).toHaveText("Ginger Tom is saved.");
   expect(saves(calls)).toEqual([{ p_pet: ID(3), p_fields: { name: "Ginger Tom" } }]);
-  await page.locator(`li[data-pet="${ID(3)}"] [data-paedit]`).click();
+  await editStray(page, ID(3));
   await page.locator("#peArea").fill("   ");
   await page.locator("#pePinClear").click();
   await expect(page.locator("#pePinState")).toHaveText("No spot set.");
   await page.locator("#peSave").click();
   await expect(page.locator("#msg")).toHaveText("Ginger Tom is saved.");
   expect(saves(calls)[1]).toEqual({ p_pet: ID(3), p_fields: { territory: null, territory_lat: null, territory_lng: null } });
-  await page.locator(`li[data-pet="${ID(3)}"] [data-paedit]`).click();
+  await editStray(page, ID(3));
   await page.locator("#peSave").click();                                                 // nothing changed: nothing sent
   await expect(page.locator("#msg")).toHaveText("Ginger Tom is saved.");
   expect(saves(calls)).toHaveLength(2);
@@ -415,7 +445,7 @@ test("R5d-2b: a saved photo shows in Organizer Tools (CSP); Remove asks first, t
   page.on("console", (m) => { if (/Content Security Policy|Refused to load/i.test(m.text())) blocked.push(m.text()); });
   await signIn(page);
   await page.goto("admin/?tab=pets");
-  await page.locator(`li[data-pet="${ID(5)}"] [data-paedit]`).click();                    // Archie has p/x.jpg
+  await editStray(page, ID(5));                    // Archie has p/x.jpg
   const ph = page.locator("#pePhotoBox .ptph[data-photo]");
   await expect.poll(() => loaded(ph)).toBe(true);
   expect(calls.filter((c) => c.name === "image").map((c) => c.args)).toEqual([{ bucket: "pet-photos", path: "p/x.jpg" }]);
@@ -428,6 +458,8 @@ test("R5d-2b: a saved photo shows in Organizer Tools (CSP); Remove asks first, t
   expect(b.st.removes).toEqual([ID(5)]);
   await expect(page.locator("#pePhotoRemove")).toHaveCount(0);
   await page.locator("#peCancel").click();
+  await expect(page.locator("h1")).toHaveText("Archie");                                // back on Manage
+  await page.locator("#jcBackBtn").click();
   await expect(page.locator(`li[data-pet="${ID(5)}"]`)).toContainText("No photo");
   expect(blocked).toEqual([]);
 });
@@ -437,7 +469,7 @@ test("R5d-2b: a photo that fails keeps the details and says so; one Save at a ti
   const { calls } = await stubBackend(page, { rpc: b.rpc });
   await signIn(page);
   await page.goto("admin/?tab=pets");
-  await page.locator(`li[data-pet="${ID(3)}"] [data-paedit]`).click();
+  await editStray(page, ID(3));
   await page.locator('[data-pecare="under_care"]').click();
   await page.locator("#pePhotoIn").setInputFiles(await jpeg(page));
   await expect(page.locator("#pePhotoNew")).toBeVisible();
@@ -452,14 +484,14 @@ test("R5d-2b: an animal archived meanwhile → back to the list, said plainly; a
   await stubBackend(page, { rpc: b.rpc });
   await signIn(page);
   await page.goto("admin/?tab=pets");
-  await page.locator(`li[data-pet="${ID(3)}"] [data-paedit]`).click();
+  await editStray(page, ID(3));
   b.st.list.find((p) => p.id === ID(3)).kind = "owned";                                     // the server now refuses it
   await page.locator("#peName").fill("Ginger 2");
   await page.locator("#peSave").click();
   await expect(page.locator("#paChips")).toBeVisible();
   await expect(page.locator("#msg")).toHaveText("That animal isn't in the list any more.");
   b.st.saveRaises = "BAD_FIELDS";
-  await page.locator(`li[data-pet="${ID(5)}"] [data-paedit]`).click();
+  await editStray(page, ID(5));
   await page.locator("#peName").fill("Archie 2");
   await page.locator("#peSave").click();
   await expect(page.locator("#msg")).toHaveText(/Check the name \(up to 40 characters\)/);
@@ -489,7 +521,7 @@ test("R5d-2b review M1: a save that fails after a language switch gives every co
   await stubBackend(page, { rpc: b.rpc });
   await signIn(page);
   await page.goto("admin/?tab=pets");
-  await page.locator(`li[data-pet="${ID(5)}"] [data-paedit]`).click();
+  await editStray(page, ID(5));
   await page.locator("#peName").fill("Archie 2");
   await page.locator("#peSave").click();
   await page.locator("#langBtn").click();                                                 // redrawn while saving
@@ -500,4 +532,145 @@ test("R5d-2b review M1: a save that fails after a language switch gives every co
   await expect(page.locator("#pePhotoRemove")).toBeEnabled();
   await expect(page.locator("#peSave")).toBeEnabled();
   await expect(page.locator("#peName")).toHaveValue("Archie 2");
+});
+
+// ---- R5d-3a: Manage one animal — care record + care log (plan docs/plans/R5d-3-care-moderation.md) ----
+async function manage(page, b, id, q) {
+  const r = await stubBackend(page, { rpc: b.rpc });
+  await signIn(page);
+  await page.goto("admin/?tab=pets" + (q || ""));
+  await page.locator(`li[data-pet="${id}"] [data-pamanage]`).click();
+  await expect(page.locator("#pmCare")).toBeVisible();
+  return r;
+}
+
+test("R5d-3a: Manage on active strays only; a stray's Admin button opens Manage; Back keeps the chip and search", async ({ page }) => {
+  const b = backend();
+  await stubBackend(page, { rpc: b.rpc });
+  await signIn(page);
+  await page.goto("admin/?tab=pets&pet=" + ID(3));                                        // Ginger (stray) from the Pets page
+  await expect(page.locator("h1")).toHaveText("Ginger");
+  await expect(page.locator("#pmCare li")).toHaveCount(4);
+  await expect(page.locator("#pmOff")).toBeVisible();                                     // Pets off: the log waits (Zee Q1 = A)
+  await page.locator("#jcBackBtn").click();
+  await page.locator("#paShow-strays").click();
+  await page.locator("#paSearch").fill("arch");
+  await expect(page.locator("#paListBox [data-pamanage]")).toHaveCount(1);
+  await page.locator(`li[data-pet="${ID(5)}"] [data-pamanage]`).click();
+  await expect(page.locator("h1")).toHaveText("Archie");
+  await page.locator("#jcBackBtn").click();
+  await expect(page.locator("#paShow-strays")).toHaveAttribute("aria-pressed", "true");
+  await expect(page.locator("#paSearch")).toHaveValue("arch");
+  await expect(page.locator(`li[data-pet="${ID(5)}"]`)).toBeFocused();
+  await page.locator("#paSearch").fill("");
+  await page.locator("#paShow-all").click();
+  await expect(page.locator(`li[data-pet="${ID(1)}"] [data-pamanage]`)).toHaveCount(0);  // Rex: a home's pet (3b)
+});
+
+test("R5d-3a: care record — one item at a time, the exact call, redrawn from the card; a status is needed; Clear asks first", async ({ page }) => {
+  const b = backend();
+  const { calls } = await manage(page, b, ID(3));
+  await expect(page.locator('#pmCare [data-care="sterilized"] .st')).toHaveText("Not recorded");
+  await page.locator('[data-pmcare="sterilized"]').click();
+  await page.locator("#pmCareSave").click();
+  await expect(page.locator("#msg")).toHaveText("Choose a status, or tap Clear to remove the item.");
+  await expect(page.locator("#pmCareClear")).toHaveCount(0);                             // nothing recorded: nothing to clear
+  await page.locator('[data-pmst="done"]').click();
+  await expect(page.locator("#msg")).toHaveText("");                                    // answered: the error goes
+  await page.locator("#pmDate").fill("2026-10-02");
+  await page.locator("#pmNote").fill("  Dr. Amal, Marina Vet ");
+  if (process.env.SHOT_DIR) await page.screenshot({ path: process.env.SHOT_DIR + "/pm-care-edit.png", fullPage: true });
+  await page.locator("#pmCareSave").click();
+  await expect(page.locator("#msg")).toHaveText("Sterilized: saved.");
+  expect(b.st.cares).toEqual([{ p_pet: ID(3), p_item: "sterilized", p_status: "done", p_date: "2026-10-02", p_note: "Dr. Amal, Marina Vet" }]);
+  await expect(page.locator('#pmCare [data-care="sterilized"] .st')).toHaveText(/^Done · /);
+  await expect(page.locator('#pmCare [data-care="sterilized"] .note')).toHaveText("Dr. Amal, Marina Vet");
+  await expect(page.locator('[data-pmcare="sterilized"]')).toBeFocused();
+  await page.locator('[data-pmcare="sterilized"]').click();
+  await expect(page.locator("#pmDate")).toHaveValue("2026-10-02");                        // the stored values, to change
+  page.once("dialog", (d) => { expect(d.message()).toBe("Clear “Sterilized” for Ginger? It goes back to “Not recorded”."); d.dismiss(); });
+  await page.locator("#pmCareClear").click();
+  expect(b.st.cares).toHaveLength(1);
+  page.once("dialog", (d) => d.accept());
+  await page.locator("#pmCareClear").click();
+  await expect(page.locator("#msg")).toHaveText("Sterilized: cleared.");
+  expect(b.st.cares[1]).toEqual({ p_pet: ID(3), p_item: "sterilized", p_status: "unknown", p_date: null, p_note: null });
+  await expect(page.locator('#pmCare [data-care="sterilized"] .st')).toHaveText("Not recorded");
+  expect(calls.filter((c) => c.name === "jc_pet_get")).toEqual([]);                      // Pets off: never asked
+});
+
+test("R5d-3a: care log (Pets on) — a line is added, the log is read again, the note is required, one Add at a time", async ({ page }) => {
+  const b = backend({ petsOn: true });
+  b.st.logs[ID(3)] = [{ kind: "vet", note: "Ear cleaned", at: "2026-11-01T09:00:00Z" }];
+  const { calls } = await manage(page, b, ID(3));
+  await expect(page.locator("#pmOff")).toHaveCount(0);
+  await expect(page.locator("#pmLog li")).toHaveCount(1);
+  await expect(page.locator("#pmLog li").first()).toContainText("Vet visit");
+  await page.locator("#pmLogAdd").click();
+  await expect(page.locator("#msg")).toHaveText("Write a short note for the log.");
+  await expect(page.locator("#pmLogNote")).toBeFocused();
+  await page.locator('[data-pmlog="fed"]').click();
+  await page.locator("#pmLogNote").fill("  Fed at the marina steps, ate well ");
+  await page.locator("#pmLogAdd").dblclick();
+  await expect(page.locator("#msg")).toHaveText("Added to the log.");
+  expect(b.st.adds).toEqual([{ p_pet: ID(3), p_kind: "fed", p_note: "Fed at the marina steps, ate well" }]);
+  await expect(page.locator("#pmLog li")).toHaveCount(2);
+  await expect(page.locator("#pmLog li").first()).toContainText("Fed at the marina steps, ate well");
+  await expect(page.locator("#pmLogNote")).toHaveValue("");
+  expect(calls.filter((c) => c.name === "jc_pet_get")).toHaveLength(2);                  // opened + after the add
+  if (process.env.SHOT_DIR) await page.screenshot({ path: process.env.SHOT_DIR + "/pm-log.png", fullPage: true });
+});
+
+test("R5d-3a: with Pets off the log can still be added to; the notice says when it shows", async ({ page }) => {
+  const b = backend();
+  await manage(page, b, ID(5));
+  await expect(page.locator("#pmOff")).toContainText("the care log shows here once it's switched on");
+  await page.locator("#pmLogNote").fill("Seen limping");
+  await page.locator('[data-pmlog="note"]').click();
+  await page.locator("#pmLogAdd").click();
+  await expect(page.locator("#msg")).toHaveText("Added to the log.");
+  expect(b.st.adds).toEqual([{ p_pet: ID(5), p_kind: "note", p_note: "Seen limping" }]);
+  await expect(page.locator("#pmLog")).toHaveCount(0);
+});
+
+test("R5d-3a: Edit Details from Manage — Save and Cancel come back to Manage", async ({ page }) => {
+  const b = backend();
+  const { calls } = await manage(page, b, ID(3));
+  await page.locator("#pmEdit").click();
+  await page.locator("#peCancel").click();
+  await expect(page.locator("h1")).toHaveText("Ginger");
+  await page.locator("#pmEdit").click();
+  await page.locator("#peName").fill("Ginger Tom");
+  await page.locator("#peSave").click();
+  await expect(page.locator("h1")).toHaveText("Ginger Tom");
+  await expect(page.locator("#msg")).toHaveText("Ginger Tom is saved.");
+  expect(saves(calls)).toEqual([{ p_pet: ID(3), p_fields: { name: "Ginger Tom" } }]);
+});
+
+test("R5d-3a: an animal archived meanwhile → the list, said plainly; a bad date stays on the form", async ({ page }) => {
+  const b = backend();
+  await manage(page, b, ID(3));
+  b.st.careRaises = "BAD_FIELDS";
+  await page.locator('[data-pmcare="dewormed"]').click();
+  await page.locator('[data-pmst="due"]').click();
+  await page.locator("#pmCareSave").click();
+  await expect(page.locator("#msg")).toHaveText("Check the date (from 2000, at most two years ahead) and the note (up to 120 characters).");
+  await expect(page.locator('[data-pmst="due"]')).toHaveAttribute("aria-pressed", "true");    // the draft stays
+  b.st.careRaises = null;
+  b.st.list.find((p) => p.id === ID(3)).status = "archived";
+  await page.locator("#pmCareSave").click();
+  await expect(page.locator("#paChips")).toBeVisible();
+  await expect(page.locator("#msg")).toHaveText("That animal isn't in the list any more.");
+});
+
+test("R5d-3a: Manage in Arabic keeps an open item's draft", async ({ page }) => {
+  await manage(page, backend(), ID(3));
+  await page.locator('[data-pmcare="vaccination"]').click();
+  await page.locator('[data-pmst="due"]').click();
+  await page.locator("#pmNote").fill("Rabies booster");
+  await page.locator("#langBtn").click();
+  await expect(page.locator("#pmCare h2, #view h2.group").first()).toHaveText("سجل الرعاية");
+  await expect(page.locator("#pmNote")).toHaveValue("Rabies booster");
+  await expect(page.locator('[data-pmst="due"]')).toHaveAttribute("aria-pressed", "true");
+  await expect(page.locator("#pmLogAdd")).toHaveText("إضافة إلى السجل");
 });
