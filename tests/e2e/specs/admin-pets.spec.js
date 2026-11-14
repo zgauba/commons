@@ -44,6 +44,13 @@ async function openPets(page, b, q) {
   await stubBackend(page, { rpc: b.rpc });
   await signIn(page);
   await page.goto("admin/?tab=pets" + (q || ""));
+  await expect(page.locator("#paChips")).toBeVisible();
+}
+// OT-3: the group link lives on its own screen, from a settings row on the Pets tab
+async function openGroup(page, b) {
+  await openPets(page, b);
+  await page.locator("#paGroupOpen").click();
+  await expect(page.locator("h1")).toHaveText("Pets WhatsApp group");
   await expect(page.locator("#paGroup")).toBeVisible();
 }
 const rowIds = (page, sel) => page.locator(sel + " [data-pet]").evaluateAll((ls) => ls.map((l) => l.dataset.pet));
@@ -71,8 +78,8 @@ test("who sees Pets: pets and community admins; courts-only and events-only don'
 test("the animals: strays and community animals first, then villages A–Z, then name; chips; Archived apart, names only", async ({ page }) => {
   await openPets(page, backend());
   await expect(page.locator("#paOff")).toContainText("Pets is switched off for residents");
-  await expect(page.locator("#admPanel h2.group")).toHaveText(["Pets WhatsApp group", "Strays and community animals · 2",
-    "Ain Al Maha · 2", "Seef Al Jubail · 2", "Archived · 1"]);
+  await expect(page.locator("#admPanel h2.group")).toHaveText(["Strays and community animals · 2",
+    "Ain Al Maha · 2", "Seef Al Jubail · 2"]);
   expect(await rowIds(page, "#paList-strays")).toEqual([ID(5), ID(3)]);              // Archie, Ginger
   expect(await rowIds(page, "#paList-ain-al-maha")).toEqual([ID(2), ID(7)]);         // Luna, Mochi
   expect(await rowIds(page, "#paList-seef-al-jubail")).toEqual([ID(4), ID(1)]);      // Bella, Rex
@@ -84,6 +91,8 @@ test("the animals: strays and community animals first, then villages A–Z, then
   await expect(page.locator(`[data-pet="${ID(2)}"] .chip.miss`)).toHaveText("Missing");
   await expect(page.locator(`[data-pet="${ID(2)}"]`)).toContainText("Villa 7");
   await expect(page.locator(`[data-pet="${ID(2)}"] a`)).toHaveAttribute("href", "../pets/?pet=" + ID(2));
+  await expect(page.locator("#paArchived")).toHaveCount(0);                        // archived sit under their own chip (OT-3)
+  await page.locator("#paShow-archived").click();
   await expect(page.locator("#paArchived li")).toHaveText(["Old Tom"]);
   await expect(page.locator("#paArchived a, #paArchived button")).toHaveCount(0);   // no restore (Zee Q3)
 });
@@ -96,7 +105,7 @@ test("Pets on for residents: no switched-off notice; no animals says so", async 
 
 test("group link: shown; a non-WhatsApp link is refused before sending; saving sends exactly the link; Remove asks first", async ({ page }) => {
   const b = backend({ link: null });
-  await openPets(page, b);
+  await openGroup(page, b);
   await expect(page.locator("#paLink")).toHaveValue("");
   await expect(page.locator("#paLinkClear")).toHaveCount(0);
   await page.locator("#paLink").fill("https://example.com/AbCdEfGhIjKlMnOpQr12");
@@ -119,7 +128,7 @@ test("group link: shown; a non-WhatsApp link is refused before sending; saving s
 });
 
 test("group link: the server's BAD_LINK in the Pets words (not the invite-link ones); unreadable while Pets is off says so", async ({ page }) => {
-  await openPets(page, backend({ setRaises: "BAD_LINK", groupOff: "MODULE_OFF" }));
+  await openGroup(page, backend({ setRaises: "BAD_LINK", groupOff: "MODULE_OFF" }));
   await expect(page.locator("#paGroup .help")).toHaveText("The current link can't be read while Pets is switched off. Saving a new one replaces it.");
   await page.locator("#paLink").fill(LINK);
   await page.locator("#paLinkSave").click();
@@ -129,7 +138,7 @@ test("group link: the server's BAD_LINK in the Pets words (not the invite-link o
 
 test("an empty Save never clears the link blind (reviews M1): unreadable or none set → asks for one; a link set → the Remove question", async ({ page }) => {
   const b = backend({ groupOff: "NOT_MEMBER" });                                    // a code-only admin with no home
-  await openPets(page, b);
+  await openGroup(page, b);
   await expect(page.locator("#paGroup .help")).toHaveText("The current link couldn't be read just now. Saving a new one replaces it.");
   await page.locator("#paLinkSave").click();
   await expect(page.locator("#msg")).toHaveText("Paste the group's invite link first. To take the link away, use Remove Link.");
@@ -138,7 +147,7 @@ test("an empty Save never clears the link blind (reviews M1): unreadable or none
 
 test("an empty Save with a link set asks the Remove question first", async ({ page }) => {
   const b = backend();
-  await openPets(page, b);
+  await openGroup(page, b);
   await expect(page.locator("#paLink")).toHaveValue(LINK);
   await expect(page.locator("#paLink")).toHaveAttribute("type", "text");            // styled like every input (review M)
   await expect(page.locator("#paLink")).toHaveAttribute("inputmode", "url");
@@ -157,6 +166,9 @@ test("hostile names, territory and link text stay text", async ({ page }) => {
   await openPets(page, backend({ link: null, list: [PET({ id: ID(1), name: evil, kind: "stray", care_state: "under_care", territory: evil })] }));
   await expect(page.locator(`[data-pet="${ID(1)}"] b`)).toHaveText(evil);
   await expect(page.locator(`[data-pet="${ID(1)}"]`)).toContainText(evil);
+  await page.locator("#paSearch").fill(evil);                                        // the no-match line too
+  await page.locator("#paSearch").fill("");
+  await page.locator("#paGroupOpen").click();
   await page.locator("#paLink").fill(evil);
   await page.locator("#paLinkSave").click();                                        // refused before sending
   expect(await page.evaluate(() => window.__xss)).toBeUndefined();
@@ -182,4 +194,87 @@ test("the pets right ends while the list is on its way: back to the lock, nothin
   await expect(page.locator("#msg")).not.toBeEmpty();
   await expect(page.locator("#paGroup")).toHaveCount(0);
   await expect(page.locator("[data-pet]")).toHaveCount(0);
+});
+
+// ── OT-3: chips, search, the group screen ──
+test("chips: All · Strays · Homes' pets · Missing · Archived with counts; each shows its own; kept in the address", async ({ page }) => {
+  await openPets(page, backend());
+  await expect(page.locator("#paChips button")).toHaveText(["All 6", "Strays 2", "Homes' pets 4", "Missing 1", "Archived 1"]);
+  await expect(page.locator("#paShow-all")).toHaveAttribute("aria-pressed", "true");
+  await page.locator("#paShow-strays").click();
+  await expect(page.locator("#paShow-strays")).toBeFocused();
+  expect(await rowIds(page, "#paListBox")).toEqual([ID(5), ID(3)]);
+  await expect(page).toHaveURL(/tab=pets&show=strays/);
+  await page.locator("#paShow-missing").click();
+  expect(await rowIds(page, "#paListBox")).toEqual([ID(2)]);
+  await page.locator("#paShow-homes").click();
+  expect(await rowIds(page, "#paListBox")).toEqual([ID(2), ID(7), ID(4), ID(1)]);   // villages A–Z, then name
+  await page.reload();
+  await expect(page.locator("#paShow-homes")).toHaveAttribute("aria-pressed", "true");
+});
+
+test("an empty chip says so in words", async ({ page }) => {
+  await openPets(page, backend({ list: [PET({ id: ID(1), name: "Rex", home: HOME("seef-al-jubail", "40") })] }));
+  await page.locator("#paShow-missing").click();
+  await expect(page.locator("#paNone")).toHaveText("No pet is missing right now.");
+  await page.locator("#paShow-strays").click();
+  await expect(page.locator("#paNone")).toHaveText("No strays or community animals yet.");
+});
+
+test("search: name, home, area or village narrows every count; the box keeps focus; asks the server nothing", async ({ page }) => {
+  const b = backend();
+  const { calls } = await stubBackend(page, { rpc: b.rpc });
+  await signIn(page);
+  await page.goto("admin/?tab=pets");
+  await expect(page.locator("#paChips")).toBeVisible();
+  const n = calls.length;
+  const box = page.locator("#paSearch");
+  await box.fill("mosque");                                                         // a stray's area
+  expect(await rowIds(page, "#paListBox")).toEqual([ID(3)]);
+  await expect(page.locator("#paChips button")).toHaveText(["All 1", "Strays 1", "Homes' pets 0", "Missing 0", "Archived 0"]);
+  await expect(box).toBeFocused();
+  await box.fill("villa 12");                                                       // a home
+  expect(await rowIds(page, "#paListBox")).toEqual([ID(7), ID(4)]);
+  await box.fill("seef");                                                           // a village
+  expect(await rowIds(page, "#paListBox")).toEqual([ID(4), ID(1)]);
+  await box.fill("tom");
+  await page.locator("#paShow-archived").click();
+  await expect(page.locator("#paArchived li")).toHaveText(["Old Tom"]);
+  await expect(page.locator("#paSearch")).toHaveValue("tom");                       // kept across the chip
+  await page.locator("#paSearch").fill("zzz");
+  await expect(page.locator("#paNone")).toHaveText("No animals here match \u201czzz\u201d.");
+  expect(calls.length).toBe(n);
+});
+
+test("an animal's Admin button wins over a chip or a search: it's always shown", async ({ page }) => {
+  await openPets(page, backend(), "&show=missing&pet=" + ID(5));                   // Archie isn't missing
+  await expect(page.locator("#paShow-all")).toHaveAttribute("aria-pressed", "true");
+  await expect(page.locator(`[data-pet="${ID(5)}"]`)).toHaveClass(/focus/);
+});
+
+test("the group row says whether a link is set; the screen explains it, step by step, and Test It opens the group", async ({ page }) => {
+  const b = backend({ link: null });
+  await openPets(page, b);
+  await expect(page.locator("#paGroupOpen small")).toHaveText("Not set yet: residents can only send reports to one person at a time");
+  await page.locator("#paGroupOpen").click();
+  await expect(page.locator("#view h2.group")).toHaveText(["What it does", "How to get the link", "Who sees it"]);
+  await expect(page.locator("#paHow li")).toHaveCount(5);
+  await expect(page.locator("#paHow li").nth(2)).toContainText("Invite to group via link");
+  await expect(page.locator("#paLinkTest")).toHaveCount(0);
+  await page.locator("#paLink").fill(LINK);
+  await page.locator("#paLinkSave").click();
+  await expect(page.locator("#msg")).toHaveText("Group link saved.");
+  await expect(page.locator("h1")).toHaveText("Pets WhatsApp group");              // stays on the screen
+  await expect(page.locator("#paLinkTest")).toHaveAttribute("href", LINK);
+  await expect(page.locator("#paLinkTest")).toHaveAttribute("target", "_blank");
+  await page.locator("#jcBackBtn").click();
+  await expect(page.locator("#atab-pets")).toHaveAttribute("aria-selected", "true");
+  await expect(page.locator("#paGroupOpen small")).toHaveText("Set: residents can send missing-pet and stray reports to it");
+});
+
+test("the group screen in Arabic", async ({ page }) => {
+  await openGroup(page, backend());
+  await page.locator("#langBtn").click();
+  await expect(page.locator("h1")).toHaveText("مجموعة واتساب للحيوانات");
+  await expect(page.locator("#paHow li").first()).toHaveText("افتح واتساب وادخل إلى مجموعة الحيوانات.");
 });

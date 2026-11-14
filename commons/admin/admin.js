@@ -16,6 +16,9 @@ var OPEN_EVENT = new URLSearchParams(location.search).get("event");
 var EV_SHOWS = ["all", "now", "upcoming", "past"];   /* All first, as on Pets (Zee 2026-11-14) */
 var evShow = new URLSearchParams(location.search).get("show");   /* OT-1: the Events chip (?tab=events&show=past); null = the default */
 var evQ = "";                                                     /* OT-1: the Events search, kept across redraws */
+var PA_SHOWS = ["all", "strays", "homes", "missing", "archived"];
+var paShow = PA_SHOWS.indexOf(evShow) >= 0 ? evShow : "all";     /* OT-3: the Pets chip (?tab=pets&show=missing) */
+var paQ = "";                                                     /* OT-3: the Pets search */
 var OPEN_COURT = new URLSearchParams(location.search).get("court");   /* from a court's Admin button on Courts */
 var OPEN_PET = new URLSearchParams(location.search).get("pet");       /* R5d-1: from an animal's Admin button on Pets */
 /* ?eventadmin=<token> — a community admin's grant link (T5.2 PR B): asked, never auto-accepted */
@@ -253,7 +256,7 @@ function show(name){
   /* back, in the top bar: sign-ups → the events list; pin move → the sign-ups */
   jcBack(name === "signups" ? leaveSignups
        : name === "pinmove" ? function(){ pm = null; show("signups"); }
-       : name === "feedback" || name === "health" || name === "households" || name === "admins" || name === "codes" || name === "access"
+       : name === "feedback" || name === "health" || name === "households" || name === "admins" || name === "codes" || name === "access" || name === "petsgroup"
          ? function(){ show("home"); }
        : name === "names" ? mnBack
        : name === "adminlog" ? function(){ show("households"); }
@@ -548,6 +551,39 @@ var VIEWS = {
         loadHome();
       }, function(e){ busy("go", false); showErr(e.code); });
     });
+  },
+
+  /* OT-3: the pets WhatsApp group, in plain words — what it does, how to get the link, who sees it (members only,
+     never the public config — R5a W1) */
+  petsgroup: function(){
+    if (!isPetsAdmin()) return show("home");
+    var html = '<h1>' + esc(jcT("pa_group")) + '</h1>' + msgBox();
+    if (!pa || pa.err) {
+      el("view").innerHTML = html + (pa ? '<div class="row"><button class="btn ghost" type="button" id="paRetry">' + esc(jcT("adm_ad_retry")) + '</button></div>'
+                                        : '<p class="help">' + esc(jcT("working")) + '</p>');
+      on("paRetry", function(){ pa = null; show("petsgroup"); });
+      if (!pa) loadPets();
+      return;
+    }
+    var link = typeof pa.link === "string" ? pa.link : "";
+    el("view").innerHTML = html +
+      '<h2 class="group">' + esc(jcT("pa_wa_what_h")) + '</h2><p class="desc">' + esc(jcT("pa_wa_what")) + '</p>' +
+      '<h2 class="group">' + esc(jcT("pa_wa_how_h")) + '</h2><ol class="helplist" id="paHow">' +
+        [1, 2, 3, 4, 5].map(function(i){ return '<li>' + esc(jcT("pa_wa_how_" + i)) + '</li>'; }).join("") + '</ol>' +
+        '<p class="help">' + esc(jcT("pa_wa_how_admin")) + '</p>' +
+      '<h2 class="group">' + esc(jcT("pa_wa_who_h")) + '</h2><p class="desc">' + esc(jcT("pa_wa_who")) + '</p>' +
+      '<div class="panel" id="paGroup"><label class="field"><span>' + esc(jcT("pa_group_link")) + '</span>' +
+        '<input type="text" id="paLink" inputmode="url" autocomplete="off" maxlength="200" dir="ltr" ' +
+        'placeholder="https://chat.whatsapp.com/…" value="' + esc(link) + '"></label>' +
+        (pa.link === undefined ? '<p class="help">' + esc(jcT(pa.linkErr === "MODULE_OFF" ? "pa_group_unknown" : "pa_group_unread")) + '</p>' : '') +
+        '<div class="row"><button class="btn" type="button" id="paLinkSave">' + esc(jcT("pa_group_save")) + '</button>' +
+        (link ? '<button class="btn ghost" type="button" id="paLinkClear">' + esc(jcT("pa_group_clear")) + '</button>' : '') + '</div>' +
+        (link ? '<a class="btn ghost" id="paLinkTest" target="_blank" rel="noopener noreferrer">' + esc(jcT("pa_wa_test")) + '</a>' : '') +
+      '</div>';
+    var t = el("paLinkTest");
+    if (t) t.setAttribute("href", link);                  /* an attribute, never markup (as the residents' button) */
+    on("paLinkSave", function(){ petsLinkSave(el("paLink").value, "paLinkSave"); });
+    on("paLinkClear", function(){ if (window.confirm(jcT("pa_group_clear_q"))) petsLinkSave("", "paLinkClear"); });
   },
 
   codes: function(){
@@ -1672,6 +1708,7 @@ function loadPets(){
     if (seq !== paSeq || !isPetsAdmin()) return;         /* the right ended while it was on its way (as Courts) */
     pa = { list: Array.isArray(r[0]) ? r[0].filter(function(p){ return hObj(p) && typeof p.id === "string"; }) : [], link: r[1], linkErr: linkErr };
     if (OPEN_PET) { paFocus = OPEN_PET; OPEN_PET = null; jcSetUrl("tab=pets"); }   /* once: never a jump later */
+    if (current === "petsgroup") VIEWS.petsgroup();
     if (current === "home" && admTab === "pets") {
       /* the list lands after the page: a message already on screen ("Done…") survives the redraw (as Courts) */
       var m = el("msg"), keep = m && m.textContent ? { c: m.className, t: m.textContent } : null;
@@ -1684,6 +1721,7 @@ function loadPets(){
     if (e.code === "NOT_ADMIN") return fail(e);
     pa = { err: e.code || "UNKNOWN" };
     if (current === "home" && admTab === "pets") { show("home"); showErr(pa.err); }
+    if (current === "petsgroup") { VIEWS.petsgroup(); showErr(pa.err); }
   });
 }
 function petName(p){ return typeof p.name === "string" ? p.name : ""; }
@@ -1714,32 +1752,73 @@ function petRow(p){
     (where ? '<div class="meta" dir="auto">' + esc(where) + '</div>' : '') +
     '<div class="acts"><a class="btn ghost small" href="../pets/?pet=' + encodeURIComponent(p.id) + '">' + esc(jcT("pa_view")) + '</a></div></li>';
 }
+/* OT-3 (Zee 2026-11-14): the group link is a settings row with its own screen in plain words; the animals get chips
+   (All · Strays · Homes' pets · Missing · Archived, with counts) and a search, as Events */
+function paGroupRow(){
+  var d = pa.link === undefined ? "pa_row_unread" : pa.link ? "pa_row_set" : "pa_row_none";
+  return '<ul class="setrows" id="paGroupRows">' + setRow("paGroupOpen", jcT("pa_group"), jcT(d), !pa.link) + '</ul>';
+}
+function paFields(p){
+  var h = p.kind === "owned" && hObj(p.home) ? p.home : null;
+  return [petName(p), p.territory, h && h.number != null ? jcHomeLabel(h) : "", h && h.village ? jcVillageName(cfg, h.village) : ""];
+}
+function paParts(){
+  var live = pa.list.filter(function(p){ return p.status === "active"; });
+  var all = {
+    all: live,
+    strays: live.filter(function(p){ return p.kind !== "owned"; }),
+    homes: live.filter(function(p){ return p.kind === "owned"; }),
+    missing: live.filter(function(p){ return p.missing === true; }),
+    archived: pa.list.filter(function(p){ return p.status !== "active"; })
+  };
+  var q = paQ.trim(), m = {};
+  PA_SHOWS.forEach(function(k){ m[k] = all[k].filter(function(p){ return jcMatches(q, paFields(p)); }); });
+  var list = m[paShow], html;
+  if (!list.length) html = '<p class="help" id="paNone" role="status">' +
+    esc(q ? jcFmt("pa_no_match", { q: q }) : jcT(paShow === "all" ? "pa_none" : "pa_none_" + paShow)) + '</p>';
+  /* archived: names only, no restore on the server; the reason is in the admin log (Zee Q3, 2026-11-14) */
+  else if (paShow === "archived") html = '<ul class="sulist" id="paArchived">' + list.slice().sort(function(a, b){
+      return petName(a).localeCompare(petName(b), jcLang()); }).map(function(p){ return '<li><span dir="auto">' + esc(petName(p)) + '</span></li>'; }).join("") + '</ul>';
+  else html = petGroups(list).map(function(g){
+      return '<h2 class="group">' + esc(g.key ? jcVillageName(cfg, g.key) : jcT("pa_strays")) + ' · ' + esc(g.list.length) + '</h2>' +
+        '<ul class="sulist" id="paList-' + esc(g.key || "strays") + '">' + g.list.map(petRow).join("") + '</ul>';
+    }).join("");
+  return {
+    chips: jcChipsHtml({ id: "paChips", prefix: "paShow-", label: jcT("pa_filter"), current: paShow,
+                         items: PA_SHOWS.map(function(k){ return { key: k, text: jcT("pa_show_" + k), n: m[k].length }; }) }),
+    list: html
+  };
+}
 function admPetsHtml(){
   if (!pa) { loadPets(); return '<p class="help">' + esc(jcT("working")) + '</p>'; }
   if (pa.err) return '<div class="row"><button class="btn ghost" type="button" id="paRetry">' + esc(jcT("adm_ad_retry")) + '</button></div>';
-  var live = pa.list.filter(function(p){ return p.status === "active"; });
-  var gone = pa.list.filter(function(p){ return p.status !== "active"; }).sort(function(a, b){ return petName(a).localeCompare(petName(b), jcLang()); });
-  var link = typeof pa.link === "string" ? pa.link : "";
+  if (paFocus) { paShow = "all"; paQ = ""; }               /* the animal asked for is never hidden by a chip or a search */
+  var p = paParts();
   return (jcModuleOn(cfg, "pets") ? '' : '<p class="notice" id="paOff">' + esc(jcT("pa_module_off")) + '</p>') +
-    /* the pets WhatsApp group: members-only (never the public config) — R5a W1 */
-    '<h2 class="group">' + esc(jcT("pa_group")) + '</h2><div class="panel" id="paGroup">' +
-      '<label class="field"><span>' + esc(jcT("pa_group_link")) + '</span><input type="text" id="paLink" inputmode="url" autocomplete="off" ' +
-        'maxlength="200" dir="ltr" placeholder="https://chat.whatsapp.com/…" value="' + esc(link) + '"></label>' +
-      '<p class="help">' + esc(jcT(pa.link !== undefined ? "pa_group_help" : pa.linkErr === "MODULE_OFF" ? "pa_group_unknown" : "pa_group_unread")) + '</p>' +
-      '<div class="row"><button class="btn" type="button" id="paLinkSave">' + esc(jcT("pa_group_save")) + '</button>' +
-        (link ? '<button class="btn ghost" type="button" id="paLinkClear">' + esc(jcT("pa_group_clear")) + '</button>' : '') + '</div></div>' +
-    (live.length ? petGroups(live).map(function(g){
-      return '<h2 class="group">' + esc(g.key ? jcVillageName(cfg, g.key) : jcT("pa_strays")) + ' · ' + esc(g.list.length) + '</h2>' +
-        '<ul class="sulist" id="paList-' + esc(g.key || "strays") + '">' + g.list.map(petRow).join("") + '</ul>';
-    }).join("") : '<p class="help" id="paNone">' + esc(jcT("pa_none")) + '</p>') +
-    /* no restore on the server; the reason is in the admin log (Zee Q3, 2026-11-14) */
-    (gone.length ? '<h2 class="group">' + esc(jcFmt("pa_archived", { n: gone.length })) + '</h2>' +
-      '<ul class="sulist" id="paArchived">' + gone.map(function(p){ return '<li><span dir="auto">' + esc(petName(p)) + '</span></li>'; }).join("") + '</ul>' : '');
+    paGroupRow() +
+    '<div class="evtools"><div id="paChipsBox">' + p.chips + '</div>' +
+    jcSearchHtml({ id: "paSearch", placeholder: jcT("pa_search"), value: paQ }) + '</div>' +
+    '<div id="paListBox">' + p.list + '</div>';
+}
+function wirePaChips(){
+  jcChipsWire("paChips", "paShow-", function(k){
+    if (PA_SHOWS.indexOf(k) < 0) return;
+    paShow = k; jcSetUrl("tab=pets&show=" + k); show("home");
+  });
 }
 function wirePets(){
   on("paRetry", function(){ pa = null; show("home"); });
-  on("paLinkSave", function(){ petsLinkSave(el("paLink").value, "paLinkSave"); });
-  on("paLinkClear", function(){ if (window.confirm(jcT("pa_group_clear_q"))) petsLinkSave("", "paLinkClear"); });
+  on("paGroupOpen", function(){ show("petsgroup"); });
+  if (!el("paChips")) return;
+  wirePaChips();
+  var s = el("paSearch");
+  if (s) s.addEventListener("input", function(){
+    paQ = s.value;                                         /* only the chips and the list redraw: the box keeps focus */
+    var p = paParts();
+    el("paChipsBox").innerHTML = p.chips;
+    el("paListBox").innerHTML = p.list;
+    wirePaChips();
+  });
   if (paFocus && current === "home" && admTab === "pets" && pa && pa.list) {   /* from an animal's Admin button: that animal, once */
     var id = paFocus; paFocus = null;
     var li = document.querySelector('#view [data-pet="' + CSS.escape(id) + '"]');
@@ -1766,7 +1845,7 @@ function petsLinkSave(v, btn){
   rpc("jc_admin_pets_group_set", { p_link: v }).then(function(r){
     paBusy = false;
     if (pa && !pa.err) pa.link = hObj(r) && typeof r.link === "string" ? r.link : null;
-    if (current === "home" && admTab === "pets") { show("home"); showOk(jcT(v ? "pa_group_saved" : "pa_group_cleared")); }
+    if (current === "petsgroup") { show("petsgroup"); showOk(jcT(v ? "pa_group_saved" : "pa_group_cleared")); }
   }, function(e){
     paBusy = false; busy(btn, false);
     if (e.code === "NOT_ADMIN") return fail(e);

@@ -203,7 +203,15 @@ Schema exists (S4: pets, photos, care log, sightings, missing). Concept: canvas 
 
 ### R7 — Launch prep (not features)
 - **Retire the shared `events` organizer code** (Step C, parked until testing is done) → per-event admins only.
-- **Retire the Halloween site** into Commons (`jubail-halloween/` stays at its URL forever — a pointer page).
+- **Retire the Halloween site** into Commons (Zee 2026-11-14: a pre-launch step, not before). Inventory 2026-11-14:
+  - **The page:** `jubail-halloween/` stays at its URL forever as a pointer page ("Halloween 2026 is over, events live on
+    Jubail Commons", a button to commons.ae). Old QR codes and installed app icons keep working. Its service worker
+    caches nothing (network-only), so the replacement reaches installed copies at once. `dashboard.html` goes too.
+  - **The data:** the site promised "Data deleted after the season". Keep totals only, then delete the `jh_` rows and
+    RPCs in SignalPost (`/db-rehearse`, live only on Zee's "apply"). Check first: the SignalPost DB didn't answer on
+    2026-11-14 (possibly paused).
+  - **Leftovers:** `jc_communities.links.halloween_archive` (unread since #111), the `admin.js` wording comment, test
+    stubs, and the /jubail/ page copy that mentions it.
 - Per-community split of App Health's platform numbers (needed before a second community admin exists).
 - Teardown of `e2e` test data when Zee says testing is done.
 - **Commons into its own private repo** (Zee 2026-11-14), done with the commons.ae move (a custom domain means its own
