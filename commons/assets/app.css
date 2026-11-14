@@ -134,3 +134,19 @@ a.badge:visited{color:var(--jc-accent)}
 .filters button[aria-pressed="true"] .n{color:var(--jc-ink)}
 /* the search box over a list (api.js jcSearchHtml) */
 .jcsearch{margin:0}
+
+/* settings-style rows (OT-2; Organizer Tools → Community, later Pets → Settings): a name, one line of what it's for, a
+   chevron (mirrored in Arabic). Each row opens its own screen. */
+.setrows{list-style:none; margin:0; padding:0; display:flex; flex-direction:column; background:var(--jc-surface);
+  border:1px solid var(--jc-line); border-radius:var(--jc-radius); overflow:hidden}
+.setrows li + li{border-top:1px solid var(--jc-line)}
+.setrow{font:inherit; color:var(--jc-ink); background:none; border:0; width:100%; cursor:pointer; text-align:start;
+  display:flex; align-items:center; gap:12px; padding:13px 14px; min-height:56px}
+.setrow > span{flex:1 1 auto; min-width:0; display:flex; flex-direction:column; gap:2px}
+.setrow b{font-size:15px}
+.setrow small{color:var(--jc-muted); font-size:13px; line-height:1.35}
+.setrow.hot small{color:var(--jc-accent); font-weight:700}
+.setrow .chev{flex:0 0 auto; color:var(--jc-muted)}
+[dir=rtl] .setrow .chev{transform:scaleX(-1)}
+.setrow:active{background:var(--jc-surface-2)}
+.setrow:focus-visible{outline-offset:-2px}

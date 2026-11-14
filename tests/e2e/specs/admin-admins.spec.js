@@ -262,6 +262,7 @@ test("changing a code says who loses access and that invited admins keep theirs"
   await stubBackend(page, { rpc: b.rpc });
   await signIn(page);
   await page.goto("admin/?tab=community");
+  await page.locator("#codesOpen").click();
   let asked = "";
   page.once("dialog", (d) => { asked = d.message(); d.dismiss(); });
   await page.locator('[data-rotate="events"]').click();

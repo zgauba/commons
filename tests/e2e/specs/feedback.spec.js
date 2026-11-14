@@ -57,7 +57,7 @@ test("owner: inbox shows unread first, text as text, marks read / unread", async
   const { calls } = await stubBackend(page, { rpc: ab.rpc });
   await signIn(page);
   await page.goto("admin/?tab=community");
-  await expect(page.locator("#fbOpen")).toHaveText("Feedback Inbox · 1 Unread");
+  await expect(page.locator("#fbOpen small")).toHaveText("1 unread");
   await page.locator("#fbOpen").click();
   await expect(page.locator("h1")).toHaveText("Feedback Inbox");
   await expect(page.locator(".fblist li")).toHaveCount(2);
@@ -71,7 +71,7 @@ test("owner: inbox shows unread first, text as text, marks read / unread", async
   await page.locator('[data-fb="f1"]').click();
   await expect(page.locator(".sub")).toHaveText("1 unread");
   await page.locator("#jcBackBtn").click();
-  await expect(page.locator("#fbOpen")).toHaveText("Feedback Inbox · 1 Unread");
+  await expect(page.locator("#fbOpen small")).toHaveText("1 unread");
 });
 
 test("not the owner: no inbox button, even for a community admin", async ({ page }) => {
@@ -89,7 +89,7 @@ test("owner with no organizer code still reaches the inbox — right subtitle, n
   await stubBackend(page, { rpc: ab.rpc });
   await signIn(page);
   await page.goto("admin/");
-  await expect(page.locator("#fbOpen")).toHaveText("Feedback Inbox · 1 Unread");
+  await expect(page.locator("#fbOpen small")).toHaveText("1 unread");
   await expect(page.locator("#code")).toHaveCount(0);
   await expect(page.locator(".sub")).toHaveText("You run Commons: feedback from every community comes here.");
   await expect(page.locator("#msg")).toBeEmpty();
@@ -108,7 +108,7 @@ test("the unread count arriving late never wipes a half-typed banner", async ({ 
   await expect.poll(() => landed).toBe(true);                                      // the late count has landed
   await expect(page.locator("#bannerText")).toHaveValue("Typing before the count lands");
   await page.locator("#atab-community").click();
-  await expect(page.locator("#fbOpen")).toHaveText("Feedback Inbox · 1 Unread");
+  await expect(page.locator("#fbOpen small")).toHaveText("1 unread");
 });
 
 test("owner with an organizer code: Exit returns to the home view, not a dead lock screen", async ({ page }) => {
@@ -116,6 +116,7 @@ test("owner with an organizer code: Exit returns to the home view, not a dead lo
   await stubBackend(page, { rpc: ab.rpc });
   await signIn(page);
   await page.goto("admin/?tab=community");
+  await page.locator("#accessOpen").click();
   await page.locator("#exit").click();
   await expect(page.locator("#fbOpen")).toBeVisible();
   await expect(page.locator("#newEv")).toHaveCount(0);                            // the code is locked again
