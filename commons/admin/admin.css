@@ -182,3 +182,6 @@ li[data-event] .chip.draft{display:table; margin:3px 0 2px}
 .desc{margin:0 0 4px; font-size:14.5px; line-height:1.5}
 /* OT-3: the switched-off notice above the Pets group row */
 .notice + .setrows{margin-top:12px}
+
+/* R5d-2b: the stray editor's photo picker shows the keyboard focus (the input is visually hidden), as My Pets */
+#pePhotoIn:focus-visible + .row #pePhotoPick{outline:2px solid var(--jc-accent); outline-offset:2px}

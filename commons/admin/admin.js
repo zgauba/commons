@@ -65,6 +65,9 @@ var paLoading = false;
 var paSeq = 0;            /* bumped when a right ends: an answer from before is dropped (security review L2) */
 var paBusy = false;       /* the group link is being saved */
 var paFocus = null;       /* an animal to show once, from its Admin button on Pets */
+var pe = null;            /* R5d-2b stray editor: { f (list card) | null, v {name, species, description, care_state, territory},
+                             pin {lat, lng} | null, photo (data URL picked, not yet sent) | null, shrinking, saving } */
+var peShrink = 0;         /* the last photo picked wins */
 var cd = null;            /* R4b-2 court day view: { f (court row), date "YYYY-MM-DD" (community time), slots [] | null, err, loading,
                              form null | {kind:"block"} | {kind:"cancel", id}, draft (form values across a language switch) } */
 var cdBusy = false, cdSeq = 0;
@@ -261,6 +264,7 @@ function show(name){
        : name === "names" ? mnBack
        : name === "adminlog" ? function(){ show("households"); }
        : name === "court" ? function(){ ctEd = null; show("home"); }
+       : name === "petedit" ? peLeave
        : name === "courtday" ? function(){ cd = null; admTab = "courts"; show("home"); }
        : name === "hhpin" ? function(){ if (hhBusy) return; hhPin = null; show("households"); } : null, "back");
   jcHelp(name === "lock" ? null : "admin");
@@ -584,6 +588,94 @@ var VIEWS = {
     if (t) t.setAttribute("href", link);                  /* an attribute, never markup (as the residents' button) */
     on("paLinkSave", function(){ petsLinkSave(el("paLink").value, "paLinkSave"); });
     on("paLinkClear", function(){ if (window.confirm(jcT("pa_group_clear_q"))) petsLinkSave("", "paLinkClear"); });
+  },
+
+  /* R5d-2b — add / edit a stray or community animal (the court editor's shape; the photo block as My Pets) */
+  petedit: function(){
+    if (!pe || !isPetsAdmin()) { pe = null; return show("home"); }
+    var f = pe.f, v = pe.v, off = pe.saving ? ' disabled' : '', had = !!(f && f.photo_path);
+    function opts(id, attr, keys, cur, pre){
+      return '<div class="opts" id="' + id + '">' + keys.map(function(k){
+        return '<button type="button" ' + attr + '="' + k + '" aria-pressed="' + (cur === k) + '">' + esc(jcT(pre + k)) + '</button>';
+      }).join("") + '</div>';
+    }
+    el("view").innerHTML =
+      '<h1 dir="auto">' + esc(f ? jcFmt("pa_edit_title", { n: petName(f) }) : jcT("pa_new_title")) + '</h1>' +
+      '<p class="help">' + esc(jcT("pa_ed_help")) + '</p>' +
+      '<form class="panel" id="peForm" novalidate data-no-autoreload>' +
+        '<label><span>' + esc(jcT("pt_name")) + REQ + '</span><input type="text" id="peName" maxlength="40" dir="auto" autocomplete="off" required aria-required="true"></label>' +
+        '<fieldset><legend>' + esc(jcT("pt_species")) + REQ + '</legend>' + opts("peSpecies", "data-pesp", PE_SPECIES, v.species, "pt_sp_") + '</fieldset>' +
+        '<fieldset><legend>' + esc(jcT("pa_care")) + '</legend>' + opts("peCare", "data-pecare", PE_CARE, v.care_state, "pt_care_") + '</fieldset>' +
+        '<label>' + esc(jcT("pt_desc")) + '<textarea id="peDesc" maxlength="280" dir="auto"></textarea></label>' +
+        '<label>' + esc(jcT("pa_territory")) + '<input type="text" id="peArea" maxlength="120" dir="auto" autocomplete="off"></label>' +
+        '<p class="help">' + esc(jcT("pa_territory_help")) + '</p>' +
+        '<fieldset><legend>' + esc(jcT("pa_spot")) + '</legend><p class="help">' + esc(jcT("pa_pin_help")) + '</p>' + pinMapHtml() +
+          '<div class="row"><button type="button" class="btn ghost" id="pePinHere">' + esc(jcT("pa_pin_here")) + '</button>' +
+          '<button type="button" class="btn ghost" id="pePinClear"' + (pe.pin ? '' : ' hidden') + '>' + esc(jcT("pa_pin_clear")) + '</button></div>' +
+          '<p class="help" id="pePinState" role="status"></p></fieldset>' +
+        '<fieldset id="pePhotoBox"><legend>' + esc(jcT("pt_photo")) + '</legend><div class="ptphotoedit">' +
+          (pe.photo ? '<span class="ptph big has"><img id="pePhotoNew" alt="" src="' + esc(pe.photo) + '"></span>'
+           : had ? jcPetPhotoHtml({ photo_path: f.photo_path }, 44, "big") : '') +
+          '<input type="file" id="pePhotoIn" class="sr-only" accept="image/*"' + off + '>' +
+          '<div class="row"><label class="btn ghost" id="pePhotoPick" for="pePhotoIn">' + esc(jcT(pe.photo || had ? "pt_photo_change" : "pt_photo_add")) + '</label>' +
+          (pe.photo ? '<button class="btn ghost" type="button" id="pePhotoDrop"' + off + '>' + esc(jcT("pt_photo_drop")) + '</button>'
+           : had ? '<button class="btn ghost danger" type="button" id="pePhotoRemove"' + off + '>' + esc(jcT("pt_photo_remove")) + '</button>' : '') +
+          '</div></div>' +
+          '<p class="help" id="pePhotoHelp" role="status">' + esc(jcT(pe.shrinking ? "working" : pe.photo ? "pt_photo_ready" : "pa_photo_help")) + '</p>' +
+          '<p class="help">' + esc(jcT("pt_photo_who")) + '</p></fieldset>' +
+        msgBox() +
+        '<div class="row"><button class="btn" id="peSave" type="submit"' + (pe.saving || pe.shrinking ? ' disabled' : '') + '>' + esc(jcT("pa_save")) + '</button>' +
+        '<button class="btn ghost" id="peCancel" type="button">' + esc(jcT("ct_cancel")) + '</button></div>' +
+      '</form>';
+    el("peName").value = v.name; el("peDesc").value = v.description; el("peArea").value = v.territory;   /* values, not markup */
+    [["peName", "name"], ["peDesc", "description"], ["peArea", "territory"]].forEach(function(x){
+      el(x[0]).addEventListener("input", function(){ v[x[1]] = el(x[0]).value; });
+    });
+    function pick(sel, key, b){
+      v[key] = b.getAttribute(sel.slice(1, -1));
+      Array.prototype.forEach.call(document.querySelectorAll(sel), function(x){ x.setAttribute("aria-pressed", String(x === b)); });
+    }
+    each("[data-pesp]", function(b){ pick("[data-pesp]", "species", b); });
+    each("[data-pecare]", function(b){ pick("[data-pecare]", "care_state", b); });
+    function pinState(){
+      el("pePinState").textContent = jcT(pe.pin ? "pa_pin_set" : "pa_pin_unset");
+      el("pePinClear").hidden = !pe.pin;
+    }
+    pinState();
+    vmap = initPinMap(pe.pin ? [pe.pin.lat, pe.pin.lng] : null);
+    on("pePinHere", function(){ if (vmap) { pe.pin = centerOf(vmap); pinState(); } });
+    on("pePinClear", function(){ pe.pin = null; pinState(); el("pePinHere").focus(); });
+    el("pePhotoIn").addEventListener("change", function(){
+      var file = el("pePhotoIn").files && el("pePhotoIn").files[0], me = pe;
+      if (!file || me.saving) return;
+      /* the last file picked wins; Save waits (disabled) until it's ready — never a save without the photo */
+      var mine = ++peShrink;
+      me.shrinking = mine;
+      el("pePhotoHelp").textContent = jcT("working");
+      el("peSave").disabled = true;
+      jcPetPhotoShrink(file).then(function(url){
+        if (me.shrinking !== mine) return;
+        me.shrinking = null;
+        if (pe !== me) return;
+        me.photo = url;
+        if (current === "petedit") peRedraw(true);
+      }, function(e){
+        if (me.shrinking !== mine) return;
+        me.shrinking = null;
+        if (pe !== me || current !== "petedit") return;
+        peRedraw(true);
+        peMsg((e && e.code) || "PHOTO_UNREADABLE");
+      });
+    });
+    on("pePhotoDrop", function(){
+      if (pe.saving) return;
+      pe.photo = null; pe.shrinking = null; peShrink++;
+      peRedraw(); el("pePhotoIn").focus();
+    });
+    on("pePhotoRemove", peRemovePhoto);
+    on("peCancel", peLeave);
+    el("peForm").addEventListener("submit", function(e){ e.preventDefault(); peSave(); });
+    jcPetPhotoFill();
   },
 
   codes: function(){
@@ -1719,6 +1811,7 @@ function loadPets(){
     paLoading = false;
     if (seq !== paSeq) return;
     if (e.code === "NOT_ADMIN") return fail(e);
+    paFocus = null;                                      /* a later Retry never jumps (review L4) */
     pa = { err: e.code || "UNKNOWN" };
     if (current === "home" && admTab === "pets") { show("home"); showErr(pa.err); }
     if (current === "petsgroup") { VIEWS.petsgroup(); showErr(pa.err); }
@@ -1750,7 +1843,10 @@ function petRow(p){
     (chips ? '<div class="ctchips">' + chips + '</div>' : '') +
     '<div class="meta">' + esc(jcT("pt_sp_" + sp) + " · " + jcT(p.kind === "owned" ? "pt_kind_owned" : "pt_kind_stray")) + '</div>' +
     (where ? '<div class="meta" dir="auto">' + esc(where) + '</div>' : '') +
-    '<div class="acts"><a class="btn ghost small" href="../pets/?pet=' + encodeURIComponent(p.id) + '">' + esc(jcT("pa_view")) + '</a></div></li>';
+    /* R5d-2b: strays are the community's to edit; a household's pet is theirs (the server refuses it too) */
+    '<div class="acts">' + (p.kind === "stray" && p.status === "active"
+      ? '<button class="btn ghost small" type="button" data-paedit="' + esc(p.id) + '">' + esc(jcT("pa_edit")) + '</button>' : '') +
+    '<a class="btn ghost small" href="../pets/?pet=' + encodeURIComponent(p.id) + '">' + esc(jcT("pa_view")) + '</a></div></li>';
 }
 /* OT-3 (Zee 2026-11-14): the group link is a settings row with its own screen in plain words; the animals get chips
    (All · Strays · Homes' pets · Missing · Archived, with counts) and a search, as Events */
@@ -1796,6 +1892,7 @@ function admPetsHtml(){
   var p = paParts();
   return (jcModuleOn(cfg, "pets") ? '' : '<p class="notice" id="paOff">' + esc(jcT("pa_module_off")) + '</p>') +
     paGroupRow() +
+    '<div class="row"><button class="btn" type="button" id="paNew">' + esc(jcT("pa_new")) + '</button></div>' +
     '<div class="evtools"><div id="paChipsBox">' + p.chips + '</div>' +
     jcSearchHtml({ id: "paSearch", placeholder: jcT("pa_search"), value: paQ }) + '</div>' +
     '<div id="paListBox">' + p.list + '</div>';
@@ -1809,6 +1906,13 @@ function wirePaChips(){
 function wirePets(){
   on("paRetry", function(){ pa = null; show("home"); });
   on("paGroupOpen", function(){ show("petsgroup"); });
+  on("paNew", function(){ peOpen(null); });
+  /* one listener on the box: the search redraws the rows inside it */
+  if (el("paListBox")) el("paListBox").addEventListener("click", function(e){
+    var b = e.target.closest && e.target.closest("[data-paedit]");
+    var f = b && petById(b.dataset.paedit);
+    if (f) peOpen(f);                                    /* never "Add" for a row the list lost (review L2) */
+  });
   if (!el("paChips")) return;
   wirePaChips();
   var s = el("paSearch");
@@ -1850,6 +1954,103 @@ function petsLinkSave(v, btn){
     paBusy = false; busy(btn, false);
     if (e.code === "NOT_ADMIN") return fail(e);
     jcShowErrFor("pa_err_", e.code);
+  });
+}
+
+/* ---------- R5d-2b: the stray editor (server jc_admin_stray_save, R5a) ---------- */
+var PE_SPECIES = ["cat", "dog", "bird", "rabbit", "other"];
+var PE_CARE = ["needs_help", "under_care", "known_fine", "rehomed"];
+function peMsg(code){ jcShowErrFor("pa_err_", code); }
+function petById(id){ return ((pa && pa.list) || []).filter(function(p){ return p.id === id; })[0] || null; }
+/* the form's values from a card; a new animal starts "Under care" (the server's default) */
+function peValues(f){
+  if (!f) return { name: "", species: "", description: "", care_state: "under_care", territory: "" };
+  return { name: petName(f), species: PE_SPECIES.indexOf(f.species) >= 0 ? f.species : "",
+           description: typeof f.description === "string" ? f.description : "",
+           care_state: PE_CARE.indexOf(f.care_state) >= 0 ? f.care_state : "",
+           territory: typeof f.territory === "string" ? f.territory : "" };
+}
+function pePin(f){ return f && jcFinite(f.territory_lat) && jcFinite(f.territory_lng) ? { lat: f.territory_lat, lng: f.territory_lng } : null; }
+function peOpen(f){
+  if (!isPetsAdmin() || (f && (f.kind !== "stray" || f.status !== "active"))) return;
+  pe = { f: f, v: peValues(f), pin: pePin(f), photo: null, shrinking: null, saving: false };
+  show("petedit");
+  try { window.scrollTo(0, 0); } catch(e){}
+}
+/* redraw the form from pe: focus stays where it was (show() keeps it by id), the map stays where it was moved; the
+   file input takes focus back only if it had it (review L3: a shrink landing mid-typing never steals the caret) */
+function peRedraw(toPhoto){
+  var a = document.activeElement, mine = !a || a === document.body || a.id === "pePhotoIn";
+  var view = vmap ? { c: vmap.getCenter(), z: vmap.getZoom() } : null;
+  show("petedit");
+  if (view && vmap) vmap.setView(view.c, view.z);
+  if (toPhoto && mine && el("pePhotoIn")) el("pePhotoIn").focus();
+}
+function peLeave(){
+  if (pe && pe.saving) return;
+  pe = null; admTab = "pets";
+  show("home");
+}
+/* back to the list, re-read, that animal focused (as from its Admin button); then say how it went */
+function peDone(id, say){
+  pe = null; pa = null; paFocus = id || null; admTab = "pets";
+  jcSetUrl("tab=pets");
+  show("home");
+  try { window.scrollTo(0, 0); } catch(e){}
+  if (say) say();
+}
+/* Only what changed is sent (two carers editing never overwrite each other's untouched fields); a cleared text is
+   null; the spot goes as a pair, and only when it was moved or cleared. The photo follows the details: a failed
+   photo is said plainly and never loses them (as My Pets). */
+function peSave(){
+  var me = pe;
+  if (!me || me.saving || me.shrinking) return;
+  var f = me.f, v = me.v, was = f ? peValues(f) : null, fields = {};
+  var now = { name: v.name.trim(), species: v.species, description: v.description.trim(), care_state: v.care_state, territory: v.territory.trim() };
+  if (!now.name) { peMsg("NAME_EMPTY"); el("peName").focus(); return; }
+  if (!now.species) return peMsg("NO_SPECIES");
+  ["name", "species", "description", "care_state", "territory"].forEach(function(k){
+    if (was ? now[k] === was[k] : now[k] === "") return;
+    fields[k] = now[k] === "" ? null : now[k];
+  });
+  var p0 = pePin(f), pinWas = p0 ? p0.lat + "," + p0.lng : null, pinNow = me.pin ? me.pin.lat + "," + me.pin.lng : null;
+  if (pinNow !== pinWas) { fields.territory_lat = me.pin ? me.pin.lat : null; fields.territory_lng = me.pin ? me.pin.lng : null; }
+  var photo = me.photo, name = now.name, changed = Object.keys(fields).length > 0;
+  function okSay(){ showOk(jcFmt(f ? "pa_saved" : "pa_added", { n: name })); }
+  if (f && !changed && !photo) return peDone(f.id, okSay);
+  me.saving = true; busy("peSave", true);
+  (changed ? rpc("jc_admin_stray_save", { p_pet: f ? f.id : null, p_fields: fields }) : Promise.resolve(null)).then(function(c){
+    var id = jcObj(c) && typeof c.id === "string" ? c.id : f ? f.id : null;
+    if (!photo) return { id: id };
+    if (!id) return { id: null, photoErr: "UNKNOWN" };   /* review L5 */
+    return jcPetPhotoUpload(id, photo).then(function(){ return { id: id }; },
+                                            function(e){ return { id: id, photoErr: (e && e.code) || "UNKNOWN" }; });
+  }).then(function(r){
+    me.saving = false;
+    peDone(r.id, r.photoErr ? function(){ jcSay("err", jcFmt("pa_photo_failed", { n: name, why: jcErrTextFor("pa_err_", r.photoErr) })); } : okSay);
+  }, function(e){
+    me.saving = false;
+    var code = (e && e.code) || "UNKNOWN";
+    if (code === "NOT_ADMIN") return fail(e);
+    if (code === "NOT_FOUND") return peDone(null, function(){ peMsg("NOT_FOUND"); });   /* archived or gone meanwhile */
+    if (pe === me && current === "petedit") { peRedraw(); peMsg(code); }   /* every control back, not just Save (review M1) */
+  });
+}
+function peRemovePhoto(){
+  var me = pe, f = me && me.f;
+  if (!f || me.saving || !window.confirm(jcFmt("pt_photo_remove_q", { n: petName(f) }))) return;
+  me.saving = true; busy("pePhotoRemove", true); el("peSave").disabled = true;
+  function gone(){
+    me.saving = false;
+    f.photo_path = null;                                  /* the list's card too: its "No photo" chip */
+    if (pe === me && current === "petedit") { peRedraw(); showOk(jcFmt("pt_photo_removed", { n: petName(f) })); }
+  }
+  rpc("jc_pet_photo_remove", { p_pet: f.id }).then(gone, function(e){
+    if (e.code === "NO_PHOTO") return gone();             /* already gone (another tap, another carer) */
+    me.saving = false;
+    if (e.code === "NOT_ADMIN") return fail(e);
+    if (e.code === "NOT_FOUND") return peDone(null, function(){ peMsg("NOT_FOUND"); });
+    if (pe === me && current === "petedit") { peRedraw(); peMsg(e.code || "UNKNOWN"); }
   });
 }
 
@@ -3276,6 +3477,7 @@ el("langBtn").addEventListener("click", function(){
   if (current === "accept") return acceptView(GRANT);   /* same link, other language */
   if (current === "invite") return inviteView();
   if (current === "court" && ctEd) { ctEd.draft = courtForm(); return show("court"); }   /* never throw away the form */
+  if (current === "petedit" && pe) return show("petedit");   /* the form's values live in pe as they're typed */
   if (current === "courtday" && cd) { cd.draft = cdDraft(); return show("courtday"); }   /* same day, same open form */
   if (current === "admins" && ad) return VIEWS.admins();   /* keeps a just-made invite link on screen */
   if (current === "names") { mnDraft = mnRead(); return VIEWS.names(); }   /* never throw away a half-typed name */

@@ -36,7 +36,26 @@ function backend(opts = {}) {
       st.link = a.p_link || null;
       return ok({ link: st.link });
     },
+    // R5d-2b: the server's rules (R5a): strays only, name + species for a new one; returns the card
+    jc_admin_stray_save: (a) => {
+      st.saves.push(a);
+      if (st.hold) return st.hold.then(() => raise(st.saveRaises || "UNKNOWN"));   // answers late (review M1)
+      if (st.saveRaises) return raise(st.saveRaises);
+      let c = a.p_pet ? st.list.find((p) => p.id === a.p_pet) : null;
+      if (a.p_pet && (!c || c.kind !== "stray")) return raise("NOT_FOUND");
+      if (!c) { c = PET({ id: ID(8), kind: "stray", care_state: "under_care", photo_path: null }); st.list.push(c); }
+      Object.assign(c, a.p_fields);
+      return ok(c);
+    },
+    jc_pet_photo_begin: (a) => ok({ path: "jubail/" + a.p_pet + "/r1.jpg" }),
+    jc_pet_photo_commit: (a) => {
+      if (opts.commitRaises) return raise(opts.commitRaises);
+      st.list.find((p) => p.id === a.p_pet).photo_path = "jubail/" + a.p_pet + "/r1.jpg";
+      return ok({});
+    },
+    jc_pet_photo_remove: (a) => { st.removes.push(a.p_pet); st.list.find((p) => p.id === a.p_pet).photo_path = null; return ok({}); },
   });
+  st.saves = []; st.removes = [];
   if (opts.petsOn) ab.rpc.jc_config_get = () => ok(Object.assign({}, CONFIG, { modules: Object.assign({}, CONFIG.modules, { pets: { enabled: true } }) }));
   return { ab, st, rpc: ab.rpc };
 }
@@ -284,4 +303,201 @@ test("a stored link that isn't a WhatsApp group link never becomes a clickable T
   await expect(page.locator("#paLink")).toHaveValue("javascript:window.__x=1");   // shown as text, so it can be replaced
   await expect(page.locator("#paLinkTest")).toHaveCount(0);
   await expect(page.locator("#view a[href^='javascript']")).toHaveCount(0);
+});
+
+// ---- R5d-2b: the stray editor (plan docs/plans/R5d-2-strays-editor.md) ----
+async function jpeg(page) {
+  const b64 = await page.evaluate(() => {
+    const c = document.createElement("canvas"); c.width = 1600; c.height = 1200;
+    const g = c.getContext("2d"), gr = g.createLinearGradient(0, 0, 1600, 1200);
+    gr.addColorStop(0, "#c58b4b"); gr.addColorStop(1, "#2d5a3d");
+    g.fillStyle = gr; g.fillRect(0, 0, 1600, 1200);
+    g.fillStyle = "#fff"; g.font = "160px sans-serif"; g.fillText("Ginger", 400, 650);
+    return c.toDataURL("image/jpeg", 0.9).split(",")[1];
+  });
+  return { name: "IMG_0002.jpg", mimeType: "image/jpeg", buffer: Buffer.from(b64, "base64") };
+}
+const loaded = (loc) => loc.evaluate((s) => !!(s.classList.contains("has") && s.querySelector("img") && s.querySelector("img").naturalWidth > 0));
+const saves = (calls) => calls.filter((c) => c.name === "jc_admin_stray_save").map((c) => c.args);
+
+test("R5d-2b: Edit only on active strays (a household's pet is theirs); Add an Animal opens an empty form", async ({ page }) => {
+  await openPets(page, backend());
+  await expect(page.locator("#paListBox [data-paedit]")).toHaveCount(2);                   // Ginger, Archie
+  await expect(page.locator(`li[data-pet="${ID(1)}"] [data-paedit]`)).toHaveCount(0);       // Rex (a home's)
+  await page.locator("#paShow-archived").click();
+  await expect(page.locator("#paListBox [data-paedit]")).toHaveCount(0);                    // Old Tom: names only
+  await page.locator("#paShow-all").click();
+  await page.locator("#paNew").click();
+  await expect(page.locator("h1")).toHaveText("Add a stray or community animal");
+  await expect(page.locator("#peName")).toHaveValue("");
+  await expect(page.locator("#peSpecies [aria-pressed=true]")).toHaveCount(0);
+  await expect(page.locator("#peCare [aria-pressed=true]")).toHaveText("Under care");       // the server's default
+  await expect(page.locator("#pePinState")).toHaveText("No spot set.");
+  await expect(page.locator("#pePinClear")).toBeHidden();
+  await page.locator("#peCancel").click();
+  await expect(page.locator("#paChips")).toBeVisible();
+});
+
+test("R5d-2b: add a stray — name and kind asked for first; the exact fields; the photo after; back on the list, focused", async ({ page }) => {
+  const b = backend();
+  const { calls } = await stubBackend(page, { rpc: b.rpc });
+  await signIn(page);
+  await page.goto("admin/?tab=pets");
+  await page.locator("#paNew").click();
+  await page.locator("#peSave").click();
+  await expect(page.locator("#msg")).toHaveText("Give the animal a name.");
+  await page.locator("#peName").fill("  Pepper ");
+  await page.locator("#peSave").click();
+  await expect(page.locator("#msg")).toHaveText("Choose what kind of animal it is.");
+  expect(saves(calls)).toEqual([]);
+  await page.locator('[data-pesp="cat"]').click();
+  await page.locator('[data-pecare="needs_help"]').click();
+  await page.locator("#peArea").fill("By the marina steps");
+  await page.locator("#pePinHere").click();
+  await expect(page.locator("#pePinState")).toHaveText("Spot set.");
+  await page.locator("#pePhotoIn").setInputFiles(await jpeg(page));
+  await expect(page.locator("#pePhotoNew")).toBeVisible();
+  await expect(page.locator("#pePhotoHelp")).toHaveText("Photo ready — it's added when you save.");
+  expect(calls.filter((c) => c.kind === "storage" || /photo/.test(c.name))).toEqual([]);      // nothing leaves before Save
+  await page.locator("#peSave").click();
+  await expect(page.locator("#msg")).toHaveText("Pepper was added.");
+  const s = saves(calls);
+  expect(s).toHaveLength(1);
+  expect(s[0].p_pet).toBeNull();
+  const { territory_lat, territory_lng, ...rest } = s[0].p_fields;
+  expect(rest).toEqual({ name: "Pepper", species: "cat", care_state: "needs_help", territory: "By the marina steps" });   // no empty description
+  expect(typeof territory_lat).toBe("number");
+  expect(typeof territory_lng).toBe("number");
+  const order = calls.filter((c) => /^jc_(admin_stray_save|pet_photo_)/.test(c.name) || c.name === "upload").map((c) => c.name);
+  expect(order).toEqual(["jc_admin_stray_save", "jc_pet_photo_begin", "upload", "jc_pet_photo_commit"]);
+  const up = calls.filter((c) => c.name === "upload").pop().args;
+  expect(up.path).toBe("jubail/" + ID(8) + "/r1.jpg");
+  expect(up.jpeg).toBe(true);
+  const li = page.locator(`li[data-pet="${ID(8)}"]`);
+  await expect(li).toHaveClass(/focus/);
+  await expect(li).not.toContainText("No photo");
+});
+
+test("R5d-2b: an edit sends only what changed — a rename alone; a cleared area is null; a cleared spot is a pair of nulls", async ({ page }) => {
+  const list = ANIMALS();
+  Object.assign(list.find((p) => p.id === ID(3)), { description: "Ginger tabby, torn left ear", territory_lat: 24.531, territory_lng: 54.432 });
+  const b = backend({ list });
+  const { calls } = await stubBackend(page, { rpc: b.rpc });
+  await signIn(page);
+  await page.goto("admin/?tab=pets");
+  await page.locator(`li[data-pet="${ID(3)}"] [data-paedit]`).click();
+  await expect(page.locator("h1")).toHaveText("Edit Ginger");
+  await expect(page.locator("#peDesc")).toHaveValue("Ginger tabby, torn left ear");
+  await expect(page.locator("#peArea")).toHaveValue("Behind the mosque");
+  await expect(page.locator("#peCare [aria-pressed=true]")).toHaveText("Needs help");
+  await expect(page.locator("#pePinState")).toHaveText("Spot set.");
+  await page.locator("#peName").fill("Ginger Tom");
+  await page.locator("#peSave").click();
+  await expect(page.locator("#msg")).toHaveText("Ginger Tom is saved.");
+  expect(saves(calls)).toEqual([{ p_pet: ID(3), p_fields: { name: "Ginger Tom" } }]);
+  await page.locator(`li[data-pet="${ID(3)}"] [data-paedit]`).click();
+  await page.locator("#peArea").fill("   ");
+  await page.locator("#pePinClear").click();
+  await expect(page.locator("#pePinState")).toHaveText("No spot set.");
+  await page.locator("#peSave").click();
+  await expect(page.locator("#msg")).toHaveText("Ginger Tom is saved.");
+  expect(saves(calls)[1]).toEqual({ p_pet: ID(3), p_fields: { territory: null, territory_lat: null, territory_lng: null } });
+  await page.locator(`li[data-pet="${ID(3)}"] [data-paedit]`).click();
+  await page.locator("#peSave").click();                                                 // nothing changed: nothing sent
+  await expect(page.locator("#msg")).toHaveText("Ginger Tom is saved.");
+  expect(saves(calls)).toHaveLength(2);
+});
+
+test("R5d-2b: a saved photo shows in Organizer Tools (CSP); Remove asks first, then the row says No photo", async ({ page }) => {
+  const b = backend();
+  const { calls } = await stubBackend(page, { rpc: b.rpc });
+  const blocked = [];
+  page.on("console", (m) => { if (/Content Security Policy|Refused to load/i.test(m.text())) blocked.push(m.text()); });
+  await signIn(page);
+  await page.goto("admin/?tab=pets");
+  await page.locator(`li[data-pet="${ID(5)}"] [data-paedit]`).click();                    // Archie has p/x.jpg
+  const ph = page.locator("#pePhotoBox .ptph[data-photo]");
+  await expect.poll(() => loaded(ph)).toBe(true);
+  expect(calls.filter((c) => c.name === "image").map((c) => c.args)).toEqual([{ bucket: "pet-photos", path: "p/x.jpg" }]);
+  page.once("dialog", (d) => { expect(d.message()).toBe("Remove Archie's photo? Neighbors will stop seeing it."); d.dismiss(); });
+  await page.locator("#pePhotoRemove").click();
+  expect(b.st.removes).toEqual([]);
+  page.once("dialog", (d) => d.accept());
+  await page.locator("#pePhotoRemove").click();
+  await expect(page.locator("#msg")).toHaveText("Archie's photo is removed.");
+  expect(b.st.removes).toEqual([ID(5)]);
+  await expect(page.locator("#pePhotoRemove")).toHaveCount(0);
+  await page.locator("#peCancel").click();
+  await expect(page.locator(`li[data-pet="${ID(5)}"]`)).toContainText("No photo");
+  expect(blocked).toEqual([]);
+});
+
+test("R5d-2b: a photo that fails keeps the details and says so; one Save at a time", async ({ page }) => {
+  const b = backend({ commitRaises: "PHOTO_UPLOAD_FAILED" });
+  const { calls } = await stubBackend(page, { rpc: b.rpc });
+  await signIn(page);
+  await page.goto("admin/?tab=pets");
+  await page.locator(`li[data-pet="${ID(3)}"] [data-paedit]`).click();
+  await page.locator('[data-pecare="under_care"]').click();
+  await page.locator("#pePhotoIn").setInputFiles(await jpeg(page));
+  await expect(page.locator("#pePhotoNew")).toBeVisible();
+  await page.locator("#peSave").dblclick();
+  await expect(page.locator("#msg")).toHaveText("Ginger is saved, but the photo didn't upload: The upload didn't go through. Check your connection. Try again with Edit.");
+  expect(saves(calls)).toEqual([{ p_pet: ID(3), p_fields: { care_state: "under_care" } }]);
+  expect(calls.filter((c) => c.name === "jc_pet_photo_begin")).toHaveLength(1);
+});
+
+test("R5d-2b: an animal archived meanwhile → back to the list, said plainly; a bad field stays on the form", async ({ page }) => {
+  const b = backend();
+  await stubBackend(page, { rpc: b.rpc });
+  await signIn(page);
+  await page.goto("admin/?tab=pets");
+  await page.locator(`li[data-pet="${ID(3)}"] [data-paedit]`).click();
+  b.st.list.find((p) => p.id === ID(3)).kind = "owned";                                     // the server now refuses it
+  await page.locator("#peName").fill("Ginger 2");
+  await page.locator("#peSave").click();
+  await expect(page.locator("#paChips")).toBeVisible();
+  await expect(page.locator("#msg")).toHaveText("That animal isn't in the list any more.");
+  b.st.saveRaises = "BAD_FIELDS";
+  await page.locator(`li[data-pet="${ID(5)}"] [data-paedit]`).click();
+  await page.locator("#peName").fill("Archie 2");
+  await page.locator("#peSave").click();
+  await expect(page.locator("#msg")).toHaveText(/Check the name \(up to 40 characters\)/);
+  await expect(page.locator("#peName")).toHaveValue("Archie 2");
+  await expect(page.locator("#peSave")).toBeEnabled();
+});
+
+test("R5d-2b: switching language keeps what's typed; the form in Arabic", async ({ page }) => {
+  await openPets(page, backend());
+  await page.locator("#paNew").click();
+  await page.locator("#peName").fill("Pepper");
+  await page.locator('[data-pesp="dog"]').click();
+  await page.locator("#peDesc").fill("Brown, white paws");
+  await page.locator("#langBtn").click();
+  await expect(page.locator("h1")).toHaveText("إضافة حيوان ضال أو حيوان المجتمع");
+  await expect(page.locator("#peName")).toHaveValue("Pepper");
+  await expect(page.locator("#peDesc")).toHaveValue("Brown, white paws");
+  await expect(page.locator('[data-pesp="dog"]')).toHaveAttribute("aria-pressed", "true");
+  await expect(page.locator("#pePinHere")).toHaveText("المكان هنا");
+});
+
+test("R5d-2b review M1: a save that fails after a language switch gives every control back (photo too)", async ({ page }) => {
+  const b = backend();
+  let release;
+  b.st.hold = new Promise((r) => { release = r; });
+  b.st.saveRaises = "BAD_FIELDS";
+  await stubBackend(page, { rpc: b.rpc });
+  await signIn(page);
+  await page.goto("admin/?tab=pets");
+  await page.locator(`li[data-pet="${ID(5)}"] [data-paedit]`).click();
+  await page.locator("#peName").fill("Archie 2");
+  await page.locator("#peSave").click();
+  await page.locator("#langBtn").click();                                                 // redrawn while saving
+  await expect(page.locator("#pePhotoIn")).toBeDisabled();
+  release();
+  await expect(page.locator("#msg")).toContainText("هناك خطأ في النموذج");
+  await expect(page.locator("#pePhotoIn")).toBeEnabled();
+  await expect(page.locator("#pePhotoRemove")).toBeEnabled();
+  await expect(page.locator("#peSave")).toBeEnabled();
+  await expect(page.locator("#peName")).toHaveValue("Archie 2");
 });
