@@ -1105,3 +1105,26 @@ for (const [scopes, shown] of [[[], false], [["events"], false], [["pets"], true
     if (shown) await expect(page.locator("#ptAdmin")).toHaveAttribute("href", "../admin/?tab=pets&pet=" + ID(3));
   });
 }
+
+// ── OT-3: a name search on the Pets list ──
+test("Pets search: by name, within the chip; missing stays on top; opens a pet; no match says so; asks the server nothing", async ({ page }) => {
+  const b = backend({ serverOrder: true, extra: [{ id: ID(7), kind: "owned", species: "bird", name: "Kiwi", home: { id: "h9", village: "ain-al-maha", building: "B2", number: "304", noHome: true } }] });
+  const { calls } = await open(page, b);
+  await expect(page.locator("#ptList b")).toHaveText(["Rex", "Mochi", "Kiwi"]);
+  const n = calls.length;
+  const box = page.locator("#ptSearch");
+  await box.fill("mo");
+  await expect(page.locator("#ptList b")).toHaveText(["Mochi"]);
+  await expect(page.locator("#ptMissing li")).toHaveCount(1);              // a missing pet is never searched away
+  await expect(box).toBeFocused();
+  await page.locator("#ptF-dogs").click();                                  // the chip and the search work together
+  await expect(page.locator("#ptSearch")).toHaveValue("mo");
+  await expect(page.locator("#ptList")).toHaveText("No pets here match “mo”.");
+  await page.locator("#ptF-all").click();
+  await page.locator("#ptSearch").fill("<b>x");
+  await expect(page.locator("#ptList")).toHaveText("No pets here match “<b>x”.");
+  await page.locator("#ptSearch").fill("kiwi");
+  await page.locator(`#ptList [data-open="${ID(7)}"]`).click();             // a card found by search still opens
+  await expect(page).toHaveURL(new RegExp("pet=" + ID(7)));
+  expect(calls.slice(n).filter((c) => c.name === "jc_pets_list")).toEqual([]);
+});

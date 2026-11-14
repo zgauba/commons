@@ -33,6 +33,7 @@ var petTab = PET_TABS.indexOf(params.get("show")) >= 0 ? params.get("show") : nu
 var tab = params.get("tab") === "list" ? "pets" : TABS.indexOf(params.get("tab")) >= 0 ? params.get("tab") : "pets";   /* ?tab=list: old links */
 var FILTERS = ["all", "dogs", "cats", "other", "wanderers"];
 var filter = "all";
+var ptQ = "";                 /* OT-3: the name search on the Pets list (on the phone, over the list already loaded) */
 var SPECIES = ["cat", "dog", "bird", "rabbit", "other"];
 var CARE = ["sterilized", "dewormed", "vaccination", "treatment"];
 var ptBusy = false;
@@ -288,7 +289,7 @@ function loadGroup(){
   group = null;
   rpc("jc_pets_group_get").then(function(d){
     var l = hObj(d) && d.link;
-    group = typeof l === "string" && /^https:\/\/chat\.whatsapp\.com\/[A-Za-z0-9]{16,40}$/.test(l) ? l : null;
+    group = jcWaGroupOk(l) ? l : null;
     if (current === "pet" && pet && el("ptShare")) drawShare();
   }, function(){ group = null; });
 }
@@ -443,19 +444,31 @@ var VIEWS = {
       var owned = pets.filter(function(p){ return p.kind === "owned"; });
       var missing = owned.filter(function(p){ return p.missing === true; });
       var rest = owned.filter(function(p){ return p.missing !== true && matches(p); });
+      var restHtml = function(){
+        var found = rest.filter(function(p){ return jcMatches(ptQ, [p.name]); });
+        return found.length ? '<ul class="ptgrid" id="ptList">' + found.map(card).join("") + '</ul>'
+          : '<p class="help" id="ptList" role="status">' + esc(ptQ.trim() && rest.length ? jcFmt("pt_no_match", { q: ptQ.trim() })
+                                                           : jcT(owned.length ? "pt_none_filter" : "pt_none")) + '</p>';
+      };
       body = (missing.length ? '<h2 class="group" id="ptMissingHead">' + esc(jcT("pt_missing_now")) + '</h2>' +
                                '<ul class="ptgrid wide" id="ptMissing">' + missing.map(card).join("") + '</ul>' : '') +
         jcChipsHtml({ id: "ptFilters", prefix: "ptF-", label: jcT("pt_filter"), current: filter,
                       items: FILTERS.map(function(f){ return { key: f, text: jcT("pt_f_" + f) }; }) }) +
         /* owned pets: the server's order from my home pin — their homes never reach the phone, so no button (NF-2) */
+        (owned.length ? jcSearchHtml({ id: "ptSearch", placeholder: jcT("pt_search"), value: ptQ }) : '') +
         jcSortedHtml({ id: "ptSorted", fallback: "pt_sorted_name", noButton: true }) +
-        (rest.length ? '<ul class="ptgrid" id="ptList">' + rest.map(card).join("") + '</ul>'
-                     : '<p class="help" id="ptList">' + esc(jcT(owned.length ? "pt_none_filter" : "pt_none")) + '</p>');
+        '<div id="ptListBox">' + restHtml() + '</div>';
     }
     el("view").innerHTML = html + '<div ' + jcTabPanel("pttab-", tab, "ptBody") + '>' + body + '</div>';
     wireTabs();
     each("[data-open]", function(b){ openPet(b.dataset.open); });
     jcChipsWire("ptFilters", "ptF-", function(k){ if (FILTERS.indexOf(k) < 0) return; filter = k; show("list"); });
+    var sb = el("ptSearch");
+    if (sb) sb.addEventListener("input", function(){
+      ptQ = sb.value;                                    /* only the list redraws: the box keeps focus */
+      el("ptListBox").innerHTML = restHtml();
+      each("#ptListBox [data-open]", function(b){ openPet(b.dataset.open); });
+    });
     if (onMap.length) drawStrays(onMap);
     if (tab === "strays") wireStraySort();
     on("ptAdd", function(){ form = { id: null, species: "cat", name: "", description: "", wanderer: false, microchipped: false, photo_path: null, photo: null }; show("edit"); });
