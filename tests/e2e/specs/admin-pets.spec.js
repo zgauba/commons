@@ -377,6 +377,8 @@ const loaded = (loc) => loc.evaluate((s) => !!(s.classList.contains("has") && s.
 const saves = (calls) => calls.filter((c) => c.name === "jc_admin_stray_save").map((c) => c.args);
 // R5d-3a (Zee Q2): Edit lives inside Manage — from the list, or from Manage itself (after a save it's back there)
 async function editStray(page, id) {
+  // after a save, Manage shows "Working…" while the list is read again: wait for it to settle on Manage or the list
+  await expect(page.locator("#pmEdit, #paChips").first()).toBeVisible();
   if (!(await page.locator("#pmEdit").count())) await page.locator(`li[data-pet="${id}"] [data-pamanage]`).click();
   await page.locator("#pmEdit").click();
   await expect(page.locator("#peForm")).toBeVisible();

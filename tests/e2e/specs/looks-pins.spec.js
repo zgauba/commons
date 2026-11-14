@@ -112,7 +112,7 @@ test("Haq al Laila: navy + gold, Arabic tagline above the English title", async 
   await expect(page.locator(".evhead .tagline-en")).toHaveText("\u201cGive to us, and God will give to you\u201d");
   // Zee 2026-11-14: the English meaning and the Arabic sit on one line at phone width
   const [en, arb] = await Promise.all([page.locator(".evhead .tagline-en").boundingBox(), page.locator(".evhead .tagline").boundingBox()]);
-  expect(Math.abs((en.y + en.height) - (arb.y + arb.height))).toBeLessThan(8);
+  expect(Math.abs(en.y - arb.y)).toBeLessThan(8);                                   // one row (the English may wrap inside it)
   expect(en.x).toBeLessThan(arb.x);
   await expect(page.locator(".evhead h1 .mark")).toHaveText("🌙");
   // fill = availability must survive the gold look: "reported" can't be gold-ish amber
