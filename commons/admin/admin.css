@@ -194,3 +194,8 @@ li[data-event] .chip.draft{display:table; margin:3px 0 2px}
 .care .pmform input[type=date]{font:inherit; font-size:16px; color:var(--jc-ink); background:var(--jc-surface-2);
   border:1px solid var(--jc-line); border-radius:10px; padding:11px 12px; width:100%}
 #pmLog, #pmLogNone{margin-top:12px}
+
+/* Zee 2026-11-14: room between the WhatsApp group row and Add a Stray */
+#paGroupRows + .row{margin-top:12px}
+/* iOS Safari gives a date input its own minimum width: keep it inside the card */
+.care .pmform input[type=date]{-webkit-appearance:none; appearance:none; display:block; min-width:0; max-width:100%; box-sizing:border-box; min-height:46px}

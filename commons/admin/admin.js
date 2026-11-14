@@ -593,7 +593,7 @@ var VIEWS = {
     on("paLinkClear", function(){ if (window.confirm(jcT("pa_group_clear_q"))) petsLinkSave("", "paLinkClear"); });
   },
 
-  /* R5d-2b — add / edit a stray or community animal (the court editor's shape; the photo block as My Pets) */
+  /* R5d-2b — add / edit a stray (the court editor's shape; the photo block as My Pets) */
   petedit: function(){
     if (!pe || !isPetsAdmin()) { pe = null; return show("home"); }
     var f = pe.f, v = pe.v, off = pe.saving ? ' disabled' : '', had = !!(f && f.photo_path);
@@ -1939,7 +1939,7 @@ function loadPets(){
   });
 }
 function petName(p){ return typeof p.name === "string" ? p.name : ""; }
-/* NF-3 order: strays and community animals first (no village), then the owners' villages A–Z, then name */
+/* NF-3 order: strays first (no village), then the owners' villages A–Z, then name */
 function petGroups(list){
   var vc = jcVillageCmp(cfg), groups = {}, keys = [];
   list.forEach(function(p){

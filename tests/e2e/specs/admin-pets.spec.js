@@ -143,10 +143,10 @@ test("who sees Pets: pets and community admins; courts-only and events-only don'
   await expect(page.locator("#atab-pets")).toHaveAttribute("aria-selected", "true");
 });
 
-test("the animals: strays and community animals first, then villages A–Z, then name; chips; Archived apart, names only", async ({ page }) => {
+test("the animals: strays first, then villages A–Z, then name; chips; Archived apart, names only", async ({ page }) => {
   await openPets(page, backend());
   await expect(page.locator("#paOff")).toContainText("Pets is switched off for residents");
-  await expect(page.locator("#admPanel h2.group")).toHaveText(["Strays and community animals · 2",
+  await expect(page.locator("#admPanel h2.group")).toHaveText(["Strays · 2",
     "Ain Al Maha · 2", "Seef Al Jubail · 2"]);
   expect(await rowIds(page, "#paList-strays")).toEqual([ID(5), ID(3)]);              // Archie, Ginger
   expect(await rowIds(page, "#paList-ain-al-maha")).toEqual([ID(2), ID(7)]);         // Luna, Mochi
@@ -289,7 +289,7 @@ test("an empty chip says so in words", async ({ page }) => {
   await page.locator("#paShow-missing").click();
   await expect(page.locator("#paNone")).toHaveText("No pet is missing right now.");
   await page.locator("#paShow-strays").click();
-  await expect(page.locator("#paNone")).toHaveText("No strays or community animals yet.");
+  await expect(page.locator("#paNone")).toHaveText("No strays yet.");
 });
 
 test("search: name, home, area or village narrows every count; the box keeps focus; asks the server nothing", async ({ page }) => {
@@ -377,12 +377,14 @@ const loaded = (loc) => loc.evaluate((s) => !!(s.classList.contains("has") && s.
 const saves = (calls) => calls.filter((c) => c.name === "jc_admin_stray_save").map((c) => c.args);
 // R5d-3a (Zee Q2): Edit lives inside Manage — from the list, or from Manage itself (after a save it's back there)
 async function editStray(page, id) {
+  // after a save, Manage shows "Working…" while the list is read again: wait for it to settle on Manage or the list
+  await expect(page.locator("#pmEdit, #paChips").first()).toBeVisible();
   if (!(await page.locator("#pmEdit").count())) await page.locator(`li[data-pet="${id}"] [data-pamanage]`).click();
   await page.locator("#pmEdit").click();
   await expect(page.locator("#peForm")).toBeVisible();
 }
 
-test("R5d-2b: Edit only on active strays (a household's pet is theirs); Add an Animal opens an empty form", async ({ page }) => {
+test("R5d-2b: Edit only on active strays (a household's pet is theirs); Add a Stray opens an empty form", async ({ page }) => {
   await openPets(page, backend());
   await expect(page.locator("#paListBox [data-pamanage]")).toHaveCount(6);                   // every active animal (R5d-3b)
   await page.locator(`li[data-pet="${ID(1)}"] [data-pamanage]`).click();                     // Rex (a home's): no Edit Details
@@ -393,7 +395,7 @@ test("R5d-2b: Edit only on active strays (a household's pet is theirs); Add an A
   await expect(page.locator("#paListBox [data-pamanage]")).toHaveCount(0);                    // Old Tom: names only
   await page.locator("#paShow-all").click();
   await page.locator("#paNew").click();
-  await expect(page.locator("h1")).toHaveText("Add a stray or community animal");
+  await expect(page.locator("h1")).toHaveText("Add a stray");
   await expect(page.locator("#peName")).toHaveValue("");
   await expect(page.locator("#peSpecies [aria-pressed=true]")).toHaveCount(0);
   await expect(page.locator("#peCare [aria-pressed=true]")).toHaveText("Under care");       // the server's default
@@ -541,7 +543,7 @@ test("R5d-2b: switching language keeps what's typed; the form in Arabic", async 
   await page.locator('[data-pesp="dog"]').click();
   await page.locator("#peDesc").fill("Brown, white paws");
   await page.locator("#langBtn").click();
-  await expect(page.locator("h1")).toHaveText("إضافة حيوان ضال أو حيوان المجتمع");
+  await expect(page.locator("h1")).toHaveText("إضافة حيوان ضالّ");
   await expect(page.locator("#peName")).toHaveValue("Pepper");
   await expect(page.locator("#peDesc")).toHaveValue("Brown, white paws");
   await expect(page.locator('[data-pesp="dog"]')).toHaveAttribute("aria-pressed", "true");

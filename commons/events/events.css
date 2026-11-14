@@ -95,7 +95,12 @@ textarea{font:inherit; font-size:16px; color:var(--jc-ink); background:var(--jc-
 /* looks: the mark beside the title; Haq al Laila's Arabic tagline above it */
 .mark{font-size:.9em}
 .evhead .tagline{margin:0; color:var(--jc-accent); font-size:15px; font-weight:700}
-.evhead .tagline-en{margin:0 0 2px; color:var(--jc-muted); font-size:12.5px; font-style:italic}
+.evhead .tagline-en{margin:0; color:var(--jc-muted); font-size:12.5px; font-style:italic}
+/* one row whatever the font: the Arabic keeps its width on the right; the English takes the rest and wraps inside it
+   (CI WebKit's wider fonts wrapped the pair onto two rows, 2026-11-14) */
+.evhead .taglines{display:flex; justify-content:space-between; align-items:baseline; gap:10px; margin-bottom:2px}
+.evhead .taglines .tagline-en{flex:1 1 auto; min-width:0}
+.evhead .taglines .tagline{flex:none}
 .evcard[data-look]{border-inline-start:3px solid var(--jc-accent)}
 
 /* event day (T5.2 PR 5b): both choices always visible, the current one filled — never a cycling button */
