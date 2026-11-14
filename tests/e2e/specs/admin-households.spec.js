@@ -454,3 +454,12 @@ test("search in Arabic: the placeholder reads in Arabic", async ({ page }) => {
   await page.locator("#langBtn").click();
   await expect(page.locator("#hhSearch")).toHaveAttribute("placeholder", "ابحث بالرقم أو القرية أو الاسم");
 });
+
+test("search: typing while an edit is open closes it, never leaving an emptied form", async ({ page }) => {
+  await openHouseholds(page);
+  await card(page, "h7").locator('[data-hh="edit"]').click();
+  await page.locator("#hhNumber").fill("99");
+  await page.locator("#hhSearch").fill("ain");
+  await expect(page.locator("#hhNumber")).toHaveCount(0);
+  await expect(card(page, "h7")).toBeVisible();
+});

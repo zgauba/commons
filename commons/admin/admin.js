@@ -1095,6 +1095,7 @@ var VIEWS = {
     var hs = el("hhSearch");
     if (hs) hs.addEventListener("input", function(){
       hh.q = hs.value;
+      hh.open = null;                                   /* a half-open edit would come back empty: close it */
       el("hhListBox").innerHTML = hhListHtml();
       wireHouseholds(el("hhListBox"));
     });
@@ -3159,8 +3160,10 @@ function saveEvent(){
 function fbButton(){
   var b = el("fbOpen");
   if (!b || !fb) return;
-  b.textContent = jcFmt("adm_fb_open", { n: fb.unread });
-  b.classList.toggle("ghost", !fb.unread);
+  /* the row's second line only (OT-2 review): its title and chevron stay */
+  var d = b.querySelector("small");
+  if (d) d.textContent = fb.unread ? jcFmt("adm_fb_unread", { n: fb.unread }) : jcT("adm_row_fb_d");
+  b.classList.toggle("hot", !!fb.unread);
 }
 function loadHome(){
   /* the count arrives after the page: update the button only — a redraw would wipe drafts (review) */

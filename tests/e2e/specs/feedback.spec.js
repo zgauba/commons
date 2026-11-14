@@ -133,3 +133,21 @@ test("hub feedback link isn't duplicated by a language switch", async ({ page })
   await expect(page.locator("#fbLink")).toHaveCount(1);
   await expect(page.locator("#fbLink")).toHaveText("Ideas & Feedback");
 });
+
+test("the unread count landing late updates the Feedback row in place: title, chevron and the count line stay", async ({ page }) => {
+  let release;
+  const gate = new Promise((r) => { release = r; });
+  const ab = adminBackend({ scopes: ["community"], owner: true, feedback: JSON.parse(JSON.stringify(FB)) });
+  await stubBackend(page, { rpc: Object.assign({}, ab.rpc, {
+    jc_feedback_list: (a, c) => gate.then(() => ab.rpc.jc_feedback_list(a, c)),
+  }) });
+  await signIn(page);
+  await page.goto("admin/?tab=community");
+  await expect(page.locator("#fbOpen small")).toHaveText("Ideas and problems residents send");
+  await expect(page.locator("#fbOpen")).not.toHaveClass(/hot/);
+  release();
+  await expect(page.locator("#fbOpen small")).toHaveText("1 unread");      // no tab switch: updated in place
+  await expect(page.locator("#fbOpen b")).toHaveText("Feedback Inbox");
+  await expect(page.locator("#fbOpen .chev")).toHaveCount(1);
+  await expect(page.locator("#fbOpen")).toHaveClass(/hot/);
+});

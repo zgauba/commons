@@ -693,7 +693,6 @@ var JC_STRINGS = {
     adm_banner: "Announcement",
     adm_fb_title: "Feedback Inbox",
     adm_owner_sub: "You run Commons: feedback from every community comes here.",
-    adm_fb_open: "Feedback Inbox · {n} Unread",
     adm_fb_unread: "{n} unread",
     adm_fb_none: "No feedback yet.",
     /* T5.2 PR 6 — App health (community admins) */
@@ -1926,7 +1925,6 @@ var JC_STRINGS = {
     adm_banner: "الإعلان",
     adm_fb_title: "صندوق الملاحظات",
     adm_owner_sub: "أنت من يدير كومنز: تصل إليك ملاحظات كل المجتمعات هنا.",
-    adm_fb_open: "صندوق الملاحظات · غير المقروءة: {n}",
     adm_fb_unread: "غير المقروءة: {n}",
     adm_fb_none: "لا ملاحظات بعد.",
     /* T5.2 PR 6 — صحة التطبيق */
