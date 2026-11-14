@@ -65,7 +65,8 @@ function backend(opts = {}) {
         return hold.then(() => ok(Object.assign({}, c, { sightings: [], care_log: then })));
       }
       const c = st.list.find((p) => p.id === a.p_pet && p.status === "active");
-      return c ? ok(Object.assign({}, c, { sightings: [], care_log: c.kind === "stray" ? (st.logs[c.id] || []).slice() : null })) : raise("NOT_FOUND");
+      return c ? ok(Object.assign({}, c, { sightings: (st.sights[c.id] || []).filter((s) => !s.hidden).map(({ hidden, ...s }) => s),
+                                            care_log: c.kind === "stray" ? (st.logs[c.id] || []).slice() : null })) : raise("NOT_FOUND");
     },
     jc_admin_pet_care_set: (a) => {
       st.cares.push(a);
@@ -84,7 +85,26 @@ function backend(opts = {}) {
       return ok({ pet_id: a.p_pet, logged: true });
     },
   });
-  st.saves = []; st.removes = []; st.cares = []; st.adds = []; st.logs = {};
+  // R5d-3b: moderation (any animal in the community)
+  Object.assign(ab.rpc, {
+    jc_admin_sighting_hide: (a) => {
+      st.hides.push(a);
+      const s = Object.values(st.sights).flat().find((x) => x.id === a.p_sighting && !x.hidden);
+      if (!s) return raise("NOT_FOUND");
+      s.hidden = true;
+      return ok({ sighting_id: a.p_sighting, hidden: true });
+    },
+    jc_admin_pet_archive: (a) => {
+      st.archives.push(a);
+      const r = (a.p_reason || "").trim();
+      if (r.length < 3 || r.length > 200) return raise("REASON_REQUIRED");
+      const c = st.list.find((p) => p.id === a.p_pet && p.status === "active");
+      if (!c) return raise("NOT_FOUND");
+      Object.assign(c, { status: "archived", missing: false, photo_path: null });
+      return ok(st.list);
+    },
+  });
+  st.saves = []; st.removes = []; st.cares = []; st.adds = []; st.logs = {}; st.sights = {}; st.hides = []; st.archives = [];
   if (opts.petsOn) ab.rpc.jc_config_get = () => ok(Object.assign({}, CONFIG, { modules: Object.assign({}, CONFIG.modules, { pets: { enabled: true } }) }));
   return { ab, st, rpc: ab.rpc };
 }
@@ -223,11 +243,14 @@ test("hostile names, territory and link text stay text", async ({ page }) => {
   await expect(page.locator("#view img")).toHaveCount(0);
 });
 
-test("from an animal's Admin button: that animal is shown once; one that's gone says so", async ({ page }) => {
-  await openPets(page, backend(), "&pet=" + ID(7));
-  await expect(page.locator(`[data-pet="${ID(7)}"]`)).toHaveClass(/focus/);
-  await expect(page.locator(`[data-pet="${ID(7)}"]`)).toBeFocused();              // keyboard / screen reader too
+test("from an animal's Admin button: its Manage opens, once; Back shows its row; one that's gone says so", async ({ page }) => {
+  await stubBackend(page, { rpc: backend().rpc });
+  await signIn(page);
+  await page.goto("admin/?tab=pets&pet=" + ID(7));                                 // Mochi, a home's pet (R5d-3b)
+  await expect(page.locator("h1")).toHaveText("Mochi");
   await expect(page).toHaveURL(/\?tab=pets$/);                                      // once: the link is dropped
+  await page.locator("#jcBackBtn").click();
+  await expect(page.locator(`[data-pet="${ID(7)}"]`)).toBeFocused();              // keyboard / screen reader too
   await page.goto("admin/?tab=pets&pet=" + ID(9));
   await expect(page.locator("#msg")).toHaveText("That animal isn't in the list any more.");
 });
@@ -294,10 +317,14 @@ test("search: name, home, area or village narrows every count; the box keeps foc
   expect(calls.length).toBe(n);
 });
 
-test("an animal's Admin button wins over a chip or a search: it's always shown", async ({ page }) => {
-  await openPets(page, backend(), "&show=missing&pet=" + ID(1));                   // Rex (a home's pet) isn't missing
+test("an animal's Admin button wins over a chip or a search: Back always finds it", async ({ page }) => {
+  await stubBackend(page, { rpc: backend().rpc });
+  await signIn(page);
+  await page.goto("admin/?tab=pets&show=missing&pet=" + ID(1));                    // Rex isn't missing
+  await expect(page.locator("h1")).toHaveText("Rex");
+  await page.locator("#jcBackBtn").click();
   await expect(page.locator("#paShow-all")).toHaveAttribute("aria-pressed", "true");
-  await expect(page.locator(`[data-pet="${ID(1)}"]`)).toHaveClass(/focus/);
+  await expect(page.locator(`[data-pet="${ID(1)}"]`)).toBeFocused();
 });
 
 test("the group row says whether a link is set; the screen explains it, step by step, and Test It opens the group", async ({ page }) => {
@@ -357,8 +384,11 @@ async function editStray(page, id) {
 
 test("R5d-2b: Edit only on active strays (a household's pet is theirs); Add an Animal opens an empty form", async ({ page }) => {
   await openPets(page, backend());
-  await expect(page.locator("#paListBox [data-pamanage]")).toHaveCount(2);                   // Ginger, Archie
-  await expect(page.locator(`li[data-pet="${ID(1)}"] [data-pamanage]`)).toHaveCount(0);       // Rex (a home's)
+  await expect(page.locator("#paListBox [data-pamanage]")).toHaveCount(6);                   // every active animal (R5d-3b)
+  await page.locator(`li[data-pet="${ID(1)}"] [data-pamanage]`).click();                     // Rex (a home's): no Edit Details
+  await expect(page.locator("#pmArch")).toBeVisible();
+  await expect(page.locator("#pmEdit")).toHaveCount(0);
+  await page.locator("#jcBackBtn").click();
   await page.locator("#paShow-archived").click();
   await expect(page.locator("#paListBox [data-pamanage]")).toHaveCount(0);                    // Old Tom: names only
   await page.locator("#paShow-all").click();
@@ -540,6 +570,14 @@ test("R5d-2b review M1: a save that fails after a language switch gives every co
 });
 
 // ---- R5d-3a: Manage one animal — care record + care log (plan docs/plans/R5d-3-care-moderation.md) ----
+async function manageAny(page, b, id) {
+  const r = await stubBackend(page, { rpc: b.rpc });
+  await signIn(page);
+  await page.goto("admin/?tab=pets");
+  await page.locator(`li[data-pet="${id}"] [data-pamanage]`).click();
+  await expect(page.locator("#pmArch")).toBeVisible();
+  return r;
+}
 async function manage(page, b, id, q) {
   const r = await stubBackend(page, { rpc: b.rpc });
   await signIn(page);
@@ -549,7 +587,7 @@ async function manage(page, b, id, q) {
   return r;
 }
 
-test("R5d-3a: Manage on active strays only; a stray's Admin button opens Manage; Back keeps the chip and search", async ({ page }) => {
+test("R5d-3a: Manage on active animals; a stray's Admin button opens Manage; Back keeps the chip and search", async ({ page }) => {
   const b = backend();
   await stubBackend(page, { rpc: b.rpc });
   await signIn(page);
@@ -569,7 +607,7 @@ test("R5d-3a: Manage on active strays only; a stray's Admin button opens Manage;
   await expect(page.locator(`li[data-pet="${ID(5)}"]`)).toBeFocused();
   await page.locator("#paSearch").fill("");
   await page.locator("#paShow-all").click();
-  await expect(page.locator(`li[data-pet="${ID(1)}"] [data-pamanage]`)).toHaveCount(0);  // Rex: a home's pet (3b)
+  await expect(page.locator(`li[data-pet="${ID(1)}"] [data-pamanage]`)).toHaveCount(1);  // Rex: a home's pet (moderation, 3b)
 });
 
 test("R5d-3a: care record — one item at a time, the exact call, redrawn from the card; a status is needed; Clear asks first", async ({ page }) => {
@@ -629,7 +667,7 @@ test("R5d-3a: care log (Pets on) — a line is added, the log is read again, the
 test("R5d-3a: with Pets off the log can still be added to; the notice says when it shows", async ({ page }) => {
   const b = backend();
   await manage(page, b, ID(5));
-  await expect(page.locator("#pmOff")).toContainText("the care log shows here once it's switched on");
+  await expect(page.locator("#pmOff")).toContainText("the care log and sightings show here once it's switched on");
   await page.locator("#pmLogNote").fill("Seen limping");
   await page.locator('[data-pmlog="note"]').click();
   await page.locator("#pmLogAdd").click();
@@ -709,4 +747,88 @@ test("R5d-3a review M3: a log line added while the first read is on its way stil
   await page.waitForTimeout(300);
   await expect(page.locator("#pmLog li")).toHaveCount(1);
   await expect(page.locator("#pmLog li").first()).toContainText("Fed by the mosque");
+});
+
+// ---- R5d-3b: moderation on Manage — hide a sighting, archive with a reason ----
+const SIGHTS = () => [
+  { id: 41, note: "Under the blue car by the mosque", lat: 24.531, lng: 54.432, seen_at: "2026-11-13T18:20:00Z", by_me: false },
+  { id: 42, note: "lol fake", lat: null, lng: null, seen_at: "2026-11-12T08:00:00Z", by_me: false },
+];
+
+test("R5d-3b: a home's pet on Manage — no care or editing, sightings wait while Pets is off, Archive names the home", async ({ page }) => {
+  await manageAny(page, backend(), ID(2));                                              // Luna, Villa 7, missing
+  await expect(page.locator(".sub")).toContainText("Villa 7");
+  await expect(page.locator("#pmEdit, #pmCare, #pmLogForm")).toHaveCount(0);
+  await expect(page.locator("#pmOff")).toHaveText("Pets is switched off for residents, so sightings show here once it's switched on.");
+  await expect(page.locator("#pmSightOff")).toBeVisible();
+  await expect(page.locator("#pmArch")).toContainText("Luna is Villa 7's pet. Archiving removes Luna from their My Pets");
+  await expect(page.locator("#pmArch")).toContainText("ends a missing alert. They aren't told. It can't be undone.");
+  await page.locator("#pmArchOpen").click();
+  if (process.env.SHOT_DIR) await page.screenshot({ path: process.env.SHOT_DIR + "/pm-archive-owned.png", fullPage: true });
+});
+
+test("R5d-3b: hide a sighting (Pets on) — asks first, the exact call, read again; one already hidden counts as hidden", async ({ page }) => {
+  const b = backend({ petsOn: true });
+  b.st.sights[ID(3)] = SIGHTS();
+  const { calls } = await manageAny(page, b, ID(3));
+  await expect(page.locator("#pmSight li")).toHaveCount(2);
+  await expect(page.locator('#pmSight [data-sighting="41"] a')).toHaveAttribute("href", /query=24\.531%2C54\.432/);
+  page.once("dialog", (d) => { expect(d.message()).toBe("Hide this sighting? Residents stop seeing it, and it can't be shown again."); d.dismiss(); });
+  await page.locator('[data-pmhide="42"]').click();
+  expect(b.st.hides).toEqual([]);
+  page.once("dialog", (d) => d.accept());
+  await page.locator('[data-pmhide="42"]').click();
+  await expect(page.locator("#msg")).toHaveText("Sighting hidden.");
+  expect(b.st.hides).toEqual([{ p_sighting: 42 }]);
+  if (process.env.SHOT_DIR) await page.screenshot({ path: process.env.SHOT_DIR + "/pm-sightings.png", fullPage: true });
+  await expect(page.locator("#pmSight li")).toHaveCount(1);
+  expect(calls.filter((c) => c.name === "jc_pet_get")).toHaveLength(2);
+  b.st.sights[ID(3)][0].hidden = true;                                                   // another organizer hid it meanwhile
+  page.once("dialog", (d) => d.accept());
+  await page.locator('[data-pmhide="41"]').click();
+  await expect(page.locator("#msg")).toHaveText("Sighting hidden.");
+  await expect(page.locator("#pmSightNone")).toHaveText("No sightings yet.");
+});
+
+test("R5d-3b: archive — a reason is needed (3+), Keep closes it, the exact call; back on the list, counts updated", async ({ page }) => {
+  const b = backend();
+  await manageAny(page, b, ID(5));                                                      // Archie, a stray
+  await expect(page.locator("#pmArch")).toContainText("Archive Archie if they've passed away, been rehomed for good, or were added twice.");
+  await page.locator("#pmArchOpen").click();
+  await expect(page.locator("#pmWhy")).toBeFocused();
+  await page.locator("#pmWhy").fill("no");
+  await page.locator("#pmArchGo").click();
+  await expect(page.locator("#msg")).toHaveText("Write a reason of at least 3 characters (up to 200).");
+  expect(b.st.archives).toEqual([]);
+  await page.locator("#pmArchKeep").click();
+  await expect(page.locator("#pmWhy")).toHaveCount(0);
+  await page.locator("#pmArchOpen").click();
+  await expect(page.locator("#pmWhy")).toHaveValue("");                                  // Keep forgets it
+  await page.locator("#pmWhy").fill("  Added twice — same cat as Ginger ");
+  await page.locator("#pmArchGo").dblclick();
+  await expect(page.locator("#msg")).toHaveText("Archie is archived.");
+  expect(b.st.archives).toEqual([{ p_pet: ID(5), p_reason: "Added twice — same cat as Ginger" }]);
+  await expect(page.locator("#paChips")).toBeVisible();
+  await expect(page.locator("#paShow-archived")).toContainText("2");
+  await expect(page.locator(`li[data-pet="${ID(5)}"]`)).toHaveCount(0);
+});
+
+test("R5d-3b: archive a home's pet that someone already archived → the list, said plainly", async ({ page }) => {
+  const b = backend();
+  await manageAny(page, b, ID(4));                                                      // Bella, Villa 12
+  b.st.list.find((p) => p.id === ID(4)).status = "archived";
+  await page.locator("#pmArchOpen").click();
+  await page.locator("#pmWhy").fill("Family moved away");
+  await page.locator("#pmArchGo").click();
+  await expect(page.locator("#paChips")).toBeVisible();
+  await expect(page.locator("#msg")).toHaveText("That animal isn't in the list any more.");
+});
+
+test("R5d-3b: Archive in Arabic keeps the reason being typed", async ({ page }) => {
+  await manageAny(page, backend(), ID(1));
+  await page.locator("#pmArchOpen").click();
+  await page.locator("#pmWhy").fill("Duplicate entry");
+  await page.locator("#langBtn").click();
+  await expect(page.locator("#pmArchGo")).toHaveText("أرشفة Rex");
+  await expect(page.locator("#pmWhy")).toHaveValue("Duplicate entry");
 });
