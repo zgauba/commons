@@ -101,7 +101,8 @@ test("a new draft, a publish and a close each follow the event to its chip", asy
   await expect(page.locator("#evShow-past")).toHaveAttribute("aria-pressed", "true");
   await expect(page.locator('li[data-event="test-event"]')).toBeVisible();
   await expect(page).toHaveURL(/[?&]show=past/);
-  // a new blank draft → Upcoming
+  // a new blank draft → Upcoming, and a search that would hide it is cleared
+  await page.locator("#evSearch").fill("halloween");
   await page.locator("#newEv").click();
   await page.locator("[data-tpl=blank]").click();
   await page.locator("#title_en").fill("Book Swap");
@@ -109,6 +110,7 @@ test("a new draft, a publish and a close each follow the event to its chip", asy
   await expect(page.locator("#msg")).toContainText("Saved as a draft");
   await expect(page.locator("#evShow-upcoming")).toHaveAttribute("aria-pressed", "true");
   await expect(page.locator('li[data-event="book-swap"]')).toBeVisible();
+  await expect(page.locator("#evSearch")).toHaveValue("");
 });
 
 test("on All, a step stays on All", async ({ page }) => {

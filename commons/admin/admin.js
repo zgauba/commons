@@ -421,16 +421,19 @@ function evGroup(e){
    to another chip, so follow it there (All already shows it) */
 function evFollow(id){
   var e = byId(id);
-  if (!e || evShow === "all") return;
+  if (!e) return;
+  if (!jcMatches(evQ, evFields(e))) evQ = "";          /* a search that would hide it is cleared */
+  if (evShow === "all") return;
   evShow = evGroup(e); jcSetUrl("tab=events&show=" + evShow);
 }
+function evFields(e){ return [e.title_en, e.title_ar, e.slug, e.venue_name_en, e.venue_name_ar]; }
 function evWhen(e){ var t = Date.parse(e.starts_at); return isFinite(t) ? t : Infinity; }   /* no date: last */
 function evParts(){
   var groups = { now: [], upcoming: [], past: [] }, all = { now: 0, upcoming: 0, past: 0 };
   events.forEach(function(e){
     var g = evGroup(e);
     all[g]++;
-    if (jcMatches(evQ, [e.title_en, e.title_ar, e.slug, e.venue_name_en, e.venue_name_ar])) groups[g].push(e);
+    if (jcMatches(evQ, evFields(e))) groups[g].push(e);
   });
   /* the default (no chip chosen yet): what's on now, else what's coming, else the past */
   var show = EV_SHOWS.indexOf(evShow) >= 0 ? evShow : all.now ? "now" : all.upcoming ? "upcoming" : "past";
@@ -442,7 +445,7 @@ function evParts(){
     chips: jcChipsHtml({ id: "evChips", prefix: "evShow-", label: jcT("adm_ev_filter"), current: show,
                          items: EV_SHOWS.map(function(k){ return { key: k, text: jcT("adm_ev_" + k), n: groups[k].length }; }) }),
     list: list.length ? '<ul class="aevents">' + list.map(eventRow).join("") + '</ul>'
-        : '<p class="help" id="evNone">' + esc(evQ.trim() ? jcFmt("adm_ev_no_match", { q: evQ.trim() }) : jcT("adm_ev_none_" + show)) + '</p>'
+        : '<p class="help" id="evNone" role="status">' + esc(evQ.trim() ? jcFmt("adm_ev_no_match", { q: evQ.trim() }) : jcT("adm_ev_none_" + show)) + '</p>'
   };
 }
 /* creating events is the community's step (T5.2 D2) */
