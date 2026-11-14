@@ -247,7 +247,7 @@ test("an App Health notice opens its home; a home no longer listed says so", asy
 
 test("an events-only organizer has no Households button", async ({ page }) => {
   await openHouseholds(page, { scopes: ["events"], noOpen: true });
-  await expect(page.locator("#addCode")).toBeVisible();
+  await expect(page.locator("#accessOpen")).toBeVisible();
   await expect(page.locator("#hhOpen")).toHaveCount(0);
 });
 
@@ -413,4 +413,53 @@ test("NF-3: villages A–Z (one the config doesn't list still shows, in its plac
   await expect(page.locator("h2.group")).toHaveText(["Waiting for you (1)", "Ain Al Maha", "al-bahar", "Seef Al Jubail"]);
   const ids = await page.locator("[data-home]").evaluateAll((ls) => ls.map((l) => l.dataset.home));
   expect(ids).toEqual(["a9", "a10", "x1", "s3", "s1", "s2"]);    // B2 5, B2 304, B10 12
+});
+
+// ── OT-2: search over the loaded homes ──
+test("search: by member name, building, village or number; the box keeps focus; no match says so", async ({ page }) => {
+  const { calls } = await openHouseholds(page);
+  const n = calls.length;
+  const box = page.locator("#hhSearch");
+  await box.fill("carol");
+  await expect(page.locator("[data-home]")).toHaveCount(1);
+  await expect(card(page, "h10")).toBeVisible();
+  await expect(box).toBeFocused();
+  await box.fill("b2");
+  await expect(page.locator("[data-home]")).toHaveCount(1);
+  await box.fill("ain al");                                          // village name
+  await expect(page.locator("[data-home]")).toHaveCount(2);
+  await expect(page.locator("#hhListBox h2.group")).toHaveCount(1);   // villages with no match drop out
+  await box.fill("40");
+  await expect(page.locator("[data-home]")).toHaveCount(1);
+  await expect(card(page, "h8")).toBeVisible();
+  await box.fill("<b>zzz");
+  await expect(page.locator("#hhNone")).toHaveText("No homes match “<b>zzz”.");
+  await box.fill("");
+  await expect(page.locator("[data-home]")).toHaveCount(3);
+  expect(calls.length).toBe(n);                                       // searching never asks the server
+});
+
+test("search: a home found by search still opens, edits and cancels; the search stays", async ({ page }) => {
+  await openHouseholds(page);
+  await page.locator("#hhSearch").fill("alice");
+  await card(page, "h7").locator('[data-hh="edit"]').click();
+  await expect(page.locator("#hhNumber")).toBeVisible();
+  await card(page, "h7").locator("[data-cancel]").click();
+  await expect(page.locator("#hhSearch")).toHaveValue("alice");
+  await expect(page.locator("[data-home]")).toHaveCount(1);
+});
+
+test("search in Arabic: the placeholder reads in Arabic", async ({ page }) => {
+  await openHouseholds(page);
+  await page.locator("#langBtn").click();
+  await expect(page.locator("#hhSearch")).toHaveAttribute("placeholder", "ابحث بالرقم أو القرية أو الاسم");
+});
+
+test("search: typing while an edit is open closes it, never leaving an emptied form", async ({ page }) => {
+  await openHouseholds(page);
+  await card(page, "h7").locator('[data-hh="edit"]').click();
+  await page.locator("#hhNumber").fill("99");
+  await page.locator("#hhSearch").fill("ain");
+  await expect(page.locator("#hhNumber")).toHaveCount(0);
+  await expect(card(page, "h7")).toBeVisible();
 });

@@ -253,7 +253,8 @@ function show(name){
   /* back, in the top bar: sign-ups → the events list; pin move → the sign-ups */
   jcBack(name === "signups" ? leaveSignups
        : name === "pinmove" ? function(){ pm = null; show("signups"); }
-       : name === "feedback" || name === "health" || name === "households" || name === "admins" ? function(){ show("home"); }
+       : name === "feedback" || name === "health" || name === "households" || name === "admins" || name === "codes" || name === "access"
+         ? function(){ show("home"); }
        : name === "names" ? mnBack
        : name === "adminlog" ? function(){ show("households"); }
        : name === "court" ? function(){ ctEd = null; show("home"); }
@@ -489,36 +490,38 @@ function admBannerHtml(){
     '<div class="row"><button class="btn" id="bannerSave" type="submit">' + esc(jcT("adm_banner_post")) + '</button>' +
     '<button class="btn ghost" id="bannerClear" type="button">' + esc(jcT("adm_banner_clear")) + '</button></div></form>';
 }
-/* community: health + notices, the owner's feedback inbox, codes, add another code / lock */
+/* community (OT-2, Zee 2026-11-14): one settings-style row per screen (name, one line of what it's for, a chevron) instead
+   of stacked buttons; Codes and Your Access are screens like the rest */
+var CHEVRON = '<svg class="chev" width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" focusable="false">' +
+  '<path d="M9 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+function setRow(id, title, desc, hot){
+  return '<li><button class="setrow' + (hot ? ' hot' : '') + '" type="button" id="' + id + '"><span><b>' + esc(title) + '</b>' +
+    '<small>' + esc(desc) + '</small></span>' + CHEVRON + '</button></li>';
+}
 function admCommunityHtml(){
-  var h =
-    (has("community") ? '<div class="panel fbentry"><button class="btn ghost" type="button" id="adOpen">' +
-      esc(jcT("adm_ad_open")) + '</button></div>' +
-      '<div class="panel fbentry"><button class="btn ghost" type="button" id="healthOpen">' +
-      esc(jcT("adm_h_open")) + '</button></div>' +
-      '<div class="panel fbentry"><button class="btn ghost" type="button" id="hhOpen">' +
-      esc(jcT("adm_hh_open")) + '</button></div>' +
-      '<div class="panel fbentry"><button class="btn ghost" type="button" id="mnOpen">' +
-      esc(jcT("adm_mn_open")) + '</button></div>' : '') +
-    (owner ? '<div class="panel fbentry"><button class="btn' + (fb && fb.unread ? '' : ' ghost') + '" type="button" id="fbOpen">' +
-      esc(fb ? jcFmt("adm_fb_open", { n: fb.unread }) : jcT("adm_fb_title")) + '</button></div>' : '');
-  if (has("community")) {
-    h += '<h2 class="group">' + esc(jcT("adm_codes")) + '</h2><div class="panel"><p class="help">' + esc(jcT("adm_codes_help")) + '</p>' +
-      ["join", "community", "events"].map(function(s){
-        return '<div class="coderow"><span>' + esc(jcT("adm_code_" + s)) + '</span>' +
-          '<button class="btn ghost" type="button" data-rotate="' + s + '">' + esc(jcT("adm_rotate")) + '</button></div>' +
-          (newCode && newCode.scope === s
-            ? '<div class="codebox" role="status"><span>' + esc(jcFmt("adm_new_code", { s: jcT("adm_code_" + s) })) + '</span>' +
-              '<b id="newCode">' + esc(newCode.code) + '</b>' +
-              '<button class="btn ghost" type="button" id="copyCode">' + esc(jcT("adm_copy")) + '</button></div>' : '');
-      }).join("") + '</div>';
-  }
-  /* lock = drop CODE unlocks; event-admin grants are named and stay (a community admin removes them) */
-  return h + '<div class="section"><div class="panel">' +
-    '<button class="btn ghost" type="button" id="addCode">' + esc(jcT("adm_add_code")) + '</button>' +
-    (scopes.length ? '<button class="btn ghost" type="button" id="exit">' + esc(jcT("adm_exit")) + '</button>' +
-      '<p class="help">' + esc(jcT("adm_exit_help")) + '</p>' : '') +
-    '</div></div>';
+  var rows = [];
+  if (has("community")) rows.push(
+    setRow("adOpen", jcT("adm_ad_open"), jcT("adm_row_admins_d")),
+    setRow("hhOpen", jcT("adm_hh_open"), jcT("adm_row_hh_d")),
+    setRow("healthOpen", jcT("adm_h_open"), jcT("adm_row_health_d")),
+    setRow("mnOpen", jcT("adm_mn_open"), jcT("adm_row_names_d")),
+    setRow("codesOpen", jcT("adm_codes"), jcT("adm_row_codes_d")));
+  if (owner) rows.push(setRow("fbOpen", jcT("adm_fb_title"),
+    fb && fb.unread ? jcFmt("adm_fb_unread", { n: fb.unread }) : jcT("adm_row_fb_d"), !!(fb && fb.unread)));
+  rows.push(setRow("accessOpen", jcT("adm_access"), jcT(scopes.length ? "adm_row_access_d" : "adm_row_access_d_add")));
+  return '<ul class="setrows">' + rows.join("") + '</ul>';
+}
+/* the codes: rotate one, and the new code shows here once */
+function admCodesHtml(){
+  return '<div class="panel"><p class="help">' + esc(jcT("adm_codes_help")) + '</p>' +
+    ["join", "community", "events"].map(function(s){
+      return '<div class="coderow"><span>' + esc(jcT("adm_code_" + s)) + '</span>' +
+        '<button class="btn ghost" type="button" data-rotate="' + s + '">' + esc(jcT("adm_rotate")) + '</button></div>' +
+        (newCode && newCode.scope === s
+          ? '<div class="codebox" role="status"><span>' + esc(jcFmt("adm_new_code", { s: jcT("adm_code_" + s) })) + '</span>' +
+            '<b id="newCode">' + esc(newCode.code) + '</b>' +
+            '<button class="btn ghost" type="button" id="copyCode">' + esc(jcT("adm_copy")) + '</button></div>' : '');
+    }).join("") + '</div>';
 }
 
 /* ---------- views ---------- */
@@ -531,7 +534,7 @@ var VIEWS = {
         msgBox() + '<button class="btn" id="go" type="submit">' + esc(jcT("adm_unlock")) + '</button>' +
         (addingCode && canEnter() ? '<button class="btn ghost" id="back" type="button">' + esc(jcT("acct_back")) + '</button>' : '') +
       '</form>';
-    on("back", function(){ addingCode = false; show("home"); });
+    on("back", function(){ addingCode = false; show("access"); });
     el("form").addEventListener("submit", function(ev){
       ev.preventDefault();
       var code = el("code").value.trim();
@@ -544,6 +547,37 @@ var VIEWS = {
         addingCode = false;
         loadHome();
       }, function(e){ busy("go", false); showErr(e.code); });
+    });
+  },
+
+  codes: function(){
+    if (!has("community")) return show("home");
+    el("view").innerHTML = '<h1>' + esc(jcT("adm_codes")) + '</h1>' + msgBox() + admCodesHtml();
+    Array.prototype.forEach.call(document.querySelectorAll("[data-rotate]"), function(b){
+      b.addEventListener("click", function(){ rotate(b.dataset.rotate, b); });
+    });
+    on("copyCode", function(){
+      (navigator.clipboard ? navigator.clipboard.writeText(newCode.code) : Promise.reject())
+        .then(function(){ el("copyCode").textContent = jcT("adm_copied"); },
+              function(){ showErr("COPY_FAILED"); });   /* never let them think it copied */
+    });
+  },
+
+  /* lock = drop CODE unlocks; event-admin grants are named and stay (a community admin removes them) */
+  access: function(){
+    el("view").innerHTML = '<h1>' + esc(jcT("adm_access")) + '</h1>' + msgBox() +
+      '<p class="sub">' + esc(scopes.length ? jcFmt("adm_scopes", { s: scopes.map(scopeName).join(" · ") }) : jcT("adm_access_none")) + '</p>' +
+      '<div class="panel"><button class="btn ghost" type="button" id="addCode">' + esc(jcT("adm_add_code")) + '</button>' +
+      (scopes.length ? '<button class="btn ghost" type="button" id="exit">' + esc(jcT("adm_exit")) + '</button>' +
+        '<p class="help">' + esc(jcT("adm_exit_help")) + '</p>' : '') + '</div>';
+    on("addCode", function(){ addingCode = true; show("lock"); });
+    on("exit", function(){
+      busy("exit", true);
+      rpc("jc_admin_exit").then(function(){
+        scopes = []; admining = null; adminsData = null; ct = null; ctEd = null; cd = null; pa = null;   /* nothing of the code's stays cached */
+        if (isEventAdmin() || owner) return loadHome();   /* still runs their own events / reads feedback */
+        events = []; show("lock");
+      }, function(e){ busy("exit", false); fail(e); });
     });
   },
 
@@ -580,25 +614,10 @@ var VIEWS = {
     on("hhOpen", function(){ hh = null; show("households"); });
     on("mnOpen", function(){ mnDraft = null; mnSec = null; show("names"); });
     on("adOpen", function(){ ad = null; show("admins"); });
+    on("codesOpen", function(){ show("codes"); });
+    on("accessOpen", function(){ show("access"); });
     wireEvRows(document);
     if (admTab === "events") wireEvTools();
-    Array.prototype.forEach.call(document.querySelectorAll("[data-rotate]"), function(b){
-      b.addEventListener("click", function(){ rotate(b.dataset.rotate, b); });
-    });
-    on("copyCode", function(){
-      (navigator.clipboard ? navigator.clipboard.writeText(newCode.code) : Promise.reject())
-        .then(function(){ el("copyCode").textContent = jcT("adm_copied"); },
-              function(){ showErr("COPY_FAILED"); });   /* never let them think it copied */
-    });
-    on("addCode", function(){ addingCode = true; show("lock"); });
-    on("exit", function(){
-      busy("exit", true);
-      rpc("jc_admin_exit").then(function(){
-        scopes = []; admining = null; adminsData = null; ct = null; ctEd = null; cd = null; pa = null;   /* nothing of the code's stays cached */
-        if (isEventAdmin() || owner) return loadHome();   /* still runs their own events / reads feedback */
-        events = []; show("lock");
-      }, function(e){ busy("exit", false); fail(e); });
-    });
     wireAdmins();
     wireBanner();
     wireCourts();
@@ -1067,23 +1086,19 @@ var VIEWS = {
           '<div class="acts"><button class="mini" type="button" data-inv="' + esc(p.invite_id) + '" data-yes="1">' + esc(jcT("adm_hh_approve")) + '</button>' +
           '<button class="mini danger" type="button" data-inv="' + esc(p.invite_id) + '" data-yes="0">' + esc(jcT("adm_hh_decline")) + '</button></div></li>';
       }).join("") + '</ul>';
-    /* NF-3: villages A–Z (Arabic order in Arabic), then building and house number; only villages with homes, so a
-       home in a village the config doesn't list still shows */
-    var keys = [];
-    d.homes.forEach(function(h){ if (keys.indexOf(h.village) < 0) keys.push(h.village); });
-    keys.sort(jcVillageCmp(cfg));
-    html += keys.map(function(k){
-      var hs = d.homes.filter(function(h){ return h.village === k; }).sort(jcHomeNumCmp);
-      if (!hs.length) return '';
-      var pinned = hs.filter(function(h){ return h.lat != null; }).length;
-      var people = hs.reduce(function(n, h){ return n + h.members.length; }, 0);
-      return '<h2 class="group">' + esc(jcVillageName(cfg, k)) + '</h2>' +
-        '<p class="help">' + esc(jcFmt("adm_hh_counts", { h: hs.length, p: pinned, m: people })) + '</p>' +
-        '<ul class="sulist">' + hs.map(homeCard).join("") + '</ul>';
-    }).join("") || '<p class="help">' + esc(jcT("adm_hh_none")) + '</p>';
+    if (d.homes.length) html += jcSearchHtml({ id: "hhSearch", placeholder: jcT("adm_hh_search"), value: hh.q || "" });
+    html += '<div id="hhListBox">' + hhListHtml() + '</div>';
     el("view").innerHTML = html;
     on("logOpen", function(){ hlog = null; show("adminlog"); });
-    wireHouseholds();
+    wireHouseholds(document);
+    /* OT-2: the search redraws only the homes, so the box keeps focus and what's typed */
+    var hs = el("hhSearch");
+    if (hs) hs.addEventListener("input", function(){
+      hh.q = hs.value;
+      hh.open = null;                                   /* a half-open edit would come back empty: close it */
+      el("hhListBox").innerHTML = hhListHtml();
+      wireHouseholds(el("hhListBox"));
+    });
     if (hh.focus) {                          /* opened from a notice: that home, once */
       var li = document.querySelector('[data-home="' + CSS.escape(hh.focus) + '"]');
       hh.focus = null;
@@ -1242,6 +1257,27 @@ function hhShape(d){
            pending: d.pending.filter(function(p){ return hObj(p) && p.invite_id; }) };
 }
 function hhHome(id){ return ((hh && hh.data && hh.data.homes) || []).filter(function(h){ return h.id === id; })[0]; }
+/* NF-3: villages A–Z (Arabic order in Arabic), then building and house number; only villages with homes, so a home in a
+   village the config doesn't list still shows. OT-2: the search (number, building, village, member name) narrows it. */
+function hhFields(h){
+  return [jcHomeLabel(h), h.number, h.building, jcVillageName(cfg, h.village)].concat(h.members.map(function(m){ return m.name; }));
+}
+function hhListHtml(){
+  var d = hh.data, q = (hh.q || "").trim();
+  var homes = d.homes.filter(function(h){ return jcMatches(q, hhFields(h)); });
+  var keys = [];
+  homes.forEach(function(h){ if (keys.indexOf(h.village) < 0) keys.push(h.village); });
+  keys.sort(jcVillageCmp(cfg));
+  return keys.map(function(k){
+    var hs = homes.filter(function(h){ return h.village === k; }).sort(jcHomeNumCmp);
+    var pinned = hs.filter(function(h){ return h.lat != null; }).length;
+    var people = hs.reduce(function(n, h){ return n + h.members.length; }, 0);
+    return '<h2 class="group">' + esc(jcVillageName(cfg, k)) + '</h2>' +
+      '<p class="help">' + esc(jcFmt("adm_hh_counts", { h: hs.length, p: pinned, m: people })) + '</p>' +
+      '<ul class="sulist">' + hs.map(homeCard).join("") + '</ul>';
+  }).join("") || '<p class="help" id="hhNone" role="status">' +
+    esc(q && d.homes.length ? jcFmt("adm_hh_no_match", { q: q }) : jcT("adm_hh_none")) + '</p>';
+}
 function hhLabel(h){ return jcHomeLabel(h) + " · " + jcVillageName(cfg, h.village); }
 function loadHouseholds(){
   if (!hh) hh = { data: null, open: null, focus: null };
@@ -1343,8 +1379,8 @@ function hhWrite(name, args, okText){
     showOk(okText);
   }, onErr);
 }
-function wireHouseholds(){
-  Array.prototype.forEach.call(document.querySelectorAll("[data-inv]"), function(b){
+function wireHouseholds(root){
+  Array.prototype.forEach.call(root.querySelectorAll("[data-inv]"), function(b){
     b.addEventListener("click", function(){
       if (hhBusy) return;
       var yes = b.dataset.yes === "1";
@@ -1352,7 +1388,7 @@ function wireHouseholds(){
       hhWrite("jc_admin_invite_decide", { p_invite: b.dataset.inv, p_approve: yes }, jcT(yes ? "adm_hh_approved" : "adm_hh_declined"));
     });
   });
-  Array.prototype.forEach.call(document.querySelectorAll("[data-hh]"), function(b){
+  Array.prototype.forEach.call(root.querySelectorAll("[data-hh]"), function(b){
     b.addEventListener("click", function(){
       var h = hhHome(b.dataset.id), a = b.dataset.hh;
       if (!h || hhBusy) return;
@@ -1371,12 +1407,12 @@ function wireHouseholds(){
       }
     });
   });
-  Array.prototype.forEach.call(document.querySelectorAll("[data-cancel]"), function(b){
+  Array.prototype.forEach.call(root.querySelectorAll("[data-cancel]"), function(b){
     b.addEventListener("click", function(){ if (hhBusy) return; hh.open = null; show("households"); });
   });
   var t = el("hhType");
   if (t) t.addEventListener("change", function(){ el("hhBldWrap").hidden = t.value !== "apartment"; });
-  Array.prototype.forEach.call(document.querySelectorAll("[data-form]"), function(f){
+  Array.prototype.forEach.call(root.querySelectorAll("[data-form]"), function(f){
     f.addEventListener("submit", function(ev){
       ev.preventDefault();
       var h = hhHome(f.dataset.id);
@@ -1548,9 +1584,9 @@ function rotate(scope, b){
   if (!window.confirm(jcFmt("adm_rotate_confirm", { s: jcT("adm_code_" + scope) }))) return;
   b.disabled = true;
   rpc("jc_admin_code_rotate", { p_scope: scope }).then(function(r){
-    current = "home";
+    current = "codes";
     newCode = { scope: r.scope, code: r.code };   /* drawn once; the next show() drops it */
-    VIEWS.home();
+    VIEWS.codes();
   }, function(err){ b.disabled = false; fail(err); });
 }
 
@@ -3124,8 +3160,10 @@ function saveEvent(){
 function fbButton(){
   var b = el("fbOpen");
   if (!b || !fb) return;
-  b.textContent = jcFmt("adm_fb_open", { n: fb.unread });
-  b.classList.toggle("ghost", !fb.unread);
+  /* the row's second line only (OT-2 review): its title and chevron stay */
+  var d = b.querySelector("small");
+  if (d) d.textContent = fb.unread ? jcFmt("adm_fb_unread", { n: fb.unread }) : jcT("adm_row_fb_d");
+  b.classList.toggle("hot", !!fb.unread);
 }
 function loadHome(){
   /* the count arrives after the page: update the button only — a redraw would wipe drafts (review) */
