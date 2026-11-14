@@ -289,7 +289,7 @@ function loadGroup(){
   group = null;
   rpc("jc_pets_group_get").then(function(d){
     var l = hObj(d) && d.link;
-    group = typeof l === "string" && /^https:\/\/chat\.whatsapp\.com\/[A-Za-z0-9]{16,40}$/.test(l) ? l : null;
+    group = jcWaGroupOk(l) ? l : null;
     if (current === "pet" && pet && el("ptShare")) drawShare();
   }, function(){ group = null; });
 }

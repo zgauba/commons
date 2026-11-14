@@ -278,3 +278,10 @@ test("the group screen in Arabic", async ({ page }) => {
   await expect(page.locator("h1")).toHaveText("مجموعة واتساب للحيوانات");
   await expect(page.locator("#paHow li").first()).toHaveText("افتح واتساب وادخل إلى مجموعة الحيوانات.");
 });
+
+test("a stored link that isn't a WhatsApp group link never becomes a clickable Test It (review M)", async ({ page }) => {
+  await openGroup(page, backend({ link: "javascript:window.__x=1" }));
+  await expect(page.locator("#paLink")).toHaveValue("javascript:window.__x=1");   // shown as text, so it can be replaced
+  await expect(page.locator("#paLinkTest")).toHaveCount(0);
+  await expect(page.locator("#view a[href^='javascript']")).toHaveCount(0);
+});

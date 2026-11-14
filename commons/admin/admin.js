@@ -562,7 +562,7 @@ var VIEWS = {
       el("view").innerHTML = html + (pa ? '<div class="row"><button class="btn ghost" type="button" id="paRetry">' + esc(jcT("adm_ad_retry")) + '</button></div>'
                                         : '<p class="help">' + esc(jcT("working")) + '</p>');
       on("paRetry", function(){ pa = null; show("petsgroup"); });
-      if (!pa) loadPets();
+      if (!pa) loadPets(); else showErr(pa.err);         /* reopened after a failure: say why, not just Retry */
       return;
     }
     var link = typeof pa.link === "string" ? pa.link : "";
@@ -578,7 +578,7 @@ var VIEWS = {
         (pa.link === undefined ? '<p class="help">' + esc(jcT(pa.linkErr === "MODULE_OFF" ? "pa_group_unknown" : "pa_group_unread")) + '</p>' : '') +
         '<div class="row"><button class="btn" type="button" id="paLinkSave">' + esc(jcT("pa_group_save")) + '</button>' +
         (link ? '<button class="btn ghost" type="button" id="paLinkClear">' + esc(jcT("pa_group_clear")) + '</button>' : '') + '</div>' +
-        (link ? '<a class="btn ghost" id="paLinkTest" target="_blank" rel="noopener noreferrer">' + esc(jcT("pa_wa_test")) + '</a>' : '') +
+        (jcWaGroupOk(link) ? '<a class="btn ghost" id="paLinkTest" target="_blank" rel="noopener noreferrer">' + esc(jcT("pa_wa_test")) + '</a>' : '') +
       '</div>';
     var t = el("paLinkTest");
     if (t) t.setAttribute("href", link);                  /* an attribute, never markup (as the residents' button) */
@@ -1840,7 +1840,7 @@ function petsLinkSave(v, btn){
     if (!window.confirm(jcT("pa_group_clear_q"))) return;
   }
   /* the server's rule, said before sending; BAD_LINK has its own words here (the shared one means an invite link) */
-  if (v && !/^https:\/\/chat\.whatsapp\.com\/[A-Za-z0-9]{16,40}$/.test(v)) return jcShowErrFor("pa_err_", "BAD_LINK");
+  if (v && !jcWaGroupOk(v)) return jcShowErrFor("pa_err_", "BAD_LINK");
   paBusy = true; busy(btn, true);
   rpc("jc_admin_pets_group_set", { p_link: v }).then(function(r){
     paBusy = false;

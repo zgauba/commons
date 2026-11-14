@@ -180,3 +180,5 @@ li[data-event] .chip.draft{display:table; margin:3px 0 2px}
 [dir="rtl"] .mnlist .chev{transform:scaleX(-1)}
 .mnform + .mnform{margin-top:12px}
 .desc{margin:0 0 4px; font-size:14.5px; line-height:1.5}
+/* OT-3: the switched-off notice above the Pets group row */
+.notice + .setrows{margin-top:12px}

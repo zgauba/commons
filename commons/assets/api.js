@@ -142,6 +142,9 @@ function jcEach(sel, fn, ev){
 }
 /* the address bar without a reload: q = the query without "?" (null / "" = the bare page) */
 function jcSetUrl(q){ try { history.replaceState(null, "", q ? "?" + q : location.pathname); } catch(e){} }
+/* a pets WhatsApp group invite link, as the server accepts it (R5a): the one check for Pets, Organizer Tools' save and
+   its Test It link — a stored value that fails it is never put in an href (OT-3 review) */
+function jcWaGroupOk(l){ return typeof l === "string" && /^https:\/\/chat\.whatsapp\.com\/[A-Za-z0-9]{16,40}$/.test(l); }
 function jcObj(x){ return x && typeof x === "object" && !Array.isArray(x) ? x : null; }
 function jcFinite(n){ return typeof n === "number" && isFinite(n); }
 function jcHasPos(x){ return !!x && jcFinite(x.lat) && jcFinite(x.lng); }
