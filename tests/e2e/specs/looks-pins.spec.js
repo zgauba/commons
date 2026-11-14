@@ -110,6 +110,10 @@ test("Haq al Laila: navy + gold, Arabic tagline above the English title", async 
   await expect(page.locator(".evhead .tagline")).toHaveAttribute("dir", "rtl");
   // its meaning in English under it, on English pages only (Zee 2026-11-14)
   await expect(page.locator(".evhead .tagline-en")).toHaveText("\u201cGive to us, and God will give to you\u201d");
+  // Zee 2026-11-14: the English meaning and the Arabic sit on one line at phone width
+  const [en, arb] = await Promise.all([page.locator(".evhead .tagline-en").boundingBox(), page.locator(".evhead .tagline").boundingBox()]);
+  expect(Math.abs((en.y + en.height) - (arb.y + arb.height))).toBeLessThan(8);
+  expect(en.x).toBeLessThan(arb.x);
   await expect(page.locator(".evhead h1 .mark")).toHaveText("🌙");
   // fill = availability must survive the gold look: "reported" can't be gold-ish amber
   const rgb = (i) => pin(page, i).evaluate((n) => getComputedStyle(n).backgroundColor.match(/\d+/g).slice(0, 3).map(Number));

@@ -262,8 +262,9 @@ var VIEWS = {
       '<div class="evhead">' +
         /* the look's mark; Haq al Laila leads with its Arabic tagline in both languages, with its meaning under it in
            English (Zee 2026-11-14: keep the Arabic, add an English line) */
-        (look === "haq_al_laila" ? '<p class="tagline" lang="ar" dir="rtl">' + esc(jcT("look_tagline_haq_al_laila")) + '</p>' +
-          (ar() ? '' : '<p class="tagline-en">' + esc(jcT("look_tagline_haq_al_laila_en")) + '</p>') : '') +
+        /* Zee 2026-11-14: the English meaning and the Arabic on one line (it wraps only if a phone is too narrow) */
+        (look === "haq_al_laila" ? '<div class="taglines">' + (ar() ? '' : '<p class="tagline-en">' + esc(jcT("look_tagline_haq_al_laila_en")) + '</p>') +
+          '<p class="tagline" lang="ar" dir="rtl">' + esc(jcT("look_tagline_haq_al_laila")) + '</p></div>' : '') +
         '<div class="evtitle"><h1>' + (look ? '<span class="mark" aria-hidden="true">' + LOOK_MARKS[look] + '</span> ' : '') + esc(title(ev)) + '</h1>' +
         (canAdmin ? '<a class="lang adminbtn" id="evAdmin" href="../admin/?event=' + encodeURIComponent(ev.id) + '">' + esc(jcT("ev_admin")) + '</a>' : '') +
         '</div>' +
