@@ -1923,6 +1923,7 @@ function loadPets(){
     pa = { err: e.code || "UNKNOWN" };
     if (current === "home" && admTab === "pets") { show("home"); showErr(pa.err); }
     if (current === "petsgroup") { VIEWS.petsgroup(); showErr(pa.err); }
+    if (current === "petadmin") show("petadmin");       /* Retry + why (review M1) */
   });
 }
 function petName(p){ return typeof p.name === "string" ? p.name : ""; }
@@ -2096,23 +2097,31 @@ function pmGone(){
 function pmKeep(){
   if (current !== "petadmin") return;
   var m = el("msg"), keep = m && m.textContent ? { c: m.className, t: m.textContent } : null;
+  /* jcFocusKeep never puts focus back in a text field (it moves to the h1): a phone's keyboard would close mid-word
+     (review M2) — so the field being typed in gets focus and its caret back here */
+  var a = document.activeElement, typing = a && ["pmNote", "pmLogNote", "pmDate"].indexOf(a.id) >= 0 ? a.id : null;
+  var sel = typing && a.id !== "pmDate" ? [a.selectionStart, a.selectionEnd] : null;
   show("petadmin");
-  if (keep && el("msg") && !el("msg").textContent) { el("msg").className = keep.c; el("msg").textContent = keep.t; }
+  var n = el("msg");
+  /* "Added to the log." stays even if the log can't be read again just now: the write did land (review L3) */
+  if (keep && n && (!n.textContent || / ok/.test(" " + keep.c))) { n.className = keep.c; n.textContent = keep.t; }
+  var f = typing && el(typing);
+  if (f) { f.focus({ preventScroll: true }); if (sel) try { f.setSelectionRange(sel[0], sel[1]); } catch(e){} }
 }
 function pmFocusItem(k){ var b = k && document.querySelector('[data-pmcare="' + k + '"]'); if (b) b.focus(); }
 function pmLoad(){
-  var me = pv;
+  var me = pv, seq = me.seq = (me.seq || 0) + 1;
   me.loading = true;
   rpc("jc_pet_get", { p_pet: me.id }).then(function(d){
+    if (pv !== me || seq !== me.seq) return;             /* an older read (before a log add) never wins (review M3) */
     me.loading = false;
-    if (pv !== me) return;
     me.detail = hObj(d) || { care_log: [] }; me.err = null;
     pmKeep();
   }, function(e){
-    me.loading = false;
     var code = (e && e.code) || "UNKNOWN";
     if (code === "NOT_ADMIN") return fail(e);
-    if (pv !== me) return;
+    if (pv !== me || seq !== me.seq) return;
+    me.loading = false;
     if (code === "NOT_FOUND") return current === "petadmin" ? pmGone() : null;
     me.err = code;                                       /* MODULE_OFF → the "once Pets is on" notice (Zee Q1 = A) */
     pmKeep();
@@ -2160,7 +2169,7 @@ function pmLogAdd(){
   if (!note) { jcShowErrFor("pm_err_", "LOG_EMPTY"); el("pmLogNote").focus(); return; }
   pmWrite("pmLogAdd", function(){ return rpc("jc_admin_pet_care_add", { p_pet: pv.id, p_kind: kind, p_note: note }); }, function(r, me){
     me.log.note = "";
-    me.detail = null;                                    /* the server returns no log: read it again */
+    me.detail = null; me.err = null; me.loading = false; /* the server returns no log: a fresh read (an older one is dropped) */
     show("petadmin");
     showOk(jcT("pm_log_added"));
   });
@@ -2210,7 +2219,7 @@ function peDone(id, say){
     if (say) say();
     return;
   }
-  pe = null; pa = null; paFocus = id || null; admTab = "pets";
+  pe = null; pv = null; pa = null; paFocus = id || null; admTab = "pets";
   jcSetUrl("tab=pets");
   show("home");
   try { window.scrollTo(0, 0); } catch(e){}

@@ -28,7 +28,7 @@ function backend(opts = {}) {
   const st = { list: opts.list || ANIMALS(), link: opts.link === undefined ? LINK : opts.link, sets: [] };
   const pets = () => ab.st.scopes.includes("pets") || ab.st.scopes.includes("community");
   Object.assign(ab.rpc, {
-    jc_admin_pets_list: () => (pets() ? ok(st.list) : raise("NOT_ADMIN")),
+    jc_admin_pets_list: () => (!pets() ? raise("NOT_ADMIN") : st.listRaises ? raise(st.listRaises) : ok(st.list)),
     jc_pets_group_get: () => (opts.groupOff ? raise(opts.groupOff) : ok({ link: st.link })),
     jc_admin_pets_group_set: (a) => {
       st.sets.push(a.p_link);
@@ -59,6 +59,11 @@ function backend(opts = {}) {
   Object.assign(ab.rpc, {
     jc_pet_get: (a) => {
       if (opts.getRaises) return raise(opts.getRaises);
+      if (st.getHold) {                                                              // this read answers late, with the log as it was
+        const hold = st.getHold, then = JSON.parse(JSON.stringify(st.logs[a.p_pet] || [])); st.getHold = null;
+        const c = st.list.find((p) => p.id === a.p_pet);
+        return hold.then(() => ok(Object.assign({}, c, { sightings: [], care_log: then })));
+      }
       const c = st.list.find((p) => p.id === a.p_pet && p.status === "active");
       return c ? ok(Object.assign({}, c, { sightings: [], care_log: c.kind === "stray" ? (st.logs[c.id] || []).slice() : null })) : raise("NOT_FOUND");
     },
@@ -673,4 +678,35 @@ test("R5d-3a: Manage in Arabic keeps an open item's draft", async ({ page }) => 
   await expect(page.locator("#pmNote")).toHaveValue("Rabies booster");
   await expect(page.locator('[data-pmst="due"]')).toHaveAttribute("aria-pressed", "true");
   await expect(page.locator("#pmLogAdd")).toHaveText("إضافة إلى السجل");
+});
+
+test("R5d-3a review M1: the list can't be re-read after Edit Details → Retry and why, never 'Working…' forever", async ({ page }) => {
+  const b = backend();
+  await manage(page, b, ID(3));
+  await page.locator("#pmEdit").click();
+  await page.locator("#peName").fill("Ginger Tom");
+  b.st.listRaises = "UNKNOWN";
+  await page.locator("#peSave").click();
+  await expect(page.locator("#pmListRetry")).toBeVisible();
+  b.st.listRaises = null;
+  await page.locator("#pmListRetry").click();
+  await expect(page.locator("h1")).toHaveText("Ginger Tom");
+});
+
+test("R5d-3a review M3: a log line added while the first read is on its way still shows when it lands", async ({ page }) => {
+  const b = backend({ petsOn: true });
+  let release;
+  b.st.getHold = new Promise((r) => { release = r; });
+  await stubBackend(page, { rpc: b.rpc });
+  await signIn(page);
+  await page.goto("admin/?tab=pets");
+  await page.locator(`li[data-pet="${ID(3)}"] [data-pamanage]`).click();
+  await page.locator("#pmLogNote").fill("Fed by the mosque");
+  await page.locator("#pmLogAdd").click();
+  await expect(page.locator("#msg")).toHaveText("Added to the log.");
+  await expect(page.locator("#pmLog li")).toHaveCount(1);                              // the fresh read
+  release();                                                                            // the old read (empty log) lands late
+  await page.waitForTimeout(300);
+  await expect(page.locator("#pmLog li")).toHaveCount(1);
+  await expect(page.locator("#pmLog li").first()).toContainText("Fed by the mosque");
 });
