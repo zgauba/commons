@@ -13,7 +13,7 @@
 var state = null, cfg = null, current = null;
 /* ?event=<id> — the events list's Admin badge: open that event's editor once loaded */
 var OPEN_EVENT = new URLSearchParams(location.search).get("event");
-var EV_SHOWS = ["now", "upcoming", "past"];
+var EV_SHOWS = ["all", "now", "upcoming", "past"];   /* All first, as on Pets (Zee 2026-11-14) */
 var evShow = new URLSearchParams(location.search).get("show");   /* OT-1: the Events chip (?tab=events&show=past); null = the default */
 var evQ = "";                                                     /* OT-1: the Events search, kept across redraws */
 var OPEN_COURT = new URLSearchParams(location.search).get("court");   /* from a court's Admin button on Courts */
@@ -417,6 +417,13 @@ function evGroup(e){
   if (e.status === "live" && !e.coming_soon && typeof e.starts_at === "string" && jcDateOf(e.starts_at, cfg) <= jcTzToday(cfg)) return "now";
   return "upcoming";
 }
+/* after a save or a step, keep that event in sight: a draft just made, an event just published or closed moves
+   to another chip, so follow it there (All already shows it) */
+function evFollow(id){
+  var e = byId(id);
+  if (!e || evShow === "all") return;
+  evShow = evGroup(e); jcSetUrl("tab=events&show=" + evShow);
+}
 function evWhen(e){ var t = Date.parse(e.starts_at); return isFinite(t) ? t : Infinity; }   /* no date: last */
 function evParts(){
   var groups = { now: [], upcoming: [], past: [] }, all = { now: 0, upcoming: 0, past: 0 };
@@ -427,7 +434,10 @@ function evParts(){
   });
   /* the default (no chip chosen yet): what's on now, else what's coming, else the past */
   var show = EV_SHOWS.indexOf(evShow) >= 0 ? evShow : all.now ? "now" : all.upcoming ? "upcoming" : "past";
-  var list = groups[show].slice().sort(function(a, b){ return show === "past" ? evWhen(b) - evWhen(a) : evWhen(a) - evWhen(b); });
+  function byDate(g){ return groups[g].slice().sort(function(a, b){ return g === "past" ? evWhen(b) - evWhen(a) : evWhen(a) - evWhen(b); }); }
+  /* All: on now, then coming up (soonest first), then past (newest first) */
+  groups.all = groups.now.concat(groups.upcoming, groups.past);
+  var list = show === "all" ? byDate("now").concat(byDate("upcoming"), byDate("past")) : byDate(show);
   return {
     chips: jcChipsHtml({ id: "evChips", prefix: "evShow-", label: jcT("adm_ev_filter"), current: show,
                          items: EV_SHOWS.map(function(k){ return { key: k, text: jcT("adm_ev_" + k), n: groups[k].length }; }) }),
@@ -1512,7 +1522,7 @@ function act(a, id, b){
     : rpc("jc_admin_event_signups", { p_event: id, p_open: a === "open" });
   b.disabled = true;
   call.then(function(list){
-    events = list; show("home");
+    events = list; evFollow(id); show("home");
     showOk(jcT(a === "publish" ? "adm_published" : a === "announce" ? "adm_announced" : a === "open" ? "adm_opened" : "adm_paused"));
   }, function(err){ b.disabled = false; fail(err); });
 }
@@ -1525,7 +1535,7 @@ function closeEvent(){
   rpc("jc_event_close", { p_event: e.id, p_confirm: e.slug }).then(function(snap){
     closing = null;
     return rpc("jc_admin_events_list").then(function(list){
-      events = list; show("home");
+      events = list; evFollow(e.id); show("home");
       showOk(jcFmt("adm_closed_ok", { n: (snap && snap.homes) || 0 }));
     });
   }, function(err){ busy("closeGo", false); fail(err); });
@@ -3098,8 +3108,11 @@ function saveEvent(){
   if (!draft && !orig.coming_soon && ("starts_at" in f || "ends_at" in f) && s && !en
       && !window.confirm(jcT("adm_no_end_warn"))) return;
   busy("save", true);
+  var had = events.map(function(x){ return x.id; });
   rpc("jc_admin_event_save", { p_event: ev ? ev.id : null, p_fields: f }).then(function(list){
-    events = list; ed = null; show("home");
+    events = list; ed = null;
+    evFollow(ev ? ev.id : (list.filter(function(x){ return had.indexOf(x.id) < 0; })[0] || {}).id);
+    show("home");
     showOk(miss.length ? jcFmt(orig.coming_soon ? "adm_saved_soon_missing" : "adm_saved_draft_missing", { list: missText })
       : jcT(draft ? "adm_saved_draft" : "adm_saved"));
   }, function(err){ busy("save", false); fail(err); });

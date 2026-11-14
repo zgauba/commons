@@ -472,7 +472,7 @@ var JC_STRINGS = {
     adm_new: "New Event",
     adm_none: "No events yet.",
     /* OT-1: Events in Organizer Tools — Now · Upcoming · Past */
-    adm_ev_filter: "Which events", adm_ev_now: "Now", adm_ev_upcoming: "Upcoming", adm_ev_past: "Past",
+    adm_ev_filter: "Which events", adm_ev_all: "All", adm_ev_none_all: "No events yet. Start one with New Event.", adm_ev_now: "Now", adm_ev_upcoming: "Upcoming", adm_ev_past: "Past",
     adm_ev_none_now: "Nothing is on right now.", adm_ev_none_upcoming: "Nothing coming up. Start one with New Event.",
     adm_ev_none_past: "No past events yet.", adm_ev_search: "Search events", adm_ev_no_match: "No events here match \u201c{q}\u201d.",
     adm_status_draft: "Draft — only organizers can see it",
@@ -1695,7 +1695,7 @@ var JC_STRINGS = {
     adm_events: "الفعاليات",
     adm_new: "فعالية جديدة",
     adm_none: "لا توجد فعاليات بعد.",
-    adm_ev_filter: "أي الفعاليات", adm_ev_now: "الآن", adm_ev_upcoming: "القادمة", adm_ev_past: "السابقة",
+    adm_ev_filter: "أي الفعاليات", adm_ev_all: "الكل", adm_ev_none_all: "لا فعاليات بعد. ابدأ واحدة من فعالية جديدة.", adm_ev_now: "الآن", adm_ev_upcoming: "القادمة", adm_ev_past: "السابقة",
     adm_ev_none_now: "لا شيء يجري الآن.", adm_ev_none_upcoming: "لا فعاليات قادمة. ابدأ واحدة من فعالية جديدة.",
     adm_ev_none_past: "لا فعاليات سابقة بعد.", adm_ev_search: "ابحث في الفعاليات", adm_ev_no_match: "لا فعاليات هنا تطابق \u201c{q}\u201d.",
     adm_status_draft: "مسودة — يراها المنظمون فقط",

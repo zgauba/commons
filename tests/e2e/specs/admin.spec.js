@@ -14,7 +14,7 @@ test("lock: a wrong code says so; an events code opens the list (drafts included
   const ab = adminBackend();
   const { calls } = await stubBackend(page, { rpc: ab.rpc });
   await signIn(page);
-  await page.goto("admin/");
+  await page.goto("admin/?show=all");
   await expect(page.locator("h1")).toHaveText("Organizer Tools");
   await unlock(page, "nope");
   await expect(page.locator("#msg")).toHaveText("That code didn't work.");
@@ -42,7 +42,7 @@ test("new event from the Halloween template: short name follows the title; quest
   const ab = adminBackend({ scopes: ["events"] });
   const { calls } = await stubBackend(page, { rpc: ab.rpc });
   await signIn(page);
-  await page.goto("admin/");
+  await page.goto("admin/?show=all");
   await page.locator("#newEv").click();
   await page.locator('[data-tpl="halloween"]').click();                           // T5.2 2c: start from a template
   await expect(page.locator("#form")).toHaveAttribute("data-no-autoreload", "");   // auto-update never reloads mid-edit
@@ -141,7 +141,7 @@ test("publish (confirmed), pause sign-ups, close only with the exact short name"
   const ab = adminBackend({ scopes: ["events"] });
   const { calls } = await stubBackend(page, { rpc: ab.rpc });
   await signIn(page);
-  await page.goto("admin/");
+  await page.goto("admin/?show=all");
   page.once("dialog", (d) => d.accept());
   await page.locator('li[data-event="national-day-2026"] [data-act="publish"]').click();
   await expect(page.locator("#msg")).toHaveText("Published — residents can see it now.");
@@ -480,7 +480,7 @@ test("the old shared events code runs events but can't appoint admins", async ({
   const ab = adminBackend({ scopes: ["events"] });
   await stubBackend(page, { rpc: ab.rpc });
   await signIn(page);
-  await page.goto("admin/");
+  await page.goto("admin/?show=all");
   await expect(page.locator(".aevents li")).toHaveCount(3);
   await expect(page.locator('[data-act="admins"]')).toHaveCount(0);
 });
@@ -541,6 +541,7 @@ test("already in: 'Enter Another Code' opens the code box with Back; a community
   await page.locator("#addCode").click();
   await unlock(page, "COMMUNITY-1");
   await page.locator("#atab-events").click();
+  await page.locator("#evShow-all").click();
   await expect(page.locator(".aevents li")).toHaveCount(3);                 // community admin: every event
   await page.locator("#atab-community").click();
   await expect(page.locator("h2.group").filter({ hasText: /codes/i })).toBeVisible();
@@ -550,7 +551,7 @@ test("code holder who is also an event admin: Lock drops the code, keeps their o
   const ab = adminBackend({ scopes: ["events"], adminEvents: [LIVE_ID] });
   await stubBackend(page, { rpc: ab.rpc });
   await signIn(page);
-  await page.goto("admin/");
+  await page.goto("admin/?show=all");
   await expect(page.locator(".aevents li")).toHaveCount(3);
   await page.locator("#atab-community").click();
   await page.locator("#exit").click();
@@ -566,7 +567,7 @@ test("one event's NOT_ADMIN (it just closed) keeps the person's other events —
   ab.rpc.jc_admin_event_signups = () => { ab.st.adminEvents = [DRAFT_ID]; return raise("NOT_ADMIN"); };
   await stubBackend(page, { rpc: ab.rpc });
   await signIn(page);
-  await page.goto("admin/");
+  await page.goto("admin/?show=all");
   await expect(page.locator(".aevents li")).toHaveCount(2);
   await page.locator('[data-act="pause"]').click();
   await expect(page.locator("#msg")).toHaveText("Organizer tools are locked on your account — enter your code again.");
@@ -581,7 +582,7 @@ test("New event opens seven templates; Cancel goes back; Blank starts empty as a
   const ab = adminBackend({ scopes: ["community"] });
   await stubBackend(page, { rpc: ab.rpc });
   await signIn(page);
-  await page.goto("admin/");
+  await page.goto("admin/?show=all");
   await page.locator("#newEv").click();
   await expect(page.locator("[data-tpl]")).toHaveCount(7);
   await page.locator("#cancel").click();
@@ -598,7 +599,7 @@ test("Market template: one place + JICM notice + spots; place pinned from pasted
   const ab = adminBackend({ scopes: ["community"] });
   const { calls } = await stubBackend(page, { rpc: ab.rpc });
   await signIn(page);
-  await page.goto("admin/");
+  await page.goto("admin/?show=all");
   await page.locator("#newEv").click();
   await page.locator('[data-tpl="market"]').click();
   await expect(page.locator('input[name="kind"][value="venue"]')).toBeChecked();
@@ -633,7 +634,7 @@ test("required fields: * shown; Save without the place asks first; draft saves w
   const ab = adminBackend({ scopes: ["community"] });
   const { calls } = await stubBackend(page, { rpc: ab.rpc });
   await signIn(page);
-  await page.goto("admin/");
+  await page.goto("admin/?show=all");
   await page.locator("#newEv").click();
   await page.locator('[data-tpl="gathering"]').click();
   await expect(page.locator('label:has(#title_en) .req')).toHaveText("*");
@@ -682,7 +683,7 @@ test("editing: the kind is locked once homes signed up; an untouched venue sends
     kind: "venue", look: "gathering", venue_name_en: "Beach", venue_lat: 24.531, venue_lng: 54.431, capacity: 40, spots: false }] });
   const { calls } = await stubBackend(page, { rpc: ab.rpc });
   await signIn(page);
-  await page.goto("admin/");
+  await page.goto("admin/?show=all");
   await page.locator('li[data-event="test-event"] [data-act="edit"]').click();      // 3 homes in
   await expect(page.locator('input[name="kind"][value="venue"]')).toBeDisabled();
   await expect(page.locator("#form")).toContainText("Homes have signed up, so the kind can't change.");
@@ -711,7 +712,7 @@ test("venue editor: map only (no coordinates box); homes → venue sends kind + 
   const ab = adminBackend({ scopes: ["community"] });
   const { calls } = await stubBackend(page, { rpc: ab.rpc });
   await signIn(page);
-  await page.goto("admin/");
+  await page.goto("admin/?show=all");
   await page.locator('li[data-event="national-day-2026"] [data-act="edit"]').click();   // a homes draft
   await page.locator('input[name="kind"][value="venue"]').check();
   await expect(page.locator("#venueBox")).toBeVisible();
@@ -788,7 +789,7 @@ test("coming soon: a one-place draft with no place goes on the list; opening sig
     kind: "venue", look: "market" }] });
   const { calls } = await stubBackend(page, { rpc: ab.rpc });
   await signIn(page);
-  await page.goto("admin/");
+  await page.goto("admin/?show=all");
   const row = page.locator('li[data-event="fair"]');
   await expect(row.locator('[data-act="announce"]')).toHaveText("Publish as Coming Soon");
   await expect(row.locator('[data-act="publish"]')).toHaveText("Publish and Open Sign-Ups");
@@ -835,7 +836,7 @@ test("back to coming soon: offered on a published event nobody has joined; refus
     title_en: "Quiz Night", status: "live", signups_open: true, features: {}, payload_schema: { fields: {} }, entries: 0 }] });
   const { calls } = await stubBackend(page, { rpc: ab.rpc });
   await signIn(page);
-  await page.goto("admin/");
+  await page.goto("admin/?show=all");
   await expect(page.locator('li[data-event="test-event"] [data-act="announce"]')).toHaveCount(0);   // 3 homes in
   const row = page.locator('li[data-event="quiz"]');
   await expect(row.locator('[data-act="announce"]')).toHaveText("Move to Coming Soon");
@@ -918,7 +919,7 @@ test("Organizer Tools sub-menu: Events · Courts · Pets · Community · Banner 
   await stubBackend(page, { rpc: ab.rpc });
   await signIn(page);
   await page.goto("admin/");
-  await expect(page.locator(".subtabs [role=tab]")).toHaveText(["Events", "Courts", "Pets", "Community", "Banner"]);
+  await expect(page.locator(".subtabs [role=tab]")).toHaveText(["Events", "Courts", "Pets", "Community", "Announcement"]);
   await expect(page.locator("#newEv")).toBeVisible();
   await expect(page.locator("#bannerForm, [data-rotate], #healthOpen")).toHaveCount(0);
   await page.locator("#atab-banner").click();
