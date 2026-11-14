@@ -2112,7 +2112,7 @@ function pmKeep(){
   var m = el("msg"), keep = m && m.textContent ? { c: m.className, t: m.textContent } : null;
   /* jcFocusKeep never puts focus back in a text field (it moves to the h1): a phone's keyboard would close mid-word
      (review M2) — so the field being typed in gets focus and its caret back here */
-  var a = document.activeElement, typing = a && ["pmNote", "pmLogNote", "pmDate"].indexOf(a.id) >= 0 ? a.id : null;
+  var a = document.activeElement, typing = a && ["pmNote", "pmLogNote", "pmDate", "pmWhy"].indexOf(a.id) >= 0 ? a.id : null;
   var sel = typing && a.id !== "pmDate" ? [a.selectionStart, a.selectionEnd] : null;
   show("petadmin");
   var n = el("msg");
