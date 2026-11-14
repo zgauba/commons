@@ -28,8 +28,6 @@ h2.group{font-size:12.5px; letter-spacing:.08em; text-transform:uppercase; color
 .alarm{border:2px solid var(--jc-danger); border-radius:var(--jc-radius); padding:12px 14px; background:var(--jc-surface)}
 .alarm b{color:var(--jc-danger)}
 .alarm p{margin:6px 0 0; font-size:14px}
-.btn.danger-fill{background:var(--jc-danger); color:#2d0808}
-.btn.ghost.danger{color:var(--jc-danger); border-color:var(--jc-danger)}
 .facts{display:grid; grid-template-columns:auto 1fr; gap:6px 14px; margin:0; font-size:14px}
 .facts dt{color:var(--jc-muted); font-weight:700}
 .facts dd{margin:0; overflow-wrap:anywhere}
@@ -49,8 +47,6 @@ fieldset{border:0; margin:0; padding:0; display:flex; flex-direction:column; gap
 legend{font-size:13px; font-weight:700; color:var(--jc-muted); margin-bottom:6px; padding:0}
 .btn.wide{width:100%}
 /* Remove sits apart from Save, at the bottom of the Edit form */
-.danger-zone{margin-top:12px; border-color:var(--jc-danger); display:flex; flex-direction:column; gap:10px}
-.danger-zone .btn{align-self:flex-start}
 
 #ptPhotoIn:focus-visible + #ptPhotoPick{outline:2px solid var(--jc-accent); outline-offset:2px}
 

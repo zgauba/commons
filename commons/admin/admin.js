@@ -695,18 +695,20 @@ var VIEWS = {
     if (!f || !pmCan(f)) return pmGone();
     var live = jcModuleOn(cfg, "pets") && pv.err !== "MODULE_OFF", busyOff = pv.busy ? ' disabled' : '';
     if (live && !pv.detail && !pv.err && !pv.loading) pmLoad();
-    var care = hObj(f.care) || {}, sp = PE_SPECIES.indexOf(f.species) >= 0 ? f.species : "other";
+    var care = hObj(f.care) || {}, sp = PE_SPECIES.indexOf(f.species) >= 0 ? f.species : "other", stray = f.kind === "stray";
+    var home = !stray && hObj(f.home) && f.home.number != null ? jcHomeLabel(f.home) : "";
     function opts(id, attr, keys, cur, pre){
       return '<div class="opts" id="' + id + '">' + keys.map(function(k){
         return '<button type="button" ' + attr + '="' + k + '" aria-pressed="' + (cur === k) + '">' + esc(jcT(pre + k)) + '</button>';
       }).join("") + '</div>';
     }
     var html = '<h1 dir="auto">' + esc(petName(f)) + '</h1>' +
-      '<p class="sub">' + esc(jcT("pt_sp_" + sp) + " · " + jcT("pt_kind_stray")) + (f.territory ? ' · <span dir="auto">' + esc(f.territory) + '</span>' : '') + '</p>' +
+      '<p class="sub">' + esc(jcT("pt_sp_" + sp) + " · " + jcT(stray ? "pt_kind_stray" : "pt_kind_owned")) +
+        (stray && f.territory ? ' · <span dir="auto">' + esc(f.territory) + '</span>' : home ? ' · <span dir="auto">' + esc(home) + '</span>' : '') + '</p>' +
       msgBox() +
-      '<div class="row"><button class="btn ghost" type="button" id="pmEdit">' + esc(jcT("pm_edit")) + '</button>' +
+      '<div class="row">' + (stray ? '<button class="btn ghost" type="button" id="pmEdit">' + esc(jcT("pm_edit")) + '</button>' : '') +
       '<a class="btn ghost" href="../pets/?pet=' + encodeURIComponent(f.id) + '">' + esc(jcT("pm_view")) + '</a></div>' +
-      (live ? '' : '<p class="notice" id="pmOff">' + esc(jcT("pm_off")) + '</p>') +
+      (live ? '' : '<p class="notice" id="pmOff">' + esc(jcT(stray ? "pm_off" : "pm_off_owned")) + '</p>') + (!stray ? '' :
       '<h2 class="group">' + esc(jcT("pt_care_record")) + '</h2><p class="help">' + esc(jcT("pm_care_help")) + '</p>' +
       '<ul class="care" id="pmCare">' + PM_CARE.map(function(k){
         var it = hObj(care[k]), s = it && PM_ST.indexOf(it.s) >= 0 ? it.s : null;
@@ -728,8 +730,8 @@ var VIEWS = {
       '<h2 class="group">' + esc(jcT("pt_log")) + '</h2>' +
       '<div class="panel" id="pmLogForm"><fieldset><legend>' + esc(jcT("pm_log_kind")) + '</legend>' + opts("pmLogKind", "data-pmlog", PM_LOG, pv.log.kind, "pt_log_") + '</fieldset>' +
         '<label>' + esc(jcT("pm_log_note")) + '<textarea id="pmLogNote" maxlength="280" dir="auto"></textarea></label>' +
-        '<div class="row"><button class="btn" type="button" id="pmLogAdd"' + busyOff + '>' + esc(jcT("pm_log_add")) + '</button></div></div>';
-    if (live) {
+        '<div class="row"><button class="btn" type="button" id="pmLogAdd"' + busyOff + '>' + esc(jcT("pm_log_add")) + '</button></div></div>');
+    if (live && stray) {
       var logs = pv.detail && Array.isArray(pv.detail.care_log) ? pv.detail.care_log.filter(hObj) : null;
       html += pv.err ? '<div class="row"><button class="btn ghost" type="button" id="pmRetry">' + esc(jcT("adm_ad_retry")) + '</button></div>'
         : !logs ? '<p class="help">' + esc(jcT("working")) + '</p>'
@@ -739,9 +741,11 @@ var VIEWS = {
             return '<li><div class="meta">' + esc(jcT("pt_log_" + k) + " · " + hDate(c.at)) + '</div>' + (c.note ? '<div dir="auto">' + esc(c.note) + '</div>' : '') + '</li>';
           }).join("") + '</ul>';
     }
+    html += pmSightHtml(live, busyOff) + pmArchiveHtml(f, stray, home, busyOff);
     el("view").innerHTML = html;
     if (el("pmDate")) { el("pmDate").value = pv.cd.d; el("pmNote").value = pv.cd.n; }      /* values, not markup */
-    el("pmLogNote").value = pv.log.note;
+    if (el("pmLogNote")) el("pmLogNote").value = pv.log.note;
+    if (el("pmWhy")) el("pmWhy").value = pv.why;
     if (pv.err && pv.err !== "MODULE_OFF") showErr(pv.err);
     function pick(attr, set){
       each("[" + attr + "]", function(b){
@@ -759,7 +763,12 @@ var VIEWS = {
       el("pmDate").addEventListener("input", function(){ pv.cd.d = el("pmDate").value; });
       el("pmNote").addEventListener("input", function(){ pv.cd.n = el("pmNote").value; });
     }
-    el("pmLogNote").addEventListener("input", function(){ pv.log.note = el("pmLogNote").value; });
+    if (el("pmLogNote")) el("pmLogNote").addEventListener("input", function(){ pv.log.note = el("pmLogNote").value; });
+    if (el("pmWhy")) el("pmWhy").addEventListener("input", function(){ pv.why = el("pmWhy").value; });
+    each("[data-pmhide]", function(b){ pmHide(Number(b.dataset.pmhide), b.id); });
+    on("pmArchOpen", function(){ if (pv.busy) return; pv.arch = true; show("petadmin"); el("pmWhy").focus(); });
+    on("pmArchKeep", function(){ pv.arch = false; pv.why = ""; show("petadmin"); if (el("pmArchOpen")) el("pmArchOpen").focus(); });
+    on("pmArchGo", function(){ pmArchive(f, home); });
     each("[data-pmcare]", function(b){
       var k = b.dataset.pmcare, it = hObj(care[k]);
       if (pv.busy || PM_CARE.indexOf(k) < 0) return;
@@ -1904,7 +1913,10 @@ function loadPets(){
     if (OPEN_PET) {                                      /* once: never a jump later */
       var want = OPEN_PET, oc = petById(want);
       OPEN_PET = null; jcSetUrl("tab=pets");
-      if (oc && pmCan(oc) && current === "home" && admTab === "pets") return pmOpen(oc);   /* R5d-3a: straight to Manage */
+      if (oc && pmCan(oc) && current === "home" && admTab === "pets") {   /* R5d-3a: straight to Manage */
+        paShow = "all"; paQ = "";                        /* Back finds it: never hidden by a chip or a search */
+        return pmOpen(oc);
+      }
       paFocus = want;
     }
     if (current === "petadmin") return pmKeep();
@@ -2070,10 +2082,11 @@ function petsLinkSave(v, btn){
 var PM_CARE = ["sterilized", "dewormed", "vaccination", "treatment"];
 var PM_ST = ["done", "due", "ongoing"];                 /* "unknown" is Clear: its own button, with a confirm */
 var PM_LOG = ["fed", "vet", "note", "state"];
-function pmCan(p){ return !!p && p.kind === "stray" && p.status === "active"; }   /* 3b adds households' pets (moderation) */
+function pmCan(p){ return !!p && p.status === "active"; }   /* R5d-3b: every active animal (moderation); care is strays' */
 function pmOpen(f){
   if (!isPetsAdmin() || !pmCan(f)) return;
-  pv = { id: f.id, detail: null, err: null, loading: false, item: null, cd: { s: "", d: "", n: "" }, log: { kind: "fed", note: "" }, busy: false };
+  pv = { id: f.id, detail: null, err: null, loading: false, item: null, cd: { s: "", d: "", n: "" }, log: { kind: "fed", note: "" }, busy: false,
+         arch: false, why: "" };
   admTab = "pets";
   show("petadmin");
   try { window.scrollTo(0, 0); } catch(e){}
@@ -2172,6 +2185,72 @@ function pmLogAdd(){
     me.detail = null; me.err = null; me.loading = false; /* the server returns no log: a fresh read (an older one is dropped) */
     show("petadmin");
     showOk(jcT("pm_log_added"));
+  });
+}
+
+/* ---------- R5d-3b: moderation on Manage — hide a sighting, archive with a reason (server S4) ---------- */
+function pmSightHtml(live, off){
+  var h = '<h2 class="group">' + esc(jcT("pt_sightings")) + '</h2>';
+  if (!live) return h + '<p class="help" id="pmSightOff">' + esc(jcT("pm_sight_off")) + '</p>';
+  var list = pv.detail && Array.isArray(pv.detail.sightings) ? pv.detail.sightings.filter(function(s){ return hObj(s) && Number.isSafeInteger(s.id); }) : null;
+  if (!list) return h + (pv.err ? '' : '<p class="help">' + esc(jcT("working")) + '</p>');
+  if (!list.length) return h + '<p class="help" id="pmSightNone">' + esc(jcT("pt_sightings_none")) + '</p>';
+  return h + '<p class="help">' + esc(jcT("pm_hide_help")) + '</p><ul class="sulist" id="pmSight">' + list.map(function(s){
+    var pos = jcFinite(s.lat) && jcFinite(s.lng);
+    return '<li data-sighting="' + esc(String(s.id)) + '"><div class="meta">' + esc(hDate(s.seen_at)) + '</div>' +
+      (s.note ? '<div dir="auto">' + esc(s.note) + '</div>' : '') +
+      '<div class="acts">' + (pos ? '<a class="btn ghost small" target="_blank" rel="noopener noreferrer" href="' +
+        esc("https://www.google.com/maps/search/?api=1&query=" + encodeURIComponent(s.lat + "," + s.lng)) + '">' + esc(jcT("pt_on_map")) + '</a>' : '') +
+      '<button class="mini danger" type="button" id="pmHide-' + esc(String(s.id)) + '" data-pmhide="' + esc(String(s.id)) + '"' + off + '>' +
+        esc(jcT("pm_hide")) + '</button></div></li>';
+  }).join("") + '</ul>';
+}
+function pmArchiveHtml(f, stray, home, off){
+  var n = petName(f);
+  var help = stray ? jcFmt("pm_arch_help_stray", { n: n }) : jcFmt("pm_arch_help_owned", { n: n, h: home || jcT("pm_arch_a_home") });
+  if (!pv.arch) return '<div class="panel danger-zone" id="pmArch"><p class="help">' + esc(help) + '</p>' +
+    '<button class="btn ghost danger" type="button" id="pmArchOpen"' + off + '>' + esc(jcFmt("pm_arch_open", { n: n })) + '</button></div>';
+  return '<div class="panel danger-zone" id="pmArch"><p class="help"><b>' + esc(help) + '</b></p>' +
+    '<label>' + esc(jcT("pm_why")) + '<input id="pmWhy" type="text" maxlength="200" dir="auto" autocomplete="off"></label>' +
+    '<p class="help">' + esc(jcT("pm_why_help")) + '</p>' +
+    '<div class="row"><button class="btn danger-fill" type="button" id="pmArchGo"' + off + '>' + esc(jcFmt("pm_arch_go", { n: n })) + '</button>' +
+    '<button class="btn ghost" type="button" id="pmArchKeep">' + esc(jcT("pm_arch_keep")) + '</button></div></div>';
+}
+function pmHide(id, btn){
+  if (!pv || pv.busy || !Number.isSafeInteger(id)) return;
+  if (!window.confirm(jcT("pm_hide_q"))) return;
+  function gone(me){
+    me.detail = null; me.err = null; me.loading = false;    /* read the sightings again (the hidden one is left out) */
+    show("petadmin");
+    showOk(jcT("pm_hidden"));
+  }
+  var me0 = pv;
+  me0.busy = true; busy(btn, true);
+  rpc("jc_admin_sighting_hide", { p_sighting: id }).then(function(){
+    me0.busy = false;
+    if (pv === me0 && current === "petadmin") gone(me0);
+  }, function(e){
+    me0.busy = false;
+    var code = (e && e.code) || "UNKNOWN";
+    if (code === "NOT_ADMIN") return fail(e);
+    if (pv !== me0 || current !== "petadmin") return;
+    if (code === "NOT_FOUND") return gone(me0);           /* already hidden (another tap, another organizer) */
+    show("petadmin");
+    jcShowErrFor("pm_err_", code);
+  });
+}
+/* the typed reason is the confirm (as a court booking's cancel); it goes to the admin log, never to residents */
+function pmArchive(f, home){
+  var why = (pv && pv.why || "").trim(), n = petName(f);
+  if (why.length < 3) { jcShowErrFor("pm_err_", "REASON_REQUIRED"); if (el("pmWhy")) el("pmWhy").focus(); return; }
+  pmWrite("pmArchGo", function(){ return rpc("jc_admin_pet_archive", { p_pet: f.id, p_reason: why }); }, function(list){
+    pv = null; admTab = "pets";
+    if (Array.isArray(list) && pa && !pa.err) pa.list = list.filter(function(p){ return hObj(p) && typeof p.id === "string"; });
+    else pa = null;
+    jcSetUrl("tab=pets");
+    show("home");
+    try { window.scrollTo(0, 0); } catch(e){}
+    showOk(jcFmt("pm_archived", { n: n }));
   });
 }
 

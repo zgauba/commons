@@ -171,3 +171,9 @@ a.badge:visited{color:var(--jc-accent)}
 .care .st-done{color:var(--jc-good)}
 .care .st-due{color:var(--jc-warn)}
 .care .note{flex-basis:100%; color:var(--jc-muted); font-size:13px}
+
+/* red buttons and the danger zone (Pets; R5d-3b: shared with Organizer Tools — Remove Photo, Archive) */
+.btn.danger-fill{background:var(--jc-danger); color:#2d0808}
+.btn.ghost.danger{color:var(--jc-danger); border-color:var(--jc-danger)}
+.danger-zone{margin-top:12px; border-color:var(--jc-danger); display:flex; flex-direction:column; gap:10px}
+.danger-zone .btn{align-self:flex-start}
