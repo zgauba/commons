@@ -60,7 +60,7 @@ test("who sees Courts: community + courts admins; an events organizer doesn't", 
   await stubBackend(page, { rpc: b.rpc });
   await signIn(page);
   await page.goto("admin/");
-  await expect(page.locator('[role="tab"]')).toHaveText(["Events", "Community", "Banner"]);
+  await expect(page.locator('[role="tab"]')).toHaveText(["Events", "Community", "Announcement"]);
   b.st.scopes = ["bookings"];
   await page.goto("admin/?tab=courts");
   await expect(page.locator('[role="tab"]')).toHaveText(["Courts", "Community"]);
@@ -68,7 +68,7 @@ test("who sees Courts: community + courts admins; an events organizer doesn't", 
   await expect(page.locator("#ctRules")).toHaveText("Each home can book 1 slot a day and hold 2 upcoming bookings. Bookings are kept 90 days, then only hourly totals remain.");
   b.st.scopes = ["community"];
   await page.goto("admin/?tab=courts");
-  await expect(page.locator('[role="tab"]')).toHaveText(["Events", "Courts", "Pets", "Community", "Banner"]);
+  await expect(page.locator('[role="tab"]')).toHaveText(["Events", "Courts", "Pets", "Community", "Announcement"]);
 });
 
 test("list: status, pin, hours, upcoming; walk-on shows no grid; retired apart with no actions", async ({ page }) => {

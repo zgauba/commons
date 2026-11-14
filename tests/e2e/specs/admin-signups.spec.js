@@ -8,6 +8,7 @@ const lastCall = (calls, name) => calls.filter((c) => c.name === name).pop();
 const card = (page, n) => page.locator(".sulist li").filter({ has: page.locator("b", { hasText: new RegExp("^(Villa|Townhouse) " + n + "$") }) });
 
 async function openSignups(page, slug) {
+  await page.locator("#evShow-all").click();   // OT-1: past and closed events sit under their own chip
   await page.locator(`li[data-event="${slug}"] [data-act="signups"]`).click();
   await expect(page.locator(".sulist").first()).toBeVisible();
 }
@@ -249,7 +250,7 @@ test("banner: organizer posts after a confirm; it shows on admin, events and My 
   expect(calls.filter((c) => c.name === "jc_admin_broadcast_set")).toHaveLength(0);
   page.once("dialog", (d) => d.accept());
   await page.locator("#bannerSave").click();
-  await expect(page.locator("#msg")).toHaveText("Banner posted.");
+  await expect(page.locator("#msg")).toHaveText("Announcement posted.");
   expect(lastCall(calls, "jc_admin_broadcast_set").args).toEqual({ p_text: "Road closed near Seef — use the north gate" });
   await expect(page.locator("#jcBanner")).toHaveText("⚠️ Road closed near Seef — use the north gate");
   await expect(page.locator("#bannerText")).toHaveValue("Road closed near Seef — use the north gate");
@@ -262,7 +263,7 @@ test("banner: organizer posts after a confirm; it shows on admin, events and My 
   await expect(page.locator("#jcBanner")).toHaveCount(0);
   await page.goto("admin/?tab=banner");
   await page.locator("#bannerClear").click();
-  await expect(page.locator("#msg")).toHaveText("Banner removed.");
+  await expect(page.locator("#msg")).toHaveText("Announcement removed.");
   expect(lastCall(calls, "jc_admin_broadcast_set").args).toEqual({ p_text: "" });
   await expect(page.locator("#jcBanner")).toHaveCount(0);
 });
@@ -273,7 +274,7 @@ test("banner: empty post refused on the phone; event admin without a live event 
   await signIn(page);
   await page.goto("admin/?tab=banner");
   await page.locator("#bannerSave").click();
-  await expect(page.locator("#msg")).toHaveText("Write the banner first — or tap Remove banner.");
+  await expect(page.locator("#msg")).toHaveText("Write the announcement first — or tap Remove Announcement.");
   expect(calls.filter((c) => c.name === "jc_admin_broadcast_set")).toHaveLength(0);
 
   const ab2 = adminBackend({ adminEvents: [PAST_ID] });

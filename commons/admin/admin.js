@@ -13,6 +13,9 @@
 var state = null, cfg = null, current = null;
 /* ?event=<id> — the events list's Admin badge: open that event's editor once loaded */
 var OPEN_EVENT = new URLSearchParams(location.search).get("event");
+var EV_SHOWS = ["all", "now", "upcoming", "past"];   /* All first, as on Pets (Zee 2026-11-14) */
+var evShow = new URLSearchParams(location.search).get("show");   /* OT-1: the Events chip (?tab=events&show=past); null = the default */
+var evQ = "";                                                     /* OT-1: the Events search, kept across redraws */
 var OPEN_COURT = new URLSearchParams(location.search).get("court");   /* from a court's Admin button on Courts */
 var OPEN_PET = new URLSearchParams(location.search).get("pet");       /* R5d-1: from an animal's Admin button on Pets */
 /* ?eventadmin=<token> — a community admin's grant link (T5.2 PR B): asked, never auto-accepted */
@@ -406,12 +409,77 @@ function noticeHome(h){
 }
 
 /* ---------- Organizer Tools home: one panel per tab (ADM_TABS) ---------- */
+/* OT-1 (Zee 2026-11-14): Now · Upcoming · Past chips with counts, and a search over the list already loaded.
+   Now = live and started (today or earlier in community time, not yet ended); Past = ended or archived;
+   Upcoming = the rest (drafts, coming soon, open for a later date). */
+function evGroup(e){
+  if (e.status === "archived" || e.ended === true) return "past";
+  if (e.status === "live" && !e.coming_soon && typeof e.starts_at === "string" && jcDateOf(e.starts_at, cfg) <= jcTzToday(cfg)) return "now";
+  return "upcoming";
+}
+/* after a save or a step, keep that event in sight: a draft just made, an event just published or closed moves
+   to another chip, so follow it there (All already shows it) */
+function evFollow(id){
+  var e = byId(id);
+  if (!e) return;
+  if (!jcMatches(evQ, evFields(e))) evQ = "";          /* a search that would hide it is cleared */
+  if (evShow === "all") return;
+  evShow = evGroup(e); jcSetUrl("tab=events&show=" + evShow);
+}
+function evFields(e){ return [e.title_en, e.title_ar, e.slug, e.venue_name_en, e.venue_name_ar]; }
+function evWhen(e){ var t = Date.parse(e.starts_at); return isFinite(t) ? t : Infinity; }   /* no date: last */
+function evParts(){
+  var groups = { now: [], upcoming: [], past: [] }, all = { now: 0, upcoming: 0, past: 0 };
+  events.forEach(function(e){
+    var g = evGroup(e);
+    all[g]++;
+    if (jcMatches(evQ, evFields(e))) groups[g].push(e);
+  });
+  /* the default (no chip chosen yet): what's on now, else what's coming, else the past */
+  var show = EV_SHOWS.indexOf(evShow) >= 0 ? evShow : all.now ? "now" : all.upcoming ? "upcoming" : "past";
+  function byDate(g){ return groups[g].slice().sort(function(a, b){ return g === "past" ? evWhen(b) - evWhen(a) : evWhen(a) - evWhen(b); }); }
+  /* All: on now, then coming up (soonest first), then past (newest first) */
+  groups.all = groups.now.concat(groups.upcoming, groups.past);
+  var list = show === "all" ? byDate("now").concat(byDate("upcoming"), byDate("past")) : byDate(show);
+  return {
+    chips: jcChipsHtml({ id: "evChips", prefix: "evShow-", label: jcT("adm_ev_filter"), current: show,
+                         items: EV_SHOWS.map(function(k){ return { key: k, text: jcT("adm_ev_" + k), n: groups[k].length }; }) }),
+    list: list.length ? '<ul class="aevents">' + list.map(eventRow).join("") + '</ul>'
+        : '<p class="help" id="evNone" role="status">' + esc(evQ.trim() ? jcFmt("adm_ev_no_match", { q: evQ.trim() }) : jcT("adm_ev_none_" + show)) + '</p>'
+  };
+}
 /* creating events is the community's step (T5.2 D2) */
 function admEventsHtml(){
-  return (isOrganizer() ? '<div class="row"><button class="btn" type="button" id="newEv">' + esc(jcT("adm_new")) + '</button></div>' : '') +
-    '<h2 class="group">' + esc(jcModName("events")) + '</h2>' +
-    (events.length ? '<ul class="aevents">' + events.map(eventRow).join("") + '</ul>'
-                   : '<p class="help">' + esc(jcT("adm_none")) + '</p>');
+  var head = isOrganizer() ? '<div class="row"><button class="btn" type="button" id="newEv">' + esc(jcT("adm_new")) + '</button></div>' : '';
+  if (!events.length) return head + '<p class="help">' + esc(jcT("adm_none")) + '</p>';
+  var p = evParts();
+  return head + '<div class="evtools"><div id="evChipsBox">' + p.chips + '</div>' +
+    jcSearchHtml({ id: "evSearch", placeholder: jcT("adm_ev_search"), value: evQ }) + '</div>' +
+    '<div id="evListBox">' + p.list + '</div>';
+}
+function wireEvRows(root){
+  Array.prototype.forEach.call(root.querySelectorAll("[data-act]"), function(b){
+    b.addEventListener("click", function(){ act(b.dataset.act, b.dataset.id, b); });
+  });
+}
+function wireEvChips(){
+  jcChipsWire("evChips", "evShow-", function(k){
+    if (EV_SHOWS.indexOf(k) < 0) return;
+    evShow = k; jcSetUrl("tab=events&show=" + k); show("home");
+  });
+}
+function wireEvTools(){
+  wireEvChips();
+  var s = el("evSearch");
+  if (s) s.addEventListener("input", function(){
+    /* only the chips and the list redraw: the box keeps focus and the cursor */
+    evQ = s.value;
+    var p = evParts();
+    el("evChipsBox").innerHTML = p.chips;
+    el("evListBox").innerHTML = p.list;
+    wireEvRows(el("evListBox"));
+    wireEvChips();
+  });
 }
 /* the banner (T5.2 PR 4): organizers any time; an event admin while an event they run is live */
 function admBannerHtml(){
@@ -493,6 +561,12 @@ var VIEWS = {
     var panel = ADM_TABS.filter(function(x){ return x.key === admTab; })[0].html();
     html += tabs.length > 1 ? '<div ' + jcTabPanel("atab-", admTab, "admPanel") + '>' + panel + '</div>' : panel;
     el("view").innerHTML = html;
+    /* the tab row scrolls sideways when it can't fit (OT-1): keep the chosen tab in view */
+    var at = el("atab-" + admTab);
+    if (at && at.parentNode && at.parentNode.scrollWidth > at.parentNode.clientWidth) {
+      var row = at.parentNode, r = at.getBoundingClientRect(), rr = row.getBoundingClientRect();
+      if (r.left < rr.left || r.right > rr.right) row.scrollLeft += r.left < rr.left ? r.left - rr.left - 16 : r.right - rr.right + 16;
+    }
     jcTabsWire("atab-", tabs, function(t){
       if (el("bannerText")) bannerDraft = el("bannerText").value;   /* a half-typed banner survives a tab switch */
       admTab = t;
@@ -506,9 +580,8 @@ var VIEWS = {
     on("hhOpen", function(){ hh = null; show("households"); });
     on("mnOpen", function(){ mnDraft = null; mnSec = null; show("names"); });
     on("adOpen", function(){ ad = null; show("admins"); });
-    Array.prototype.forEach.call(document.querySelectorAll("[data-act]"), function(b){
-      b.addEventListener("click", function(){ act(b.dataset.act, b.dataset.id, b); });
-    });
+    wireEvRows(document);
+    if (admTab === "events") wireEvTools();
     Array.prototype.forEach.call(document.querySelectorAll("[data-rotate]"), function(b){
       b.addEventListener("click", function(){ rotate(b.dataset.rotate, b); });
     });
@@ -1452,7 +1525,7 @@ function act(a, id, b){
     : rpc("jc_admin_event_signups", { p_event: id, p_open: a === "open" });
   b.disabled = true;
   call.then(function(list){
-    events = list; show("home");
+    events = list; evFollow(id); show("home");
     showOk(jcT(a === "publish" ? "adm_published" : a === "announce" ? "adm_announced" : a === "open" ? "adm_opened" : "adm_paused"));
   }, function(err){ b.disabled = false; fail(err); });
 }
@@ -1465,7 +1538,7 @@ function closeEvent(){
   rpc("jc_event_close", { p_event: e.id, p_confirm: e.slug }).then(function(snap){
     closing = null;
     return rpc("jc_admin_events_list").then(function(list){
-      events = list; show("home");
+      events = list; evFollow(e.id); show("home");
       showOk(jcFmt("adm_closed_ok", { n: (snap && snap.homes) || 0 }));
     });
   }, function(err){ busy("closeGo", false); fail(err); });
@@ -3038,8 +3111,11 @@ function saveEvent(){
   if (!draft && !orig.coming_soon && ("starts_at" in f || "ends_at" in f) && s && !en
       && !window.confirm(jcT("adm_no_end_warn"))) return;
   busy("save", true);
+  var had = events.map(function(x){ return x.id; });
   rpc("jc_admin_event_save", { p_event: ev ? ev.id : null, p_fields: f }).then(function(list){
-    events = list; ed = null; show("home");
+    events = list; ed = null;
+    evFollow(ev ? ev.id : (list.filter(function(x){ return had.indexOf(x.id) < 0; })[0] || {}).id);
+    show("home");
     showOk(miss.length ? jcFmt(orig.coming_soon ? "adm_saved_soon_missing" : "adm_saved_draft_missing", { list: missText })
       : jcT(draft ? "adm_saved_draft" : "adm_saved"));
   }, function(err){ busy("save", false); fail(err); });

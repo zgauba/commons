@@ -119,7 +119,7 @@ test("publishing a homes event without a date says what's missing and never asks
   const ab = adminBackend({ scopes: ["events"], draftUndated: true });
   const { calls } = await stubBackend(page, { rpc: ab.rpc });
   await signIn(page);
-  await page.goto("admin/");
+  await page.goto("admin/?show=all");
   await page.locator('li[data-event="national-day-2026"] [data-act="publish"]').click();
   await expect(page.locator("#msg")).toHaveText("Before you can publish, add: Starts. Tap Edit to finish it.");
   expect(calls.some((c) => c.name === "jc_admin_event_publish")).toBe(false);
@@ -143,7 +143,7 @@ test("a server NO_DATE (e.g. another organizer cleared it) is said in words", as
   await stubBackend(page, { rpc: Object.assign({}, ab.rpc, {
     jc_admin_event_publish: () => ({ status: 400, body: { code: "P0001", message: "NO_DATE" } }) }) });
   await signIn(page);
-  await page.goto("admin/");
+  await page.goto("admin/?show=all");
   page.once("dialog", (d) => d.accept());
   await page.locator('li[data-event="national-day-2026"] [data-act="publish"]').click();
   await expect(page.locator("#msg")).toHaveText("A homes event needs its start date — event day and its end depend on it.");
@@ -155,7 +155,7 @@ test("Organizer Tools: an ended event says when it closes automatically", async 
   Object.assign(ev, { ended: true, ends_effective: "2026-11-06T06:50:00Z" });
   await stubBackend(page, { rpc: ab.rpc });
   await signIn(page);
-  await page.goto("admin/");
+  await page.goto("admin/?show=all");
   await expect(page.locator('li[data-event="test-event"] small')).toContainText(/Ended · closes automatically 7 Nov\D+10:50/);   // engines word the date slightly differently
 });
 
@@ -190,7 +190,7 @@ test("banner: an organizer ties it to a live event (one call with the event), or
   await page.locator("#bannerEvent").selectOption(ADMIN_LIVE_ID);
   page.once("dialog", (d) => d.accept());
   await page.locator("#bannerSave").click();
-  await expect(page.locator("#msg")).toHaveText("Banner posted. It comes down when that event closes.");
+  await expect(page.locator("#msg")).toHaveText("Announcement posted. It comes down when that event closes.");
   expect(lastCall(calls, "jc_admin_broadcast_set_event").args)
     .toEqual({ p_text: "Parking on the north road tonight", p_event: ADMIN_LIVE_ID });
   expect(calls.some((c) => c.name === "jc_admin_broadcast_set")).toBe(false);
@@ -200,7 +200,7 @@ test("banner: an organizer ties it to a live event (one call with the event), or
   await page.locator("#bannerText").fill("Pool closed Friday");
   page.once("dialog", (d) => d.accept());
   await page.locator("#bannerSave").click();
-  await expect(page.locator("#msg")).toHaveText("Banner posted.");
+  await expect(page.locator("#msg")).toHaveText("Announcement posted.");
   expect(lastCall(calls, "jc_admin_broadcast_set").args).toEqual({ p_text: "Pool closed Friday" });
 });
 
@@ -223,7 +223,7 @@ test("admin log: tying the banner reads in words", async ({ page }) => {
   await page.goto("admin/?tab=community");
   await page.locator("#hhOpen").click();
   await page.locator("#logOpen").click();
-  await expect(page.locator(".fblist li").first()).toContainText("Tied the banner to an event");
+  await expect(page.locator(".fblist li").first()).toContainText("Tied the announcement to an event");
 });
 
 // ── review fixes (code review C-M1 / C-M2 / C-L1 / C-L2, design D-M4) ──
@@ -285,7 +285,7 @@ test("Organizer Tools uses the server's close time when it sends one", async ({ 
     { ended: true, ends_effective: "2026-11-06T06:50:00Z", closes_at: "2026-11-08T09:00:00Z" });
   await stubBackend(page, { rpc: ab.rpc });
   await signIn(page);
-  await page.goto("admin/");
+  await page.goto("admin/?show=all");
   await expect(page.locator('li[data-event="test-event"] small')).toContainText(/closes automatically 8 Nov\D+13:00/);
 });
 
@@ -293,7 +293,7 @@ test("publishing with a start but no end warns what that means; clearing a live 
   const ab = adminBackend({ scopes: ["events"] });
   const { calls } = await stubBackend(page, { rpc: ab.rpc });
   await signIn(page);
-  await page.goto("admin/");
+  await page.goto("admin/?show=all");
   const asked = [];
   page.once("dialog", (d) => { asked.push(d.message()); d.dismiss(); });
   await page.locator('li[data-event="national-day-2026"] [data-act="publish"]').click();
@@ -312,7 +312,7 @@ test("the no-end warning in Arabic", async ({ page }) => {
   const ab = adminBackend({ scopes: ["events"] });
   await stubBackend(page, { rpc: ab.rpc });
   await signIn(page);
-  await page.goto("admin/");
+  await page.goto("admin/?show=all");
   await page.locator("#langBtn").click();
   const asked = [];
   page.once("dialog", (d) => { asked.push(d.message()); d.dismiss(); });

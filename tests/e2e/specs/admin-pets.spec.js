@@ -58,13 +58,13 @@ test("who sees Pets: pets and community admins; courts-only and events-only don'
   expect(calls.filter((c) => c.name === "jc_admin_pets_list" || c.name === "jc_pets_group_get")).toEqual([]);   // never asked
   b.ab.st.scopes = ["events"];
   await page.goto("admin/?tab=pets");
-  await expect(page.locator('[role="tab"]')).toHaveText(["Events", "Community", "Banner"]);
+  await expect(page.locator('[role="tab"]')).toHaveText(["Events", "Community", "Announcement"]);
   b.ab.st.scopes = ["pets"];
   await page.goto("admin/?tab=pets");
   await expect(page.locator('[role="tab"]')).toHaveText(["Pets", "Community"]);
   b.ab.st.scopes = ["community"];
   await page.goto("admin/?tab=pets");
-  await expect(page.locator('[role="tab"]')).toHaveText(["Events", "Courts", "Pets", "Community", "Banner"]);
+  await expect(page.locator('[role="tab"]')).toHaveText(["Events", "Courts", "Pets", "Community", "Announcement"]);
   await expect(page.locator("#atab-pets")).toHaveAttribute("aria-selected", "true");
 });
 
