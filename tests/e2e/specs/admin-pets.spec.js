@@ -656,6 +656,7 @@ test("R5d-3a: care log (Pets on) — a line is added, the log is read again, the
   // the log is public: the note box says so (stray-care review, 2026-11-15)
   await expect(page.locator("#pmLogPublic")).toHaveText("Residents see the log on the animal's page.");
   await expect(page.locator("#pmLogNote")).toHaveAttribute("aria-describedby", "pmLogPublic");
+  await page.locator('[data-pmlog="note"]').click();                       // a Note IS the text: still required
   await page.locator("#pmLogAdd").click();
   await expect(page.locator("#msg")).toHaveText("Write a short note for the log.");
   await expect(page.locator("#pmLogNote")).toBeFocused();
@@ -668,6 +669,12 @@ test("R5d-3a: care log (Pets on) — a line is added, the log is read again, the
   await expect(page.locator("#pmLog li").first()).toContainText("Fed at the marina steps, ate well");
   await expect(page.locator("#pmLogNote")).toHaveValue("");
   expect(calls.filter((c) => c.name === "jc_pet_get")).toHaveLength(2);                  // opened + after the add
+  // quick log (2026-11-15): Fed / Vet visit need no note — one tap, sent as null
+  await expect(page.locator("#pmLogForm label")).toContainText("Note (optional for Fed and Vet visit)");
+  await page.locator('[data-pmlog="vet"]').click();
+  await page.locator("#pmLogAdd").click();
+  await expect(page.locator("#msg")).toHaveText("Added to the log.");
+  expect(b.st.adds[1]).toEqual({ p_pet: ID(3), p_kind: "vet", p_note: null });
   if (process.env.SHOT_DIR) await page.screenshot({ path: process.env.SHOT_DIR + "/pm-log.png", fullPage: true });
 });
 

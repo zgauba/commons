@@ -2182,8 +2182,9 @@ function pmCareSet(status, btn){
 function pmLogAdd(){
   if (!pv) return;
   var kind = PM_LOG.indexOf(pv.log.kind) >= 0 ? pv.log.kind : "note", note = pv.log.note.trim();
-  if (!note) { jcShowErrFor("pm_err_", "LOG_EMPTY"); el("pmLogNote").focus(); return; }
-  pmWrite("pmLogAdd", function(){ return rpc("jc_admin_pet_care_add", { p_pet: pv.id, p_kind: kind, p_note: note }); }, function(r, me){
+  /* Fed / Vet visit log with one tap; a Note or Status change IS the text (quick log, 2026-11-15) */
+  if (!note && kind !== "fed" && kind !== "vet") { jcShowErrFor("pm_err_", "LOG_EMPTY"); el("pmLogNote").focus(); return; }
+  pmWrite("pmLogAdd", function(){ return rpc("jc_admin_pet_care_add", { p_pet: pv.id, p_kind: kind, p_note: note || null }); }, function(r, me){
     me.log.note = "";
     me.detail = null; me.err = null; me.loading = false; /* the server returns no log: a fresh read (an older one is dropped) */
     show("petadmin");

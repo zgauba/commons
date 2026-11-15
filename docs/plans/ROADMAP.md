@@ -201,6 +201,17 @@ Schema exists (S4: pets, photos, care log, sightings, missing). Concept: canvas 
   already "bookings" (module flag, folder) and a court is a facility with a `kind`, so it is mostly new kinds + labels.
   Not scheduled.
 
+### Commons home v2  ·  app (+ DB only if "For you" needs one read)  ·  LAST feature before launch planning (Zee 2026-11-15)
+The hub today is one column of big module cards and "Welcome, Villa 12" — nothing tells a resident what needs them,
+so the Commons button feels wasted. Needs `/plan-change`, and a clickable mockup first (Zee wants to see it).
+- **For you** (top): from data the app already has — events open for sign-up your home hasn't joined, your next court
+  booking, a missing pet nearby, an organizer's to-dos. Check the hub's load cost (3–4 reads → maybe one RPC).
+- **Modules in 2 columns**: compact tiles (icon, name, one line).
+- **What you can do here** (below the tiles): short explainer, doubles as onboarding.
+- Decide with the mockup: a small fixed Commons icon at the far left of the bottom bar (6 buttons for organizers;
+  Apple's guidance is 3–5; Arabic / renamed labels get tight; Commons icon vs My Home icon confusion).
+- **News** (organizer posts) stays its own track ("News on the Commons home" above) — DB + posting rules.
+
 ### R7 — Launch prep (not features)
 - **Retire the shared `events` organizer code** (Step C, parked until testing is done) → per-event admins only.
 - **Retire the Halloween site** into Commons (Zee 2026-11-14: a pre-launch step, not before). Inventory 2026-11-14:
