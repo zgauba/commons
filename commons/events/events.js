@@ -288,6 +288,11 @@ var VIEWS = {
       jcSetUrl("id=" + encodeURIComponent(ev.id) + "&tab=" + t);
       show("detail");
     });
+    /* not signed up yet: the Sign Up tab is filled like the list's Sign Up button — a grey tab next to Map
+       went unnoticed (tester, 2026-11-15). Same rule as the list card's button. */
+    var mineTab = el("tab-mine");
+    if (mineTab) mineTab.classList.toggle("cta", openNow(ev) && !(data.mine && data.mine.status === "in") &&
+      !(isVenue(ev) && ev.places_left === 0));
     wireDesc();
     if (tab === "map") renderMap(entries);
     else if (tab === "list") renderList(entries, "");
