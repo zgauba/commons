@@ -64,21 +64,21 @@ for (const [name, prefs] of [["key missing", undefined], ["{}", {}]]) {
 }
 
 test("Settings: hide, reorder, start page → exact merged jc_prefs_set → bar updates and survives reload", async ({ page }) => {
-  // a Courts-scope admin (module admin): Organizer Tools is offered; an unrelated prefs key must survive
+  // a Courts-scope organizer: Organizer Tools is a fixed row, not a choice; an unrelated prefs key must survive
   const b = shellBackend({ prefs: { x: 1 }, extra: { admin_scopes: ["bookings"] } });
   const { calls } = await stubBackend(page, { rpc: b.rpc });
   await signIn(page);
   await openSettings(page);
-  await expect.poll(() => settings(page)).toEqual(["commons", "events", "admin"]);     // available destinations only
-  await expect(page.locator("#shellSec li.fixed")).toContainText("My Home");
-  await expect(page.locator('#shellSec li[data-dest="admin"] [data-act="toggle"]')).toHaveAttribute("aria-checked", "false");
-  await page.locator('#shellSec li[data-dest="admin"] [data-act="toggle"]').click();
+  await expect.poll(() => settings(page)).toEqual(["commons", "events"]);     // chosen destinations only
+  await expect(page.locator('#shellSec li[data-fixed="admin"]')).toContainText("Organizer");
+  await expect(page.locator('#shellSec li[data-fixed="admin"]')).toContainText("Always shown, before My Home");
+  await expect(page.locator("#shellSec li.fixed").last()).toContainText("My Home");
+  await expect(page.locator("#shellSec .panel > p.help").first()).toContainText("Choose up to 3 buttons");
+  await page.locator('#shellSec li[data-dest="events"] [data-act="up"]').click();
+  await expect.poll(() => settings(page)).toEqual(["events", "commons"]);
+  await expect(page.locator('#shellSec li[data-dest="events"] [data-act="toggle"]')).toBeFocused();  // "up" is now disabled
   await page.locator('#shellSec li[data-dest="commons"] [data-act="toggle"]').click();
-  await page.locator('#shellSec li[data-dest="admin"] [data-act="up"]').click();
-  await expect(page.locator('#shellSec li[data-dest="admin"] [data-act="up"]')).toBeFocused();   // focus stays on the row
-  await page.locator('#shellSec li[data-dest="admin"] [data-act="up"]').click();
-  await expect.poll(() => settings(page)).toEqual(["admin", "commons", "events"]);
-  await expect(page.locator('#shellSec li[data-dest="admin"] [data-act="toggle"]')).toBeFocused();  // "up" is now disabled
+  await expect(page.locator('#shellSec li[data-dest="commons"] [data-act="toggle"]')).toBeFocused();  // focus stays on the row
   await page.locator("#start-events").check();
   const before = calls.length;
   await page.locator("#saveShell").click();
@@ -86,10 +86,10 @@ test("Settings: hide, reorder, start page → exact merged jc_prefs_set → bar 
   const sent = calls.slice(before).filter((c) => c.kind === "rpc").map((c) => c.name);
   expect(sent).toEqual(["jc_me_get", "jc_prefs_set"]);                       // read fresh, then write
   expect(calls.find((c) => c.name === "jc_prefs_set").args).toEqual({ p_prefs: {
-    x: 1, shell: { v: 1, tabs: ["admin", "events"], start: "events", known: ["commons", "events", "admin"] } } });
-  await expect.poll(() => bar(page)).toEqual(["admin", "events", "home"]);              // at once, no reload
+    x: 1, shell: { v: 1, tabs: ["events"], start: "events", known: ["commons", "events", "admin"] } } });   // never "admin"
+  await expect.poll(() => bar(page)).toEqual(["events", "admin", "home"]);              // at once, no reload
   await page.reload();
-  await expect.poll(() => bar(page)).toEqual(["admin", "events", "home"]);
+  await expect.poll(() => bar(page)).toEqual(["events", "admin", "home"]);
   await expect(page.locator('#tabbar a[aria-current="page"]')).toHaveAttribute("data-tab", "home");
   await expect(page.locator("#start-events")).toBeChecked();
   await page.goto("events/");
@@ -99,20 +99,53 @@ test("Settings: hide, reorder, start page → exact merged jc_prefs_set → bar 
   await expect(page.locator("#tabbar a").last()).toHaveAttribute("data-tab", "home");
 });
 
-test("at most 4 middle buttons: a 5th can't be switched on", async ({ page }) => {
-  const b = shellBackend({ extra: { is_owner: true } });
-  // pretend more pages exist so 5 destinations are on offer
-  await allPagesExist(page);
-  b.st.modules = { events: { enabled: true }, bookings: { enabled: true }, pets: { enabled: true } };
+const ALL_ON = { events: { enabled: true }, bookings: { enabled: true }, pets: { enabled: true } };
+test("a resident chooses up to 4 buttons: a 5th can't be switched on", async ({ page }) => {
+  const b = shellBackend({ modules: ALL_ON });
+  await allPagesExist(page);                                               // 5 destinations on offer
   await stubBackend(page, { rpc: b.rpc });
   await signIn(page);
-  await expect.poll(() => bar(page)).toEqual(["commons", "events", "bookings", "pets", "home"]);   // default: 4 + My Home
+  await expect.poll(() => bar(page)).toEqual(["commons", "events", "bookings", "pets", "home"]);   // 4 + My Home
   await openSettings(page);
-  await expect.poll(() => settings(page)).toEqual(["commons", "events", "bookings", "pets", "community", "admin"]);
-  await expect(page.locator('#shellSec li[data-dest="admin"] [data-act="toggle"]')).toBeDisabled();
+  await expect.poll(() => settings(page)).toEqual(["commons", "events", "bookings", "pets", "community"]);
+  await expect(page.locator('#shellSec li[data-fixed="admin"]')).toHaveCount(0);
+  await expect(page.locator("#shellSec .panel > p.help").first()).toContainText("Choose up to 4 buttons");
+  await expect(page.locator('#shellSec li[data-dest="community"] [data-act="toggle"]')).toBeDisabled();
   await expect(page.locator("#shellFull")).toBeVisible();
-  await page.locator('#shellSec li[data-dest="pets"] [data-act="toggle"]').click();
-  await expect(page.locator('#shellSec li[data-dest="admin"] [data-act="toggle"]')).toBeEnabled();
+});
+
+test("an organizer chooses up to 3: Organizer Tools is always 4th, My Home 5th", async ({ page }) => {
+  const b = shellBackend({ extra: { is_owner: true }, modules: ALL_ON });
+  await allPagesExist(page);
+  await stubBackend(page, { rpc: b.rpc });
+  await signIn(page);
+  await expect.poll(() => bar(page)).toEqual(["commons", "events", "bookings", "admin", "home"]);
+  await openSettings(page);
+  await expect.poll(() => settings(page)).toEqual(["commons", "events", "bookings", "pets", "community"]);
+  await expect(page.locator('#shellSec li[data-dest="pets"] [data-act="toggle"]')).toBeDisabled();
+  await expect(page.locator("#shellFull")).toBeVisible();
+  await page.locator('#shellSec li[data-dest="bookings"] [data-act="toggle"]').click();
+  await expect(page.locator('#shellSec li[data-dest="pets"] [data-act="toggle"]')).toBeEnabled();
+  await expect(page.locator("#shellFull")).toHaveCount(0);
+});
+
+test("an organizer's default bar leads with the modules they run (no saved bar)", async ({ page }) => {
+  const b = shellBackend({ modules: ALL_ON });
+  await stubBackend(page, { rpc: b.rpc });
+  await signIn(page);
+  const cases = [
+    [{ admin_scopes: ["pets"] }, ["commons", "pets", "events", "admin", "home"]],
+    [{ admin_scopes: ["bookings"] }, ["commons", "bookings", "events", "admin", "home"]],
+    [{ admin_scopes: ["pets", "bookings"] }, ["commons", "bookings", "pets", "admin", "home"]],
+    [{ admin_events: ["44444444-4444-4444-8444-444444444444"] }, ["commons", "events", "bookings", "admin", "home"]],
+    [{ admin_scopes: ["community", "pets"] }, ["commons", "events", "bookings", "admin", "home"]],   // runs them all
+    [{ is_owner: true, admin_scopes: ["pets"] }, ["commons", "events", "bookings", "admin", "home"]],
+  ];
+  for (const [extra, want] of cases) {
+    b.st.me = Object.assign({}, b.st.me, { admin_scopes: [], admin_events: [], is_owner: false }, extra);
+    await page.goto("home/");
+    await expect.poll(() => bar(page), { message: JSON.stringify(extra) }).toEqual(want);
+  }
 });
 
 test("Organizer Tools: never for a plain member; shown for a module admin and an event admin", async ({ page }) => {
@@ -127,7 +160,7 @@ test("Organizer Tools: never for a plain member; shown for a module admin and an
   for (const extra of [{ admin_scopes: ["bookings"] }, { admin_events: ["44444444-4444-4444-8444-444444444444"] }]) {
     member.st.me = Object.assign({}, member.st.me, { admin_scopes: [], admin_events: [] }, extra);
     await page.goto("home/");
-    await expect.poll(() => bar(page)).toEqual(["admin", "events", "home"]);
+    await expect.poll(() => bar(page)).toEqual(["events", "admin", "home"]);   // a saved Organizer moves before My Home
   }
 });
 
@@ -162,25 +195,25 @@ test("a full bar keeps a switched-off button in its place; tapping the checked C
   await allPagesExist(context);
   const all = ["commons", "events", "bookings", "pets", "community", "admin"];
   const b = shellBackend({ extra: { is_owner: true },
-    prefs: { shell: { v: 1, tabs: ["events", "commons", "bookings", "pets"], start: "events", known: all } } });
+    prefs: { shell: { v: 1, tabs: ["events", "commons", "bookings"], start: "events", known: all } } });
   b.st.modules = { events: { enabled: false }, bookings: { enabled: true }, pets: { enabled: true } };
   const { calls } = await stubBackend(page, { rpc: b.rpc });
   await signIn(page);
   await openSettings(page);
   await expect(page.locator("#start-commons")).toBeChecked();
-  await page.locator('#shellSec li[data-dest="admin"] [data-act="toggle"]').click();
+  await page.locator('#shellSec li[data-dest="pets"] [data-act="toggle"]').click();   // full: 3 for an organizer
   await page.locator("#start-commons").click();                             // already checked: still a choice
   await page.locator("#saveShell").click();
   await expect(page.locator("#shellMsg")).toHaveText("Saved. Your bar is updated.");
   await expect(page.locator("#saveShell")).toBeFocused();                   // the reader keeps their place
   expect(calls.find((c) => c.name === "jc_prefs_set").args.p_prefs.shell).toEqual(
-    { v: 1, tabs: ["events", "commons", "bookings", "pets", "admin"], start: "commons",
+    { v: 1, tabs: ["events", "commons", "bookings", "pets"], start: "commons",
       known: ["commons", "bookings", "pets", "community", "admin", "events"] });
   b.st.modules = { events: { enabled: true }, bookings: { enabled: true }, pets: { enabled: true } };
   const v = await newVisit(context, b.rpc);
   await v.p.goto("./");
   await expect(v.p.locator("#hub")).toBeVisible();                          // no stale start page
-  await expect.poll(() => bar(v.p)).toEqual(["events", "commons", "bookings", "pets", "home"]);
+  await expect.poll(() => bar(v.p)).toEqual(["events", "commons", "bookings", "admin", "home"]);
 });
 
 test("a destination switched on after a save is added to a customised bar (known)", async ({ page }) => {
@@ -301,7 +334,8 @@ test("Arabic: Settings, install help and the bar in Arabic, right to left", asyn
   await openSettings(page);
   await expect(page.locator("html")).toHaveAttribute("dir", "rtl");
   await expect(page.locator("#shellSec h2")).toHaveText("الشريط السفلي وصفحة البداية");
-  await expect(page.locator('#shellSec li[data-dest="admin"] .nm')).toHaveText("التنظيم");
+  await expect(page.locator('#shellSec li[data-fixed="admin"] .nm')).toHaveText("التنظيم");
+  await expect(page.locator('#shellSec li[data-fixed="admin"] .help')).toHaveText("ظاهر دائماً، قبل «منزلي»");
   await expect(page.locator('#shellSec li[data-dest="events"] [data-act="toggle"]')).toHaveText("ظاهر");
   await expect(page.locator('#shellSec li[data-dest="events"] [data-act="up"]')).toHaveAttribute("aria-label", "انقل الفعاليات إلى الأعلى");
   await expect(page.locator("#saveShell")).toHaveText("احفظ الشريط وصفحة البداية");
