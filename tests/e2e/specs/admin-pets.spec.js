@@ -834,3 +834,19 @@ test("R5d-3b: Archive in Arabic keeps the reason being typed", async ({ page }) 
   await expect(page.locator("#pmArchGo")).toHaveText("أرشفة Rex");
   await expect(page.locator("#pmWhy")).toHaveValue("Duplicate entry");
 });
+
+test("R5d rate limit: over the limit, archive and hide say so in words (the server's RATE_LIMITED)", async ({ page }) => {
+  const b = backend({ petsOn: true });
+  b.st.sights[ID(3)] = SIGHTS();
+  b.rpc.jc_admin_pet_archive = () => raise("RATE_LIMITED");
+  b.rpc.jc_admin_sighting_hide = () => raise("RATE_LIMITED");
+  await manageAny(page, b, ID(3));
+  page.once("dialog", (d) => d.accept());
+  await page.locator('[data-pmhide="41"]').click();
+  await expect(page.locator("#msg")).toHaveText("That's the limit for now: 20 an hour for each organizer, 60 for the whole community. Try again in an hour.");
+  await page.locator("#pmArchOpen").click();
+  await page.locator("#pmWhy").fill("Added twice");
+  await page.locator("#pmArchGo").click();
+  await expect(page.locator("#msg")).toHaveText(/^That's the limit for now/);
+  await expect(page.locator("#pmWhy")).toHaveValue("Added twice");                       // the reason stays for later
+});
