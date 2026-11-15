@@ -382,6 +382,8 @@ async function editStray(page, id) {
   if (!(await page.locator("#pmEdit").count())) await page.locator(`li[data-pet="${id}"] [data-pamanage]`).click();
   await page.locator("#pmEdit").click();
   await expect(page.locator("#peForm")).toBeVisible();
+  // Rehomed vs Archive, said where the choice is made (stray-care review, 2026-11-15)
+  await expect(page.locator("#peCareHelp")).toContainText("To remove them for good, use Archive on Manage.");
 }
 
 test("R5d-2b: Edit only on active strays (a household's pet is theirs); Add a Stray opens an empty form", async ({ page }) => {
@@ -651,6 +653,9 @@ test("R5d-3a: care log (Pets on) — a line is added, the log is read again, the
   await expect(page.locator("#pmOff")).toHaveCount(0);
   await expect(page.locator("#pmLog li")).toHaveCount(1);
   await expect(page.locator("#pmLog li").first()).toContainText("Vet visit");
+  // the log is public: the note box says so (stray-care review, 2026-11-15)
+  await expect(page.locator("#pmLogPublic")).toHaveText("Residents see the log on the animal's page.");
+  await expect(page.locator("#pmLogNote")).toHaveAttribute("aria-describedby", "pmLogPublic");
   await page.locator("#pmLogAdd").click();
   await expect(page.locator("#msg")).toHaveText("Write a short note for the log.");
   await expect(page.locator("#pmLogNote")).toBeFocused();

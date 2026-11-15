@@ -609,6 +609,8 @@ var VIEWS = {
         '<label><span>' + esc(jcT("pt_name")) + REQ + '</span><input type="text" id="peName" maxlength="40" dir="auto" autocomplete="off" required aria-required="true"></label>' +
         '<fieldset><legend>' + esc(jcT("pt_species")) + REQ + '</legend>' + opts("peSpecies", "data-pesp", PE_SPECIES, v.species, "pt_sp_") + '</fieldset>' +
         '<fieldset><legend>' + esc(jcT("pa_care")) + '</legend>' + opts("peCare", "data-pecare", PE_CARE, v.care_state, "pt_care_") + '</fieldset>' +
+        /* Rehomed vs Archive was unclear (stray-care review, 2026-11-15) */
+        '<p class="help" id="peCareHelp">' + esc(jcT("pa_care_help")) + '</p>' +
         '<label>' + esc(jcT("pt_desc")) + '<textarea id="peDesc" maxlength="280" dir="auto"></textarea></label>' +
         '<label>' + esc(jcT("pa_territory")) + '<input type="text" id="peArea" maxlength="120" dir="auto" autocomplete="off"></label>' +
         '<p class="help">' + esc(jcT("pa_territory_help")) + '</p>' +
@@ -729,7 +731,8 @@ var VIEWS = {
       }).join("") + '</ul>' +
       '<h2 class="group">' + esc(jcT("pt_log")) + '</h2>' +
       '<div class="panel" id="pmLogForm"><fieldset><legend>' + esc(jcT("pm_log_kind")) + '</legend>' + opts("pmLogKind", "data-pmlog", PM_LOG, pv.log.kind, "pt_log_") + '</fieldset>' +
-        '<label>' + esc(jcT("pm_log_note")) + '<textarea id="pmLogNote" maxlength="280" dir="auto"></textarea></label>' +
+        '<label>' + esc(jcT("pm_log_note")) + '<textarea id="pmLogNote" maxlength="280" dir="auto" aria-describedby="pmLogPublic"></textarea></label>' +
+        '<p class="help" id="pmLogPublic">' + esc(jcT("pm_log_public")) + '</p>' +   /* the log is public (pets.js) */
         '<div class="row"><button class="btn" type="button" id="pmLogAdd"' + busyOff + '>' + esc(jcT("pm_log_add")) + '</button></div></div>');
     if (live && stray) {
       var logs = pv.detail && Array.isArray(pv.detail.care_log) ? pv.detail.care_log.filter(hObj) : null;
