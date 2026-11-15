@@ -401,6 +401,10 @@ function saveShell(){
       old.known.forEach(function(k){ if (known.indexOf(k) < 0) known.push(k); });
     }
     tabs = tabs.filter(function(k){ return k !== "admin"; });   /* fixed for organizers, never chosen (older saves had it) */
+    /* a role that changed while Settings was open: never save more than the bar can show (review LOW-1);
+       switched-off buttons kept in place above still count, as before */
+    var cap = jcBarMax(fresh) + tabs.filter(function(k){ return offered.indexOf(k) < 0; }).length;
+    tabs = tabs.slice(0, cap);
     next.shell = { v: 1, tabs: tabs, start: d.start, known: known };
     return rpc("jc_prefs_set", { p_prefs: next });
   }).then(function(m){

@@ -336,6 +336,7 @@ test("Arabic: Settings, install help and the bar in Arabic, right to left", asyn
   await expect(page.locator("#shellSec h2")).toHaveText("الشريط السفلي وصفحة البداية");
   await expect(page.locator('#shellSec li[data-fixed="admin"] .nm')).toHaveText("التنظيم");
   await expect(page.locator('#shellSec li[data-fixed="admin"] .help')).toHaveText("ظاهر دائماً، قبل «منزلي»");
+  await expect(page.locator("#shellSec .panel > p.help").first()).toContainText("حتى 3 أزرار");   // {n} filled in
   await expect(page.locator('#shellSec li[data-dest="events"] [data-act="toggle"]')).toHaveText("ظاهر");
   await expect(page.locator('#shellSec li[data-dest="events"] [data-act="up"]')).toHaveAttribute("aria-label", "انقل الفعاليات إلى الأعلى");
   await expect(page.locator("#saveShell")).toHaveText("احفظ الشريط وصفحة البداية");
