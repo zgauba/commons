@@ -309,6 +309,16 @@ for (const [label, group] of [["none set", null], ["not a WhatsApp invite", "htt
   });
 }
 
+test("care v2: an auto-logged status change shows the status in the reader's language (no note)", async ({ page }) => {
+  const b = backend();
+  b.st.pets.find((p) => p.id === ID(3)).care_log.unshift({ kind: "state", note: null, state: "needs_help", at: "2026-11-11T05:00:00Z" });
+  await open(page, b, { q: "?pet=" + ID(3) });
+  await expect(page.locator("#ptLog li")).toHaveCount(2);
+  await expect(page.locator("#ptLog li").first().locator(".meta")).toContainText("Status change");
+  await expect(page.locator("#ptLog li").first()).toContainText("Needs help");
+  await expect(page.locator("#ptLog li").nth(1)).toContainText("Morning round");          // a note row as before
+});
+
 test("a stray: care record, territory, care log, sightings with no reporter (only \"your report\" on my own); rehomed = closed", async ({ page }) => {
   const b = backend();
   await open(page, b, { q: "?pet=" + ID(3) });
