@@ -303,9 +303,11 @@ function loadHistory(){
    data-no-autoreload, so an update shows the banner instead of reloading. */
 var shellDraft = null;   /* { order: [keys], on: [keys], start: key } */
 function shellOffered(m){ return JC_DEST.filter(function(d){ return jcDestOk(d.key, m, cfg); }).map(function(d){ return d.key; }); }
+/* the rows you choose from: Organizer Tools is fixed for organizers, not chosen (start page can still be it) */
+function shellChoices(m){ return shellOffered(m).filter(function(k){ return k !== "admin"; }); }
 function shellFromSaved(){
   var sh = jcShell(me(), cfg), order = sh.tabs.slice();
-  shellOffered(me()).forEach(function(k){ if (order.indexOf(k) < 0) order.push(k); });
+  shellChoices(me()).forEach(function(k){ if (order.indexOf(k) < 0) order.push(k); });
   /* a saved start page that's unavailable right now is kept (it comes back with its module) */
   return { order: order, on: sh.tabs.slice(), start: sh.saved ? sh.saved.start : "commons" };
 }
@@ -315,7 +317,7 @@ function shellLi(k, i, d){
   var dest = jcDest(k), name = jcDestLabel(dest), on = d.on.indexOf(k) >= 0;
   return '<li data-dest="' + esc(k) + '"><span class="nm">' + jcIcon(dest.icon, 20) + '<span dir="auto">' + esc(name) + '</span></span>' +
     '<button type="button" class="sw" role="switch" data-act="toggle" aria-checked="' + on + '" aria-label="' +
-      esc(jcFmt("set_show", { x: name })) + '"' + (!on && d.on.length >= JC_BAR_MAX ? ' disabled' : '') + '>' +
+      esc(jcFmt("set_show", { x: name })) + '"' + (!on && d.on.length >= jcBarMax(me()) ? ' disabled' : '') + '>' +
       esc(jcT(on ? "set_on" : "set_off")) + '</button>' +
     '<button type="button" class="mv" data-act="up" aria-label="' + esc(jcFmt("set_up", { x: name })) + '"' + (i === 0 ? ' disabled' : '') + '>↑</button>' +
     '<button type="button" class="mv" data-act="down" aria-label="' + esc(jcFmt("set_down", { x: name })) + '"' + (i === d.order.length - 1 ? ' disabled' : '') + '>↓</button></li>';
@@ -326,11 +328,13 @@ function shellHtml(){
   var checked = jcDestOk(d.start, me(), cfg) ? d.start : "commons";
   var bold = function(k){ return esc(jcT(k)).replace(/\*\*(.+?)\*\*/g, "<b>$1</b>"); };
   return '<div class="section" id="shellSec"' + (shellDirty() ? ' data-no-autoreload' : '') + '><h2>' + esc(jcT("set_title")) + '</h2>' +
-    '<div class="panel"><p class="help">' + esc(jcT("set_help")) + '</p>' +
+    '<div class="panel"><p class="help">' + esc(jcFmt("set_help", { n: jcBarMax(me()) })) + '</p>' +
       '<ol class="shellrows">' + d.order.map(function(k, i){ return shellLi(k, i, d); }).join("") +
+        (jcIsAdmin(me()) ? '<li class="fixed" data-fixed="admin"><span class="nm">' + jcIcon("tools", 20) + '<span dir="auto">' + esc(jcDestLabel(jcDest("admin"))) + '</span></span>' +
+          '<span class="help">' + esc(jcT("set_admin_fixed")) + '</span></li>' : '') +
         '<li class="fixed"><span class="nm">' + jcIcon("house", 20) + '<span>' + esc(jcT("tab_my_home")) + '</span></span>' +
           '<span class="help">' + esc(jcT("set_home_fixed")) + '</span></li></ol>' +
-      (d.on.length >= JC_BAR_MAX ? '<p class="help" id="shellFull">' + esc(jcT("set_full")) + '</p>' : '') +
+      (d.on.length >= jcBarMax(me()) ? '<p class="help" id="shellFull">' + esc(jcT("set_full")) + '</p>' : '') +
       '<fieldset class="starts"><legend>' + esc(jcT("set_start")) + '</legend>' + starts.map(function(k){
         return '<label class="radio"><input type="radio" name="startPage" id="start-' + esc(k) + '" value="' + esc(k) + '"' +
           (k === checked ? ' checked' : '') + '><span dir="auto">' + esc(jcDestLabel(jcDest(k))) + '</span></label>';
@@ -353,7 +357,7 @@ function wireShell(){
     var d = shellDraft, k = b.closest("li").dataset.dest, act = b.dataset.act, i = d.order.indexOf(k), j;
     if (act === "toggle") {
       j = d.on.indexOf(k);
-      if (j >= 0) d.on.splice(j, 1); else if (d.on.length < JC_BAR_MAX) d.on.push(k);
+      if (j >= 0) d.on.splice(j, 1); else if (d.on.length < jcBarMax(me())) d.on.push(k);
     } else {
       j = act === "up" ? i - 1 : i + 1;
       if (j < 0 || j >= d.order.length) return;
@@ -396,6 +400,11 @@ function saveShell(){
       old.tabs.forEach(function(k, i){ if (offered.indexOf(k) < 0 && tabs.indexOf(k) < 0) tabs.splice(Math.min(i, tabs.length), 0, k); });
       old.known.forEach(function(k){ if (known.indexOf(k) < 0) known.push(k); });
     }
+    tabs = tabs.filter(function(k){ return k !== "admin"; });   /* fixed for organizers, never chosen (older saves had it) */
+    /* a role that changed while Settings was open: never save more than the bar can show (review LOW-1);
+       switched-off buttons kept in place above still count, as before */
+    var cap = jcBarMax(fresh) + tabs.filter(function(k){ return offered.indexOf(k) < 0; }).length;
+    tabs = tabs.slice(0, cap);
     next.shell = { v: 1, tabs: tabs, start: d.start, known: known };
     return rpc("jc_prefs_set", { p_prefs: next });
   }).then(function(m){

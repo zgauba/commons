@@ -5,7 +5,9 @@
      bookings/ shipped in R4c, pets/ in R5b-1);
    - Organizer Tools needs some admin role (any admin scope, an event, or owner). Display only:
      every admin RPC is still gated by the server.
-   My Home is never stored and never filtered: it is always the last button. */
+   My Home is never stored and never filtered: it is always the last button. Organizer Tools is never
+   chosen either: for an organizer it is always the button before My Home, so they choose 3, not 4
+   (Zee, 2026-11-14). */
 var JC_DEST = [
   { key: "commons",   path: "",           icon: "mark",      label: "tab_home",         auto: true },
   { key: "events",    path: "events/",    icon: "events",    label: "module_events",    auto: true, module: "events",   page: true },
@@ -15,7 +17,14 @@ var JC_DEST = [
   { key: "admin",     path: "admin/",     icon: "tools",     label: "tab_admin",        admin: true }
 ];
 var JC_HOME_DEST = { key: "home", path: "home/", icon: "house", label: "tab_my_home" };
-var JC_BAR_MAX = 4;                         /* middle buttons; + My Home = 5 (44 px targets) */
+var JC_BAR_MAX = 4;                         /* chosen buttons; + My Home = 5 (44 px targets) */
+function jcBarMax(me){ return jcIsAdmin(me) ? JC_BAR_MAX - 1 : JC_BAR_MAX; }   /* organizers: + Organizer Tools */
+/* Does this organizer run this module? (default bar order only — display, never a permission) */
+function jcRuns(me, key){
+  me = me || {};
+  var sc = Array.isArray(me.admin_scopes) ? me.admin_scopes : [];
+  return sc.indexOf(key) >= 0 || (key === "events" && Array.isArray(me.admin_events) && me.admin_events.length > 0);
+}
 
 function jcDest(key){
   if (key === "home") return JC_HOME_DEST;
@@ -66,7 +75,9 @@ function jcShellSaved(me){
            start: typeof s.start === "string" && jcDest(s.start) ? s.start : "commons" };
 }
 
-/* What to draw now: { tabs: middle keys in order (≤ 4), start: a key available now, saved }.
+/* What to draw now: { tabs: the chosen keys in order (≤ jcBarMax), start: a key available now, saved }.
+   Organizer Tools is never among them (jcTabBar adds it for organizers). An organizer's default bar puts
+   the modules they run first, after Commons (Zee, 2026-11-15); a community admin or the owner runs them all.
    No saved choice = Commons · live modules (today's bar). Saved: the chosen ones still available,
    plus any destination that became available since the save (not in `known`) while there is room,
    so a customised bar never hides a module switched on later. A saved Courts while Courts is off
@@ -75,19 +86,27 @@ function jcShell(me, cfg){
   var saved = jcShellSaved(me);
   var ok = function(k){ return jcDestOk(k, me, cfg); };
   var tabs;
-  if (!saved) tabs = JC_DEST.filter(function(d){ return d.auto && ok(d.key); }).map(function(d){ return d.key; });
-  else {
-    tabs = saved.tabs.filter(ok);
+  if (!saved) {
+    tabs = JC_DEST.filter(function(d){ return d.auto && ok(d.key); }).map(function(d){ return d.key; });
+    var sc = (me && Array.isArray(me.admin_scopes)) ? me.admin_scopes : [];
+    if (jcIsAdmin(me) && !(me && me.is_owner === true) && sc.indexOf("community") < 0) {
+      var rank = function(k){ return k === "commons" ? 0 : jcRuns(me, k) ? 1 : 2; };
+      tabs = tabs.map(function(k, i){ return { k: k, i: i }; })
+        .sort(function(a, b){ return rank(a.k) - rank(b.k) || a.i - b.i; }).map(function(x){ return x.k; });
+    }
+  } else {
+    tabs = saved.tabs.filter(function(k){ return k !== "admin" && ok(k); });
     JC_DEST.forEach(function(d){
       if (d.auto && ok(d.key) && saved.known.indexOf(d.key) < 0 && tabs.indexOf(d.key) < 0) tabs.push(d.key);
     });
   }
-  return { tabs: tabs.slice(0, JC_BAR_MAX), start: saved && ok(saved.start) ? saved.start : "commons", saved: saved };
+  return { tabs: tabs.slice(0, jcBarMax(me)), start: saved && ok(saved.start) ? saved.start : "commons", saved: saved };
 }
 
 /* root = relative path to the Commons root from the current page ("" or "../"). */
 function jcTabBar(root, active, cfg){
   var items = jcShell(JC_ME, cfg).tabs.map(jcDest);
+  if (jcIsAdmin(JC_ME)) items.push(jcDest("admin"));   /* organizers: always the button before My Home */
   items.push(JC_HOME_DEST);                  /* outside every filter: the bar is never empty */
 
   var nav = el("tabbar");
