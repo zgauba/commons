@@ -136,3 +136,5 @@ textarea{font:inherit; font-size:16px; color:var(--jc-ink); background:var(--jc-
 
 /* R2b-1: "Adjusted by an organizer · 7:42 PM" / "An organizer removed your sign-up." */
 .status.orgline{color:var(--jc-warn)}
+/* Sign Up tab while this home isn't in: filled like the list card's Sign Up button (events.js) */
+.subtabs button.cta{background:var(--jc-accent); color:var(--jc-accent-ink); border-radius:10px 10px 0 0}

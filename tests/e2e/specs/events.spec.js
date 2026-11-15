@@ -100,7 +100,15 @@ test("signup: required answers enforced; full payload + note sent; 'Villa 12 is 
   const { calls } = await stubBackend(page, { rpc: eb.rpc });
   await signIn(page);
   await page.goto("events/?id=" + LIVE_ID);
+  // not in yet: the Sign Up tab is filled like the list's Sign Up button, even on the Map tab (tester, 2026-11-15)
+  await expect(page.locator("#tab-mine")).toHaveClass(/\bcta\b/);
+  const fill = (loc) => loc.evaluate((e) => getComputedStyle(e).backgroundColor);
+  const tabFill = await fill(page.locator("#tab-mine"));
+  expect(tabFill).not.toBe("rgba(0, 0, 0, 0)");
+  expect(await fill(page.locator("#tab-map"))).toBe("rgba(0, 0, 0, 0)");
   await page.locator("#tab-mine").click();
+  await expect(page.locator("#tab-mine")).toHaveClass(/\bcta\b/);         // still filled while selected
+  expect(await fill(page.locator("#tab-mine"))).toBe(tabFill);
   await expect(page.locator("#map")).toHaveCount(0);                     // no map beside sign-up
   await expect(page.locator(".pinline")).toContainText("Villa 12 is pinned on the map.");
   await page.locator("#toSignup").click();
@@ -114,6 +122,7 @@ test("signup: required answers enforced; full payload + note sent; 'Villa 12 is 
   await page.locator("#note").fill("Candy at the gate");
   await page.locator("#go").click();
   await expect(page.locator("#msg")).toHaveText("Villa 12 is in.");
+  await expect(page.locator("#tab-mine")).not.toHaveClass(/\bcta\b/);     // in: a plain tab again
   expect(calls.find((c) => c.name === "jc_event_signup").args).toEqual(
     { p_event: LIVE_ID, p_payload: { treats: "candy", handout: "door", pets_ok: true, note: "Candy at the gate" } });
 });
@@ -125,6 +134,7 @@ test("updating one answer keeps the other answers AND the note", async ({ page }
   await signIn(page);
   await page.goto("events/?id=" + LIVE_ID + "&tab=mine");
   await expect(page.locator(".status.ok")).toHaveText("Villa 12 is in.");
+  await expect(page.locator("#tab-mine")).not.toHaveClass(/\bcta\b/);     // already in: never filled
   await expect(page.locator(".answers")).toContainText("Candy");
   await expect(page.locator(".mynote")).toHaveText("Knock loudly");
   await page.locator("#toSignup").click();
