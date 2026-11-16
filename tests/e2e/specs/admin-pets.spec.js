@@ -103,7 +103,27 @@ function backend(opts = {}) {
       Object.assign(c, { status: "archived", missing: false, photo_path: null });
       return ok(st.list);
     },
+    // soft archive: restore within 30 days (the server's rules: RESTORE_EXPIRED past it); hidden sightings + unhide
+    jc_admin_pet_restore: (a) => {
+      st.restores.push(a);
+      if (st.restoreRaises) return raise(st.restoreRaises);
+      const c = st.list.find((p) => p.id === a.p_pet && p.status === "archived");
+      if (!c) return raise("NOT_FOUND");
+      if (!c.restorable_until) return raise("RESTORE_EXPIRED");
+      Object.assign(c, { status: "active", archived_at: null, restorable_until: null });
+      return ok(st.list);
+    },
+    jc_admin_pet_hidden_sightings: (a) =>
+      ok((st.sights[a.p_pet] || []).filter((s) => s.hidden).map(({ hidden, by_me, ...s }) => s)),
+    jc_admin_sighting_unhide: (a) => {
+      st.unhides.push(a);
+      const s = Object.values(st.sights).flat().find((x) => x.id === a.p_sighting && x.hidden);
+      if (!s) return raise("NOT_FOUND");
+      s.hidden = false;
+      return ok({ sighting_id: a.p_sighting, hidden: false });
+    },
   });
+  st.restores = []; st.unhides = [];
   st.saves = []; st.removes = []; st.cares = []; st.adds = []; st.logs = {}; st.sights = {}; st.hides = []; st.archives = [];
   if (opts.petsOn) ab.rpc.jc_config_get = () => ok(Object.assign({}, CONFIG, { modules: Object.assign({}, CONFIG.modules, { pets: { enabled: true } }) }));
   return { ab, st, rpc: ab.rpc };
@@ -162,7 +182,7 @@ test("the animals: strays first, then villages A–Z, then name; chips; Archived
   await expect(page.locator("#paArchived")).toHaveCount(0);                        // archived sit under their own chip (OT-3)
   await page.locator("#paShow-archived").click();
   await expect(page.locator("#paArchived li")).toHaveText(["Old Tom"]);
-  await expect(page.locator("#paArchived a, #paArchived button")).toHaveCount(0);   // no restore (Zee Q3)
+  await expect(page.locator("#paArchived a, #paArchived button")).toHaveCount(0);   // past the 30 days (no restorable_until): names only
 });
 
 test("Pets on for residents: no switched-off notice; no animals says so", async ({ page }) => {
@@ -779,7 +799,7 @@ test("R5d-3b: a home's pet on Manage — no care or editing, sightings wait whil
   await expect(page.locator("#pmOff")).toHaveText("Pets is switched off for residents, so sightings show here once it's switched on.");
   await expect(page.locator("#pmSightOff")).toBeVisible();
   await expect(page.locator("#pmArch")).toContainText("Luna is Villa 7's pet. Archiving removes Luna from their My Pets");
-  await expect(page.locator("#pmArch")).toContainText("ends a missing alert. They aren't told. It can't be undone.");
+  await expect(page.locator("#pmArch")).toContainText("ends a missing alert. They aren't told. For 30 days, a Pets organizer can restore Luna from the Archived list, unless the household changes.");
   await page.locator("#pmArchOpen").click();
   if (process.env.SHOT_DIR) await page.screenshot({ path: process.env.SHOT_DIR + "/pm-archive-owned.png", fullPage: true });
 });
@@ -791,7 +811,7 @@ test("R5d-3b: hide a sighting (Pets on) — asks first, the exact call, read aga
   const { calls } = await manageAny(page, b, ID(3));
   await expect(page.locator("#pmSight li")).toHaveCount(2);
   await expect(page.locator('#pmSight [data-sighting="41"] a')).toHaveAttribute("href", /query=24\.531%2C54\.432/);
-  page.once("dialog", (d) => { expect(d.message()).toBe("Hide this sighting? Residents stop seeing it, and it can't be shown again."); d.dismiss(); });
+  page.once("dialog", (d) => { expect(d.message()).toBe("Hide this sighting? Residents stop seeing it. You can show it again from Hidden sightings below."); d.dismiss(); });
   await page.locator('[data-pmhide="42"]').click();
   expect(b.st.hides).toEqual([]);
   page.once("dialog", (d) => d.accept());
@@ -973,4 +993,92 @@ test("care v2: Not fed (2+ days, only once ever fed) and Not seen (7+ days) on a
   await page.locator("#langBtn").click();
   await expect(chips(ID(3)).filter({ hasText: "أيام بلا إطعام: 3" })).toHaveCount(1);
   if (process.env.SHOT_DIR) await page.screenshot({ path: process.env.SHOT_DIR + "/pa-care-chips.png", fullPage: true });
+});
+
+// ---- soft archive PR 2: Restore within 30 days, Hidden sightings + Show again ----
+test("soft archive: Restore with days left; asks first naming the animal; back in the list; past 30 days = names only", async ({ page }) => {
+  await page.clock.setFixedTime(new Date("2026-11-20T12:00:00Z"));
+  const b = backend();
+  b.st.list.push(PET({ id: ID(9), name: "Pepper", home: HOME("ain-al-maha", "7"), status: "archived",
+                       archived_at: "2026-11-01T09:00:00Z", restorable_until: "2026-12-01T09:00:00Z" }));
+  b.st.list.push(PET({ id: ID(0), name: "Zed", kind: "stray", status: "archived",
+                       archived_at: "2026-10-21T13:00:00Z", restorable_until: "2026-11-20T13:00:00Z" }));
+  await openPets(page, b);
+  await page.locator("#paShow-archived").click();
+  await expect(page.locator("#paArchived > li > span")).toHaveText(["Old Tom", "Pepper", "Zed"]);
+  await expect(page.locator(`li[data-pet="${ID(6)}"] button`)).toHaveCount(0);           // past the window
+  await expect(page.locator(`li[data-pet="${ID(9)}"] .meta`)).toHaveText("11 days left to restore");
+  await expect(page.locator(`li[data-pet="${ID(0)}"] .meta`)).toHaveText("Last day to restore");
+  page.once("dialog", (d) => { expect(d.message()).toBe("Restore Pepper? Pepper goes back to their household's My Pets and to Pets for everyone. A missing alert doesn't come back."); d.dismiss(); });
+  await page.locator(`#paRestore-${ID(9)}`).click();
+  expect(b.st.restores).toEqual([]);
+  page.once("dialog", (d) => d.accept());
+  await page.locator(`#paRestore-${ID(9)}`).click();
+  await expect(page.locator("#msg")).toHaveText("Pepper is back.");
+  expect(b.st.restores).toEqual([{ p_pet: ID(9) }]);
+  await expect(page.locator(`#paArchived li[data-pet="${ID(9)}"]`)).toHaveCount(0);
+  await expect(page.locator("#paShow-archived")).toContainText("2");
+  if (process.env.SHOT_DIR) await page.screenshot({ path: process.env.SHOT_DIR + "/pa-restore.png", fullPage: true });
+  page.once("dialog", (d) => { expect(d.message()).toBe("Restore Zed? Residents see Zed in Pets again. A missing alert doesn't come back."); d.accept(); });
+  await page.locator(`#paRestore-${ID(0)}`).click();
+  await page.locator("#paShow-all").click();
+  await expect(page.locator(`li[data-pet="${ID(0)}"] [data-pamanage]`)).toBeVisible();
+});
+
+test("soft archive: Restore refused — expired / the household changed, or the home is full — said plainly; the list read again", async ({ page }) => {
+  await page.clock.setFixedTime(new Date("2026-11-20T12:00:00Z"));
+  const b = backend();
+  b.st.list.push(PET({ id: ID(9), name: "Pepper", home: HOME("ain-al-maha", "7"), status: "archived",
+                       archived_at: "2026-11-01T09:00:00Z", restorable_until: "2026-12-01T09:00:00Z" }));
+  const { calls } = await stubBackend(page, { rpc: b.rpc });
+  await signIn(page);
+  await page.goto("admin/?tab=pets&show=archived");
+  b.st.restoreRaises = "TOO_MANY_PETS";
+  page.on("dialog", (d) => d.accept());
+  await page.locator(`#paRestore-${ID(9)}`).click();
+  await expect(page.locator("#msg")).toHaveText("That household already lists 10 pets, so this one can't come back until they remove one.");
+  await expect(page.locator(`#paRestore-${ID(9)}`)).toBeEnabled();
+  b.st.restoreRaises = "RESTORE_EXPIRED";
+  const before = calls.filter((c) => c.name === "jc_admin_pets_list").length;
+  await page.locator(`#paRestore-${ID(9)}`).click();
+  await expect(page.locator("#msg")).toHaveText("That animal can't be restored any more: the 30 days are over, or the household has changed.");
+  await expect.poll(() => calls.filter((c) => c.name === "jc_admin_pets_list").length).toBe(before + 1);
+});
+
+test("soft archive: Hidden sightings on Manage — folded, Show again (no confirm), read again; gone when none are hidden", async ({ page }) => {
+  await page.clock.setFixedTime(new Date("2026-11-21T12:00:00Z"));
+  const b = backend({ petsOn: true });
+  b.st.sights[ID(3)] = SIGHTS();
+  b.st.sights[ID(3)][1].hidden = true;
+  await manageAny(page, b, ID(3));
+  await expect(page.locator("#pmSight li")).toHaveCount(1);
+  await expect(page.locator("#pmHiddenToggle")).toHaveText("Hidden sightings (1)");
+  await expect(page.locator("#pmHiddenToggle")).toHaveAttribute("aria-expanded", "false");
+  await expect(page.locator("#pmHidden")).toHaveCount(0);
+  await page.locator("#pmHiddenToggle").click();
+  await expect(page.locator("#pmHiddenToggle")).toHaveAttribute("aria-expanded", "true");
+  await expect(page.locator("#pmHidden li")).toHaveCount(1);
+  await expect(page.locator("#pmHidden li")).toContainText("lol fake");
+  if (process.env.SHOT_DIR) await page.screenshot({ path: process.env.SHOT_DIR + "/pm-hidden.png", fullPage: true });
+  await page.locator('[data-pmunhide="42"]').click();
+  await expect(page.locator("#msg")).toHaveText("Sighting shown again.");
+  expect(b.st.unhides).toEqual([{ p_sighting: 42 }]);
+  await expect(page.locator("#pmSight li")).toHaveCount(2);
+  await expect(page.locator("#pmHiddenToggle")).toHaveCount(0);
+  // hide → it lands under Hidden sightings
+  page.once("dialog", (d) => d.accept());
+  await page.locator('[data-pmhide="41"]').click();
+  await expect(page.locator("#pmHiddenToggle")).toHaveText("Hidden sightings (1)");
+});
+
+test("soft archive: Show again on one someone else already showed → read again, no error", async ({ page }) => {
+  const b = backend({ petsOn: true });
+  b.st.sights[ID(3)] = SIGHTS();
+  b.st.sights[ID(3)][1].hidden = true;
+  await manageAny(page, b, ID(3));
+  await page.locator("#pmHiddenToggle").click();
+  b.st.sights[ID(3)][1].hidden = false;                                                   // another organizer, meanwhile
+  await page.locator('[data-pmunhide="42"]').click();
+  await expect(page.locator("#msg")).toHaveText("Sighting shown again.");
+  await expect(page.locator("#pmHiddenToggle")).toHaveCount(0);
 });

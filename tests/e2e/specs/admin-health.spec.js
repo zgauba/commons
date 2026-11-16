@@ -191,3 +191,12 @@ test("a community admin who isn't the platform owner: no whole-platform rows; lo
   await expect(row(page, "Locked out")).toContainText("1 after wrong organizer codes.");
   await expect(page.locator("#view")).not.toContainText("on the platform");
 });
+
+test("soft archive: a moderation_spike notice reads as Pets moderation with its counts (community-wide, no home)", async ({ page }) => {
+  await openHealth(page, { notices: [{ id: 9, kind: "moderation_spike", home: null, created_at: new Date().toISOString(),
+                                       detail: { archives: 9, restores: 2, hides: 3, unhides: "x" } }] });
+  await expect(page.locator(".fblist li")).toHaveCount(1);
+  await expect(page.locator(".fblist li .fbkind")).toHaveText("Pets moderation");
+  await expect(page.locator(".fblist li .fbbody")).toHaveText("A lot of moderation in the last 24 hours: 9 animals archived, 2 restored, 3 sightings hidden, 0 shown again. Check the admin log and talk to the Pets organizers if it looks wrong.");
+  await expect(page.locator(".fblist li [data-nhome]")).toHaveCount(0);
+});
