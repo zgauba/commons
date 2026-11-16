@@ -2,7 +2,7 @@
 // before sending; the WhatsApp number international only; the photo prompt at Send (Zee 2026-11-16) with "without the
 // photo"; the thank-you screen's share (no reporter details); My reports (outcomes; number / photo taken back).
 const { test, expect } = require("@playwright/test");
-const { stubBackend } = require("./stub");
+const { stubBackend, MEMBER } = require("./stub");
 const { signIn, petsBackend: backend, PET_GROUP: GROUP, petId: ID } = require("./backends");
 
 test.use({ timezoneId: "Europe/London" });
@@ -240,4 +240,23 @@ test("the community's daily limit: said plainly", async ({ page }) => {
   await page.locator("#rpPlace").fill("Gate");
   await page.locator("#rpSend").click();
   await expect(page.locator("#msg")).toHaveText("Organizers have a lot of reports today. Please try again tomorrow.");
+});
+
+test("Pets organizers see how many reports are waiting on the Strays tab, linked to the queue; residents don't (and aren't asked)", async ({ page }) => {
+  const org = backend({ me: Object.assign({}, MEMBER, { admin_scopes: ["pets"] }), queue: 2 });
+  await open(page, org);
+  await expect(page.locator("#rpQueue a")).toHaveText("2 stray reports waiting for the organizers. Review them →");
+  await expect(page.locator("#rpQueue a")).toHaveAttribute("href", "../admin/?tab=pets&open=reports");
+});
+
+test("one report waiting: singular; none waiting: no line", async ({ page }) => {
+  await open(page, backend({ me: Object.assign({}, MEMBER, { admin_scopes: ["community"] }), queue: 1 }));
+  await expect(page.locator("#rpQueue")).toHaveText("1 stray report waiting for the organizers. Review it →");
+});
+
+test("a resident sees no waiting line and the organizers' queue is never asked for", async ({ page }) => {
+  const { calls } = await open(page, backend({ queue: 3 }));
+  await expect(page.locator("#rpOpen")).toBeVisible();
+  await expect(page.locator("#rpQueue")).toHaveCount(0);
+  expect(named(calls, "jc_admin_stray_reports_list")).toEqual([]);
 });

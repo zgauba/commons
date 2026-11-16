@@ -1042,6 +1042,8 @@ var JC_STRINGS = {
     pt_sight_privacy: "Your report shows the time, your note and the location pin if you added one. Community members can see it, to help. It never shows who you are. We delete the record of who sent it within 48 hours, and the sighting itself after 30 days.",
     /* report a stray (PR 3) */
     rp_cta: "Report a stray",
+    rp_queue: "{n} stray reports waiting for the organizers. Review them →",
+    rp_queue_1: "1 stray report waiting for the organizers. Review it →",
     rp_cta_help: "Seen a stray that isn't listed here? Tell the Pets organizers.",
     rp_title: "Report a stray",
     rp_help: "Pets organizers check every report before anything is shown to residents.",
@@ -2457,6 +2459,8 @@ var JC_STRINGS = {
     pt_pos_clear: "إزالة",
     pt_sight_privacy: "يُظهر بلاغك الوقت وملاحظتك وعلامة الموقع إن أضفتها. يراه أعضاء المجتمع للمساعدة. لا يُظهر هويتك أبداً. نحذف سجل مُرسل البلاغ خلال 48 ساعة، والمشاهدة نفسها بعد 30 يوماً.",
     rp_cta: "الإبلاغ عن حيوان ضالّ",
+    rp_queue: "{n} بلاغات عن حيوانات ضالّة بانتظار المنظّمين. راجِعها ←",
+    rp_queue_1: "بلاغ واحد عن حيوان ضالّ بانتظار المنظّمين. راجِعه ←",
     rp_cta_help: "رأيت حيوانًا ضالًّا غير مدرج هنا؟ أخبر منظّمي الحيوانات.",
     rp_title: "الإبلاغ عن حيوان ضالّ",
     rp_help: "يراجع منظّمو الحيوانات كل بلاغ قبل أن يظهر أي شيء للسكان.",

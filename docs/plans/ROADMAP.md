@@ -206,6 +206,8 @@ The hub today is one column of big module cards and "Welcome, Villa 12" — noth
 so the Commons button feels wasted. Needs `/plan-change`, and a clickable mockup first (Zee wants to see it).
 - **For you** (top): from data the app already has — events open for sign-up your home hasn't joined, your next court
   booking, a missing pet nearby, an organizer's to-dos. Check the hub's load cost (3–4 reads → maybe one RPC).
+  Organizer to-dos include **stray reports waiting** (Zee 2026-11-16: no notifications yet, so the count must reach
+  organizers without opening Pets; interim: a line on the residents' Strays tab for Pets organizers).
 - **Modules in 2 columns**: compact tiles (icon, name, one line).
 - **What you can do here** (below the tiles): short explainer, doubles as onboarding.
 - Decide with the mockup: a small fixed Commons icon at the far left of the bottom bar (6 buttons for organizers;
