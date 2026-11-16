@@ -305,6 +305,8 @@ function adminBackend(opts = {}) {
       // R5d-1 — Organizer Tools → Pets (jc_assert_admin('pets') = pets or community); specs override for animals
       jc_admin_pets_list: () => (st.scopes.includes("pets") || st.scopes.includes("community") ? ok([]) : raise("NOT_ADMIN")),
       jc_pets_group_get: () => ok({ link: null }),
+      // stray reports (PR 2): an empty queue unless a spec says otherwise
+      jc_admin_stray_reports_list: () => (st.scopes.includes("pets") || st.scopes.includes("community") ? ok([]) : raise("NOT_ADMIN")),
       // T5.3 — the owner's inbox (as the server: unread first, then newest)
       jc_feedback_list: () => (st.owner ? ok(fbList()) : raise("NOT_OWNER")),
       jc_feedback_mark_read: (a) => {
