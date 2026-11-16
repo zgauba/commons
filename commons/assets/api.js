@@ -255,6 +255,11 @@ function jcDayText(d, opts){
   return new Date(d + "T12:00:00Z").toLocaleDateString(jcLocale(), Object.assign({ weekday: "short", day: "numeric", month: "short" }, opts || {}, { timeZone: "UTC" }));
 }
 /* "12 min ago" / "3 h ago" / "2 days ago"; "" for a bad or future time. now: ms (a page's own clock), else Date.now() */
+/* whole days since a timestamp, rounded down; -1 when it's missing, unreadable or in the future (care v2) */
+function jcDaysSince(iso, now){
+  var t = Date.parse(iso), d = (now || Date.now()) - t;
+  return isFinite(t) && d >= 0 ? Math.floor(d / 864e5) : -1;
+}
 function jcAgo(iso, now){
   var t = Date.parse(iso);
   if (!isFinite(t)) return "";
