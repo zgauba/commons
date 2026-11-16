@@ -141,12 +141,15 @@ begin
               where n.nspname in ('public', 'jc_private') and p.prokind = 'f'
                 and (has_function_privilege('authenticated', p.oid, 'execute') or has_function_privilege('anon', p.oid, 'execute'))
                 and pg_get_functiondef(p.oid) ~* '\mreporter(_home)?\M'
-                and p.proname not in ('jc_entry_report', 'jc_pet_get', 'jc_pet_sighting_add')) then
+                and p.proname not in ('jc_entry_report', 'jc_pet_get', 'jc_pet_sighting_add',
+                                      -- stray reports: records the caller / filters to the caller's own (s29 guards the
+                                      -- organizer side, which shows the reporter's home by design — Zee 2026-11-16)
+                                      'jc_stray_report_add', 'jc_stray_reports_mine', 'jc_stray_report_contact_clear')) then
     raise exception 'FAIL H07a a new client function touches reporter: %',
       (select string_agg(p.proname, ', ') from pg_proc p join pg_namespace n on n.oid = p.pronamespace
         where n.nspname in ('public', 'jc_private') and p.prokind = 'f'
           and has_function_privilege('authenticated', p.oid, 'execute') and pg_get_functiondef(p.oid) ~* '\mreporter(_home)?\M'
-          and p.proname not in ('jc_entry_report', 'jc_pet_get', 'jc_pet_sighting_add'));
+          and p.proname not in ('jc_entry_report', 'jc_pet_get', 'jc_pet_sighting_add', 'jc_stray_report_add', 'jc_stray_reports_mine', 'jc_stray_report_contact_clear'));
   end if;
   -- (b) no table access to the reports, no policy, and no client function returns their rows
   if has_table_privilege('anon', 'public.jc_entry_reports', 'select') or has_table_privilege('authenticated', 'public.jc_entry_reports', 'select')

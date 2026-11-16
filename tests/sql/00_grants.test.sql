@@ -54,7 +54,10 @@ declare
     -- RM-a (renamable modules)
     'jc_admin_module_label_set',
     -- R5b-2b-0 (pets alerts for the hub)
-    'jc_pets_alerts'];
+    'jc_pets_alerts',
+    -- report a new stray (PR 1a)
+    'jc_stray_report_add', 'jc_stray_reports_mine', 'jc_admin_stray_reports_list', 'jc_admin_stray_report_close',
+    'jc_stray_report_contact_clear'];
 begin
   -- Pre-launch suite: fixtures are written into 'jubail' and rolled back. Refuse to run
   -- once real residents exist — post-launch tests must move to a test community.
