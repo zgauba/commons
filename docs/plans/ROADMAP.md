@@ -286,7 +286,7 @@ From `docs/qa/SYNTHESIS-2026-11-03.md` T6, plus items found since:
 - **Suggested walking route** (nearest-neighbor + 2-opt loop over stocked homes; `route` flag off) and
   **kilometers walked** (on-device only, "at least X km", nothing sent).
 - **Second community / B2B** — trigger: a second community asks. Needs the platform console + per-community
-  numbers (R7).
+  numbers (R7), and the sign-up community picker as a dropdown / search instead of a long list (Zee 2026-11-04, item 1).
 - **Print maps** — parked on community privacy consensus; never re-enable without Zee.
 
 ## Event calendar
