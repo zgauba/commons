@@ -83,3 +83,47 @@ and how imported Wix entries get consent retro-actively. A short UAE data-protec
 
 ROADMAP decision 2026-11-06 "Google Sheet + Update Commons Apps Script" — requirement 3 (phone editing) and
 4 (moderation queue) need the in-app editor (option C in the ROADMAP's "where the data lives" table).
+
+## Parked 2026-11-16: what the Wix version looks like, and if the curator doesn't merge (Zee)
+
+> Parked: focus stays on Pets. Zee shared phone screenshots of the live Wix Spaces site + the curator's category
+> guide (PDF, not in the repo). No invite codes, business names or curator details belong in this public repo.
+
+**What exists today (Wix Spaces):** members join with an invite code → hero (brand) → **category tiles** (image
+cards) → **subcategory buttons** → **business cards** (name, 1–3 line description, buttons: Call · WhatsApp ·
+Instagram / Website · **Promotion**) → a promotion opens a full-screen flyer (e.g. "20% off for the community").
+Wix also gives her **"N new updates" + a bell (push)** and a **Chat** tab.
+
+**Her taxonomy (18 categories, ~130 subcategories):** Emergency & Helpful Contacts · Home Maintenance & Handyman ·
+Cleaning & Household · Household & Personal Services · Nannies & Helpers · Renovation & Contractors · Garden &
+Outdoor · Moving, Storage & Relocation · Cars & Automotive · Transport & Mobility · Healthcare · Professional
+Services · Beauty & Wellness · Pets · Kids & Education · Kids Sports & Activities · Adult Sports & Fitness ·
+Parties & Events. Submission format: Name | Category | Subcategory | Phone / WhatsApp | Website / Instagram |
+short note. Her rule: only people you've personally used and recommend; positive only, not reviews or advertising
+(matches our "no negative path").
+
+**New decision: build `directory` community-agnostic.** If the curator doesn't merge, **Services stays OFF for
+Jubail** (the module flag) and is offered to other communities. So:
+- taxonomy = **per-community config** (EN + AR), with her 18-category list as the default template a new
+  community can start from (category names are generic, not her content);
+- brand per community (Jubail's would be "The Neighbourhood Edit" only if she joins); default title "Services";
+- her listings and flyers are **her content**: import only with her agreement and each vendor's consent
+  (existing rules above).
+
+**Weakest points (for the eventual `/plan-change`):**
+1. **The value is the curation, not the software.** Without her, Jubail Services starts empty and would compete
+   with a live community resource. Don't turn it on for Jubail without her.
+2. **She'd lose push notifications.** Commons has no notification channel. That's the one Wix feature with no
+   Commons equivalent, and the likeliest reason to say no. Care reminders and stray reports have the same gap,
+   so solving notifications once helps all three.
+3. **Promotions are commercial content.** Allowed only as: curator-approved, tied to a listed business, with an
+   **end date** (auto-hide), never paid for (footer rule above). Same flyer pipeline (image / PDF, size limits,
+   purge).
+4. **"Emergency & Helpful Contacts"** (police, TAQA, community management) is community information, not
+   recommendations. It belongs in R6 "The Community" info, not the directory.
+
+**Reuse from Pets when it's built:** resident submission → organizer queue (stray reports PR 2: queue, outcomes,
+caps, idempotent submit), the photo / flyer pipeline (`pet-photo.js`, ledger + purge), chips + search
+(`jcChipsHtml` / `jcSearchHtml`), per-person module admin by invite link (curator = `directory` scope). A
+submitter contact path, if moderation needs one, follows the stray-report pattern (opt-in, cleared at close).
+"Zero-PII" above now reads as **PII only when necessary** (CLAUDE.md, 2026-11-16).
