@@ -43,6 +43,11 @@ var sight = null;     /* { note, lat, lng, picking, where, view, zoom } while th
 var missDraft = null; /* { note } while the missing sheet is open */
 var sent = null;      /* the note of the sighting just sent: the WhatsApp message tells the group about it */
 var group;            /* undefined = not read yet; null = none / unreadable; else the checked invite link */
+var rep = null;       /* report a stray: { id (made here: a retry never sends twice), species, note, place, lat, lng, picking, where,
+                         view, zoom, moved, tok, photo, shrinking, wa, phone, confirm (the photo prompt is open) } */
+var reports;          /* my stray reports (jc_stray_reports_mine): undefined = not read (or unreadable: asked again on the next draw) */
+var repLoading = false;
+var repDone = null;   /* the report just sent: { text } for the thank-you screen's WhatsApp message */
 
 /* ---------- helpers ---------- */
 /* page helpers: the shared copies in assets/api.js (structural audit SA-1) */
@@ -194,6 +199,7 @@ function loadGroup(){
     var l = hObj(d) && d.link;
     group = jcWaGroupOk(l) ? l : null;
     if (current === "pet" && pet && el("ptShare")) drawShare();
+    if (current === "repdone") draw();
   }, function(){ group = null; });
 }
 
@@ -227,6 +233,8 @@ function show(name){
   var back = null;
   if (name === "pet") back = function(){ if (!ptBusy) backToList(); };
   if (name === "edit") back = function(){ if (ptBusy) return; var id = form && form.id; form = null; if (id && pet) { show("pet"); } else show("list"); };
+  if (name === "report") back = function(){ if (ptBusy) return; rep = null; tab = "strays"; setUrl(listUrl()); show("list"); };
+  if (name === "repdone") back = function(){ repDone = null; tab = "strays"; setUrl(listUrl()); show("list"); };
   jcBack(back, "back");
   jcHelp(name === "pet" ? "pet" : name === "list" ? "pets" : null);
   var refocus = jcFocusKeep();
@@ -335,13 +343,16 @@ var VIEWS = {
       var active = strays.filter(function(p){ return p.care_state !== "rehomed"; });
       onMap = active.filter(strayPos);
       var unplaced = active.length - onMap.length;
-      body = !strays.length ? '<p class="help" id="ptStrays">' + esc(jcT("pt_strays_none")) + '</p>' :
+      body = '<div class="row"><button class="btn" type="button" id="rpOpen">' + esc(jcT("rp_cta")) + '</button></div>' +
+        '<p class="help" id="rpCtaHelp">' + esc(jcT("rp_cta_help")) + '</p>' +
+        (!strays.length ? '<p class="help" id="ptStrays">' + esc(jcT("pt_strays_none")) + '</p>' :
         (typeof L === "undefined" ? '<p class="help" id="ptNoMap">' + esc(jcT("err_NETWORK")) + '</p>' :   /* no dead buttons */
          onMap.length ? jcMapHtml("ptmap", layer, { attrs: ' role="region" aria-label="' + esc(jcT("pt_strays_map")) + '"',
            before: '<button type="button" class="lang" id="labelsBtn" aria-haspopup="dialog">' + esc(jcT("ev_labels")) + '</button>' }) +
            jcKeySheetHtml("ptKey") : '') +
         (unplaced ? '<p class="help" id="ptUnplaced">' + esc(jcFmt("pt_strays_unplaced", { n: unplaced })) + '</p>' : '') +
-        '<div id="ptStraysBox">' + strayCardsHtml(strays) + '</div>';
+        '<div id="ptStraysBox">' + strayCardsHtml(strays) + '</div>') +
+        '<div id="rpMineBox">' + myReportsHtml() + '</div>';
     } else {
       /* Pets: owned only; missing pinned on top; the rest in the server's order */
       var owned = pets.filter(function(p){ return p.kind === "owned"; });
@@ -373,7 +384,7 @@ var VIEWS = {
       each("#ptListBox [data-open]", function(b){ openPet(b.dataset.open); });
     });
     if (onMap.length) drawStrays(onMap);
-    if (tab === "strays") wireStraySort();
+    if (tab === "strays") { wireStraySort(); wireMyReports(); on("rpOpen", openReport); }
     on("ptAdd", function(){ form = { id: null, species: "cat", name: "", description: "", wanderer: false, microchipped: false, photo_path: null, photo: null }; show("edit"); });
   },
 
@@ -556,10 +567,18 @@ function drawShare(){
   box.innerHTML = '<h2 class="group" id="ptShareHead">' + esc(jcT("pt_share")) + '</h2>' +
     /* an "out on their own" report was the household's only: sharing it is the reporter's own, separate choice (security M2) */
     (outAlone(pet) ? '<p class="help" id="ptWaOut">' + esc(jcFmt("pt_wa_out_group", { n: pet.name })) + '</p>' : '') +
-    '<p class="wamsg" id="ptWaText" dir="auto">' + esc(text) + '</p>' +
+    shareLinksHtml(text);
+  wireShareLinks(text);
+}
+/* the message + "Tell the pets group" (copy, then the group opens) + "Send to someone else" (shared by a pet's page and
+   the stray report's thank-you screen) */
+function shareLinksHtml(text){
+  return '<p class="wamsg" id="ptWaText" dir="auto">' + esc(text) + '</p>' +
     '<div class="acts">' + (group ? '<a class="btn" id="ptWaGroup" target="_blank" rel="noopener noreferrer">' + esc(jcT("pt_wa_group")) + '</a>' : '') +
     '<a class="btn ghost" id="ptWaAny" target="_blank" rel="noopener noreferrer">' + esc(jcT("pt_wa_any")) + '</a></div>' +
     (group ? '<p class="help">' + esc(jcT("pt_wa_group_help")) + '</p>' : '');
+}
+function wireShareLinks(text){
   /* attributes, not markup: the link never passes through an HTML string */
   el("ptWaAny").setAttribute("href", "https://wa.me/?text=" + encodeURIComponent(text));
   var g = el("ptWaGroup");
@@ -885,6 +904,263 @@ VIEWS.edit = function(){
     });
   });
 };
+
+/* ---------- report a stray (PR 3; server 20261116100000 + 20261116140000) ----------
+   Residents report a stray they don't see listed. Pets organizers review it before anything is public; they see the
+   reporter's home, and a WhatsApp number only if given (cleared when the report closes). A photo is optional — and
+   asked about again at Send: if organizers add or match the animal it becomes that stray's photo, public to members. */
+function repId(){
+  try { if (window.crypto && crypto.randomUUID) return crypto.randomUUID(); } catch(e){}
+  var b = new Uint8Array(16); crypto.getRandomValues(b);
+  b[6] = (b[6] & 15) | 64; b[8] = (b[8] & 63) | 128;
+  var h = Array.prototype.map.call(b, function(x){ return (x + 256).toString(16).slice(1); }).join("");
+  return h.slice(0, 8) + "-" + h.slice(8, 12) + "-" + h.slice(12, 16) + "-" + h.slice(16, 20) + "-" + h.slice(20);
+}
+function openReport(){
+  if (ptBusy) return;
+  rep = { id: repId(), species: "", note: "", place: "", lat: null, lng: null, picking: false, photo: null, shrinking: null,
+          wa: false, phone: "", confirm: false };
+  loadGroup();
+  show("report");
+  try { window.scrollTo(0, 0); } catch(e){}
+}
+/* the WhatsApp number: international only (+971 50 …, or 00971 …), so the organizer's link opens a chat (review L4) */
+function repPhone(v){
+  var d = String(v || "").replace(/[\s().-]/g, "");
+  if (/^00/.test(d)) d = "+" + d.slice(2);
+  return /^\+[0-9]{8,15}$/.test(d) ? d : null;
+}
+function repPickText(){
+  var w = rep && rep.where;
+  return jcT(w === "centre" ? "rp_pick_centre" : w === "locating" ? "rp_pick_finding" : "rp_pick_help");
+}
+function repWhereHtml(off){
+  var r = rep;
+  if (r.picking) return '<p class="help" id="rpPickHelp" role="status">' + esc(repPickText()) + '</p>' + jcPinPickerHtml("rpPick") +
+    '<div class="acts"><button class="btn" type="button" id="rpPickOk"' + (r.where === "centre" && !r.moved ? ' disabled' : '') + '>' + esc(jcT("pt_pick_ok")) + '</button>' +
+    '<button class="btn ghost" type="button" id="rpPickCancel">' + esc(jcT("ct_cancel")) + '</button></div>';
+  return (r.lat != null
+      ? '<p class="status ok" id="rpPos">' + esc(jcT("pt_pos_added")) + ' <button class="mini" type="button" id="rpPosClear"' + off + '>' + esc(jcT("pt_pos_clear")) + '</button></p>'
+      : typeof L !== "undefined" ? '<div class="acts"><button class="btn ghost" type="button" id="rpPosAdd"' + off + '>' + esc(jcT("pt_pos_add")) + '</button></div>' : '') +
+    '<label>' + esc(jcT("rp_place")) + '<input type="text" id="rpPlace" maxlength="120" dir="auto" autocomplete="off"' + off + '></label>' +
+    '<p class="help">' + esc(jcT("rp_where_help")) + '</p>';
+}
+VIEWS.report = function(){
+  if (!rep) return show("list");
+  var r = rep, off = ptBusy ? ' disabled' : '';
+  var lock = ptBusy || r.confirm ? ' disabled' : '';     /* the prompt is open: what was agreed to can't change behind it (review M1) */
+  var send = r.confirm
+    /* the photo prompt (Zee 2026-11-16): said again at Send, with the choice to send without it */
+    ? '<div class="panel" id="rpConfirm" role="group" aria-labelledby="rpConfirmH" aria-describedby="rpC1 rpC2 rpC3"><b id="rpConfirmH" tabindex="-1">' + esc(jcT("rp_confirm_h")) + '</b>' +
+      '<p id="rpC1">' + esc(jcT("rp_confirm_1")) + '</p><p id="rpC2">' + esc(jcT("rp_confirm_2")) + '</p><p id="rpC3">' + esc(jcT("rp_confirm_3")) + '</p>' +
+      '<div class="row"><button class="btn" type="button" id="rpSendPhoto"' + off + '>' + esc(jcT("rp_send_photo")) + '</button>' +
+      '<button class="btn ghost" type="button" id="rpSendNoPhoto"' + off + '>' + esc(jcT("rp_send_nophoto")) + '</button>' +
+      '<button class="btn ghost" type="button" id="rpConfirmBack"' + off + '>' + esc(jcT("acct_back")) + '</button></div></div>'
+    : '<button class="btn" type="submit" id="rpSend"' + (ptBusy || r.shrinking || r.picking ? ' disabled' : '') + '>' + esc(jcT("rp_send")) + '</button>';
+  el("view").innerHTML = '<h1>' + esc(jcT("rp_title")) + '</h1><p class="help">' + esc(jcT("rp_help")) + '</p>' + msgBox() +
+    '<form class="panel" id="rpForm" novalidate>' +
+    '<fieldset><legend>' + esc(jcT("pt_species")) + '</legend><div class="opts" id="rpSpecies">' + SPECIES.map(function(sp){
+      return '<button type="button" data-rsp="' + sp + '" aria-pressed="' + (r.species === sp) + '"' + lock + '>' + esc(jcT("pt_sp_" + sp)) + '</button>';
+    }).join("") + '</div></fieldset>' +
+    '<label>' + esc(jcT("rp_note")) + '<textarea id="rpNote" maxlength="280" dir="auto"' + lock + '></textarea></label>' +
+    '<fieldset id="rpWhere"><legend>' + esc(jcT("rp_where")) + '</legend>' + repWhereHtml(lock) + '</fieldset>' +
+    '<fieldset id="rpPhotoBox"><legend>' + esc(jcT("rp_photo")) + '</legend><div class="ptphotoedit">' +
+      (r.photo ? '<span class="ptph big has"><img id="rpPhotoNew" alt="" src="' + esc(r.photo) + '"></span>' : '') +
+      '<input type="file" id="rpPhotoIn" class="sr-only" accept="image/*"' + lock + '>' +
+      '<div class="row"><label class="btn ghost" id="rpPhotoPick" for="rpPhotoIn">' + esc(jcT(r.photo ? "pt_photo_change" : "pt_photo_add")) + '</label>' +
+      (r.photo ? '<button class="btn ghost" type="button" id="rpPhotoDrop"' + lock + '>' + esc(jcT("pt_photo_drop")) + '</button>' : '') + '</div></div>' +
+      '<p class="help" id="rpPhotoHelp" role="status">' + esc(jcT(r.shrinking ? "working" : r.photo ? "pt_photo_ready" : "rp_photo_help")) + '</p>' +
+      '<p class="help" id="rpPhotoWho">' + esc(jcT("rp_photo_who")) + '</p></fieldset>' +
+    '<fieldset id="rpWaBox"><legend>' + esc(jcT("rp_wa")) + '</legend>' +
+      '<label class="check"><input type="checkbox" id="rpWa" aria-controls="rpWaBox"' + (r.wa ? ' checked' : '') + lock + '> <span>' + esc(jcT("rp_wa_q")) + '</span></label>' +
+      (r.wa ? '<label>' + esc(jcT("rp_phone")) + '<input type="tel" id="rpPhone" inputmode="tel" autocomplete="tel" maxlength="24" dir="ltr" placeholder="+971 50 123 4567"' + lock + '></label>' : '') +
+      '<p class="help" id="rpWaHelp">' + esc(jcT("rp_wa_help")) + '</p></fieldset>' +
+    '<p class="help" id="rpPrivacy">' + esc(jcT("rp_privacy")) + '</p>' + send + '</form>';
+  el("rpNote").value = r.note; el("rpNote").addEventListener("input", function(){ r.note = el("rpNote").value; });
+  if (el("rpPlace")) { el("rpPlace").value = r.place; el("rpPlace").addEventListener("input", function(){ r.place = el("rpPlace").value; }); }
+  if (el("rpPhone")) { el("rpPhone").value = r.phone; el("rpPhone").addEventListener("input", function(){ r.phone = el("rpPhone").value; }); }
+  each("[data-rsp]", function(b){
+    if (SPECIES.indexOf(b.dataset.rsp) < 0) return;
+    r.species = b.dataset.rsp;
+    Array.prototype.forEach.call(document.querySelectorAll("[data-rsp]"), function(x){ x.setAttribute("aria-pressed", String(x === b)); });
+  });
+  el("rpWa").addEventListener("change", function(){ r.wa = el("rpWa").checked; draw(); });   /* focus stays on the box (review L3) */
+  el("rpPhotoIn").addEventListener("change", function(){
+    var file = el("rpPhotoIn").files && el("rpPhotoIn").files[0];
+    if (!file || ptBusy) return;
+    var mine = ++shrinkSeq;
+    var was = r.confirm;
+    r.shrinking = mine; r.confirm = false;
+    if (was) draw();                                     /* the prompt was for the old photo: gone at once (review M1) */
+    el("rpPhotoHelp").textContent = jcT("working");
+    if (el("rpSend")) el("rpSend").disabled = true;
+    jcPetPhotoShrink(file).then(function(url){
+      if (r.shrinking !== mine) return;
+      r.shrinking = null;
+      if (rep !== r) return;
+      r.photo = url;
+      if (current === "report") { draw(); if (el("rpPhotoIn")) el("rpPhotoIn").focus(); }
+    }, function(e){
+      if (r.shrinking !== mine) return;
+      r.shrinking = null;
+      if (rep !== r || current !== "report") return;
+      draw(); ptMsg((e && e.code) || "PHOTO_UNREADABLE");
+    });
+  });
+  on("rpPhotoDrop", function(){ if (ptBusy) return; r.photo = null; r.confirm = false; shrinkSeq++; r.shrinking = null; draw(); if (el("rpPhotoIn")) el("rpPhotoIn").focus(); });
+  /* where: the kit's pin picker (as a sighting); never the community's centre by accident */
+  on("rpPosAdd", function(){
+    var tok = r.tok = {};
+    r.picking = true; r.where = "locating"; r.view = null; r.zoom = null; r.moved = false;
+    draw();
+    var t = el("rpPickHelp"); if (t) { t.setAttribute("tabindex", "-1"); t.focus(); }
+    jcLocate(function(lat, lng){
+      if (rep !== r || r.tok !== tok || !r.picking || current !== "report") return;
+      r.where = "you"; r.view = [lat, lng]; r.zoom = 18;
+      if (map && el("rpPick")) map.setView([lat, lng], 18, { animate: false });
+      if (el("rpPickHelp")) el("rpPickHelp").textContent = repPickText();
+    }, function(){
+      if (rep !== r || r.tok !== tok || !r.picking || current !== "report") return;
+      r.where = "centre";
+      if (el("rpPickHelp")) el("rpPickHelp").textContent = repPickText();
+      if (el("rpPickOk") && !r.moved) el("rpPickOk").disabled = true;
+    }, true);
+  });
+  on("rpPickOk", function(){
+    if (!map) return;
+    var c = map.getCenter();
+    r.lat = Math.round(c.lat * 1e5) / 1e5; r.lng = Math.round(c.lng * 1e5) / 1e5; r.picking = false; r.tok = null;
+    draw(); var x = el("rpPosClear"); if (x) x.focus();
+  });
+  on("rpPickCancel", function(){ r.picking = false; r.tok = null; draw(); var a = el("rpPosAdd"); if (a) a.focus(); });
+  on("rpPosClear", function(){ r.lat = null; r.lng = null; draw(); var a = el("rpPosAdd"); if (a) a.focus(); });
+  if (r.picking && typeof L !== "undefined" && el("rpPick")) {
+    var c = (cfg && cfg.map) || {};
+    var m = map = jcPinPicker("rpPick", { center: r.view || [c.lat || 24.53, c.lng || 54.43], zoom: r.zoom || c.zoom || 16, locateZoom: 18,
+      onError: function(code){ if (map === m) ptMsg(code); }, alive: function(){ return map === m; } });
+    m.on("moveend", function(){
+      if (rep !== r || map !== m) return;
+      var x = m.getCenter(); r.view = [x.lat, x.lng]; r.zoom = m.getZoom();
+      if (r.where === "centre" && !r.moved) { r.moved = true; var b = el("rpPickOk"); if (b) b.disabled = false; }
+    });
+  }
+  on("rpSendPhoto", function(){ repSend(true); });
+  on("rpSendNoPhoto", function(){ repSend(false); });
+  on("rpConfirmBack", function(){ r.confirm = false; draw(); if (el("rpSend")) el("rpSend").focus(); });
+  el("rpForm").addEventListener("submit", function(e){
+    e.preventDefault();
+    if (r.shrinking || r.picking || ptBusy) return;
+    if (!repCheck()) return;
+    if (r.photo) { r.confirm = true; draw(); var h = el("rpConfirmH"); if (h) h.focus(); return; }   /* the photo prompt */
+    repSend(false);
+  });
+};
+/* said before sending: what the server would refuse */
+function repCheck(){
+  var r = rep;
+  if (!r.species) { ptMsg("REP_NO_SPECIES"); var b = document.querySelector("[data-rsp]"); if (b) b.focus(); return false; }
+  if (r.lat == null && !r.place.trim()) { ptMsg("REP_NO_WHERE"); if (el("rpPlace")) el("rpPlace").focus(); return false; }
+  if (r.wa && !repPhone(r.phone)) { ptMsg("REP_PHONE"); if (el("rpPhone")) el("rpPhone").focus(); return false; }
+  return true;
+}
+function repSend(withPhoto){
+  var r = rep;
+  if (!r || ptBusy || r.shrinking || r.picking || !repCheck()) return;   /* never a photo other than the one agreed to */
+  var fields = { species: r.species };
+  if (r.note.trim()) fields.note = r.note.trim();
+  if (r.place.trim()) fields.place = r.place.trim();
+  if (r.lat != null) { fields.lat = r.lat; fields.lng = r.lng; }
+  if (r.wa) fields.contact = repPhone(r.phone);
+  var photo = withPhoto ? r.photo : null, where = r.place.trim();
+  ptWrite(el(withPhoto ? "rpSendPhoto" : r.confirm ? "rpSendNoPhoto" : "rpSend"), function(){
+    /* the same id on a retry: the server returns the first report, never a second */
+    return rpc("jc_stray_report_add", { p_id: r.id, p_fields: fields }).then(function(){
+      if (!photo) return {};
+      return jcPetPhotoUpload(r.id, photo, true).then(function(){ return {}; }, function(e){ return { photoErr: (e && e.code) || "UNKNOWN" }; });
+    });
+  }, function(x){
+    rep = null; reports = undefined; repSeq++; repLoading = false;
+    repDone = { text: jcFmt(where ? "rp_wa_msg_place" : "rp_wa_msg", { s: jcT("pt_sp_" + fields.species), w: where }) };
+    show("repdone");
+    try { window.scrollTo(0, 0); } catch(e){}
+    if (x && x.photoErr) say("err", jcFmt("rp_photo_failed", { why: jcErrTextFor("pt_err_", x.photoErr) }));
+    else showOk(jcT("rp_sent"));
+  }, function(code){
+    if (code === "TOO_MANY_REPORTS" || code === "RATE_LIMITED") { r.confirm = false; draw(); ptMsg("REP_" + code); return true; }
+    r.confirm = false; draw();
+    return false;
+  });
+}
+VIEWS.repdone = function(){
+  if (!repDone) return show("list");
+  el("view").innerHTML = '<h1>' + esc(jcT("rp_done_title")) + '</h1>' + msgBox() +
+    '<p class="desc">' + esc(jcT("rp_done_body")) + '</p>' +
+    '<h2 class="group" id="ptShareHead">' + esc(jcT("rp_done_tell")) + '</h2>' + shareLinksHtml(repDone.text) +
+    '<div class="row"><button class="btn ghost" type="button" id="rpToStrays">' + esc(jcT("rp_to_strays")) + '</button></div>';
+  wireShareLinks(repDone.text);
+  on("rpToStrays", function(){ repDone = null; tab = "strays"; setUrl(listUrl()); show("list"); });
+};
+
+/* My reports, under the Strays tab: what organizers decided; while open, the number and the photo can be taken back */
+var repSeq = 0;
+function loadReports(){
+  repLoading = true;
+  var seq = ++repSeq;                                    /* an older read never overwrites a newer state (review L4) */
+  rpc("jc_stray_reports_mine").then(function(d){
+    if (seq !== repSeq) return;
+    repLoading = false;
+    reports = Array.isArray(d) ? d.filter(function(x){ return hObj(x) && typeof x.id === "string"; }) : [];
+    redrawMyReports();
+  }, function(e){
+    if (seq !== repSeq) return;
+    repLoading = false;                                  /* unreadable: the section stays away; the next draw asks again */
+    if (e && e.code === "MODULE_OFF") return show("off");
+  });
+}
+function redrawMyReports(){
+  var box = el("rpMineBox");
+  if (!box || current !== "list" || tab !== "strays") return;
+  box.innerHTML = myReportsHtml();
+  wireMyReports();
+  jcPetPhotoFill();
+}
+function repState(x){
+  var pet = hObj(x.pet) && typeof x.pet.name === "string" && typeof x.pet.id === "string" ? x.pet : null;
+  if (x.state === "added" && pet) return { t: jcFmt("rp_st_added", { n: pet.name }), pet: pet };
+  if (x.state === "known" && pet) return { t: jcFmt("rp_st_known", { n: pet.name }), pet: pet };
+  return { t: jcT("rp_st_" + (["open", "added", "known", "not_stray", "expired"].indexOf(x.state) >= 0 ? x.state : "expired")), pet: null };
+}
+function myReportsHtml(){
+  if (reports === undefined && !repLoading) loadReports();
+  if (!Array.isArray(reports) || !reports.length) return '';
+  return '<h2 class="group" id="rpMineH">' + esc(jcT("rp_mine")) + '</h2><ul class="bklist" id="rpMine">' + reports.map(function(x){
+    var st = repState(x), open = x.state === "open", off = ptBusy ? ' disabled' : '';
+    return '<li data-myreport="' + esc(x.id) + '"><div class="meta">' + esc(when(x.created_at) + " · " + jcT("pt_sp_" + (SPECIES.indexOf(x.species) >= 0 ? x.species : "other"))) + '</div>' +
+      (open && x.photo_path ? jcPetPhotoHtml(x, 34, "tile") : '') +
+      (x.place ? '<div class="meta" dir="auto">' + esc(x.place) + '</div>' : '') +
+      '<div><b dir="auto">' + esc(st.t) + '</b></div>' +
+      '<div class="acts">' + (st.pet ? '<button class="btn ghost small" type="button" data-rpopen="' + esc(st.pet.id) + '">' + esc(jcT("rp_see")) + '</button>' : '') +
+      (open && x.has_contact === true ? '<button class="mini" type="button" id="rpNum-' + esc(x.id) + '" data-rpnum="' + esc(x.id) + '"' + off + '>' + esc(jcT("rp_num_remove")) + '</button>' : '') +
+      (open && x.photo_path ? '<button class="mini danger" type="button" id="rpPh-' + esc(x.id) + '" data-rpphoto="' + esc(x.id) + '"' + off + '>' + esc(jcT("rp_photo_remove")) + '</button>' : '') +
+      '</div></li>';
+  }).join("") + '</ul><p class="help">' + esc(jcT("rp_mine_kept")) + '</p>';
+}
+function wireMyReports(){
+  each("[data-rpopen]", function(b){ openPet(b.dataset.rpopen); });
+  function take(b, fn, okKey, q){
+    var id = b.dataset.rpnum || b.dataset.rpphoto;
+    if (q && !window.confirm(jcT(q))) return;
+    ptWrite(b, function(){ return rpc(fn, { p_id: id }); }, function(d){
+      if (hObj(d) && Array.isArray(reports)) reports = reports.map(function(x){ return x.id === id ? Object.assign({}, x, d) : x; });
+      redrawMyReports(); showOk(jcT(okKey));
+    }, function(code){
+      if (code === "NO_PHOTO" || code === "NOT_FOUND") { reports = undefined; repSeq++; repLoading = false; redrawMyReports(); return true; }   /* closed or gone meanwhile */
+      return false;
+    });
+  }
+  each("[data-rpnum]", function(b){ take(b, "jc_stray_report_contact_clear", "rp_num_removed"); });
+  each("[data-rpphoto]", function(b){ take(b, "jc_stray_report_photo_remove", "rp_photo_removed", "rp_photo_remove_q"); });
+}
 
 /* ---------- boot ---------- */
 function paint(){

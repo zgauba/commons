@@ -88,15 +88,17 @@ function jcPetPhotoShrink(file){
     r.readAsDataURL(file);
   });
 }
-function jcPetPhotoUpload(id, dataUrl){
-  return rpc("jc_pet_photo_begin", { p_pet: id, p_ext: "jpg" }).then(function(b){
+/* report: true → the photo of a resident's stray report (jc_stray_report_photo_begin / _commit, keyed p_id) */
+function jcPetPhotoUpload(id, dataUrl, report){
+  var begin = report ? rpc("jc_stray_report_photo_begin", { p_id: id, p_ext: "jpg" }) : rpc("jc_pet_photo_begin", { p_pet: id, p_ext: "jpg" });
+  return begin.then(function(b){
     if (!jcObj(b) || typeof b.path !== "string") throw jcErr("UNKNOWN");
     var bin = atob(dataUrl.slice(dataUrl.indexOf(",") + 1)), buf = new Uint8Array(bin.length);
     for (var i = 0; i < bin.length; i++) buf[i] = bin.charCodeAt(i);
     /* raw bytes, not a Blob: a Blob would go up as a multipart form */
     return jcDb.storage.from("pet-photos").upload(b.path, buf.buffer, { contentType: "image/jpeg", upsert: false }).then(function(r){
       if (!r || r.error) throw jcErr("PHOTO_UPLOAD_FAILED");
-      return rpc("jc_pet_photo_commit", { p_pet: id });
+      return report ? rpc("jc_stray_report_photo_commit", { p_id: id }) : rpc("jc_pet_photo_commit", { p_pet: id });
     });
   });
 }

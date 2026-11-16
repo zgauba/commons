@@ -613,20 +613,63 @@ function petsBackend(opts = {}) {
       p.photo_path = p.pending; p.pending = null;
       return ok(card(p));
     },
+    // stray reports (PR 3): the reporter's view (no home, number only as has_contact), as the server
+    jc_stray_report_add: (a) => {
+      if (off()) return off();
+      if (opts.reportError) return raise(opts.reportError);
+      if (opts.reportFailOnce && !st.failedOnce) { st.failedOnce = true; return raise(opts.reportFailOnce); }
+      const f = a.p_fields || {};
+      const old = st.reports.find((r) => r.id === a.p_id);
+      if (old) return ok(mineCard(old));                                   // idempotent: the same report
+      if (!["cat", "dog", "bird", "rabbit", "other"].includes(f.species) || (f.lat == null && !f.place)) return raise("BAD_FIELDS");
+      if (f.contact != null && !/^\+?[0-9]{8,15}$/.test(f.contact)) return raise("BAD_FIELDS");
+      const r = { id: a.p_id, species: f.species, note: f.note || null, place: f.place || null, lat: f.lat ?? null, lng: f.lng ?? null,
+        contact: f.contact || null, state: "open", created_at: "2026-11-16T09:00:00Z", closed_at: null, photo_path: null, pet: null };
+      st.reports.unshift(r); st.adds.push(a);
+      return ok(mineCard(r));
+    },
+    jc_stray_reports_mine: () => off() || (opts.mineError ? raise(opts.mineError) : ok(st.reports.map(mineCard))),
+    jc_stray_report_contact_clear: (a) => {
+      const r = st.reports.find((x) => x.id === a.p_id);
+      if (!r) return raise("NOT_FOUND");
+      r.contact = null; return ok(mineCard(r));
+    },
+    jc_stray_report_photo_begin: (a) => {
+      const r = st.reports.find((x) => x.id === a.p_id && x.state === "open");
+      if (!r) return raise("NOT_FOUND");
+      n += 1; r.pending = "jubail/r/" + r.id + "/p" + n + "." + a.p_ext;
+      return ok({ bucket: "pet-photos", path: r.pending, expires_in_seconds: 900 });
+    },
+    jc_stray_report_photo_commit: (a) => {
+      const r = st.reports.find((x) => x.id === a.p_id);
+      if (!r || !r.pending) return raise("NO_PENDING_PHOTO");
+      if (!st.objects[r.pending]) return raise("PHOTO_MISSING");
+      r.photo_path = r.pending; r.pending = null; return ok(mineCard(r));
+    },
+    jc_stray_report_photo_remove: (a) => {
+      const r = st.reports.find((x) => x.id === a.p_id);
+      if (!r) return raise("NOT_FOUND");
+      if (!r.photo_path) return raise("NO_PHOTO");
+      r.photo_path = null; return ok(mineCard(r));
+    },
   };
+  st.reports = (opts.reports || []).map((r) => Object.assign({ note: null, place: null, lat: null, lng: null, contact: null, state: "open",
+    created_at: "2026-11-15T09:00:00Z", closed_at: null, photo_path: null, pet: null }, r));
+  st.adds = [];
+  function mineCard(r) { const { contact, pending, ...c } = r; return Object.assign({}, c, { has_contact: !!contact }); }
   for (const k of ["jc_pets_list", "jc_pet_save", "jc_pet_get", "jc_pet_missing_set"]) rpc[k] = held(k, rpc[k]);
   st.objects = {};
   const storage = {
     // write-once at the pending path only (storage policy pet_photo_can_write)
     upload: (a) => {
       if (opts.uploadFail) return { status: 500, body: { statusCode: "500", error: "internal", message: "boom" } };
-      if (a.bucket !== "pet-photos" || !st.pets.some((p) => p.pending === a.path) || st.objects[a.path])
+      if (a.bucket !== "pet-photos" || !(st.pets.some((p) => p.pending === a.path) || st.reports.some((r) => r.pending === a.path)) || st.objects[a.path])
         return { status: 403, body: { statusCode: "403", error: "Unauthorized", message: "new row violates row-level security policy" } };
       st.objects[a.path] = a;
       return ok({ Key: "pet-photos/" + a.path, Id: "obj" });
     },
     // readable only while it is a pet's current photo (pet_photo_can_read); opts.broken = paths that fail to load
-    image: (path) => (st.pets.some((p) => p.photo_path === path) && !(opts.broken || []).includes(path) ? PET_PNG : null),
+    image: (path) => ((st.pets.some((p) => p.photo_path === path) || st.reports.some((r) => r.photo_path === path)) && !(opts.broken || []).includes(path) ? PET_PNG : null),
   };
   return { st, rpc, storage };
 }
