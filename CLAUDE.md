@@ -27,7 +27,7 @@ ONE repo, served by GitHub Pages as the user site, holding three things:
 - **Branches + PRs, even solo** — standing exception: live-event-day hotfixes go straight to `main` (deployed sites auto-reload in users' hands ~2 min after CDN refresh).
 - **Live infra wins over docs.** Update the doc when they disagree.
 - **This repo is PUBLIC and served verbatim.** Never commit: organizer/admin codes, sign-up passcodes, service-role keys, resident data. Supabase publishable (anon) keys in HTML are public by design.
-- **Zero-PII is the default promise** across all community tools: no names/emails/phones unless a feature adds one per-feature, opt-in, minimal, and disclosed. Never a silent schema change.
+- **PII only when necessary** (Zee, 2026-11-16; replaces the old zero-PII promise): collect personal data only when a feature genuinely needs it, never "just in case". Opt-in where possible, minimal, disclosed on the screen that collects it, deleted once it's no longer needed. First-party only: no third parties, no ad-tech. Never a silent schema change.
 - **One Pages build serves everything** — the career page shares a blast radius with community-app pushes. Check what a commit touches before pushing.
 - **Never change `jh_signup`'s signature** (cached pages + PostgREST overload ambiguity). Follow-up RPCs instead. Same discipline applies to `jc_` signup-class RPCs once live.
 
@@ -37,7 +37,7 @@ ONE repo, served by GitHub Pages as the user site, holding three things:
 
 **Halloween site (`jubail-halloween/`):** legacy but live; vanilla JS, string concat (no template literals), no build. Pin encoding is orthogonal: fill = availability, ring = entrance, glyph = treats type. Copy says "out of treats". Superseded by `commons/` — no structural investment here.
 
-**Commons (`commons/`):** the rebuild. Per-community config (villages, map center, branding, WhatsApp links) + per-module feature flags (events / bookings / pets — flags are also the compliance kill switch for the booking module). EN/AR strings dictionary + RTL. Identity model with optional-PII slots. Booking module carries "official JICM bookings take precedence" on the booking screen (MCD §15.10).
+**Commons (`commons/`):** the rebuild. Per-community config (villages, map center, branding, WhatsApp links) + per-module feature flags (events / bookings / pets — flags are also the compliance kill switch for the booking module). EN/AR strings dictionary + RTL. Identity model: full accounts; any further PII is per-feature and only when necessary. Booking module carries "official JICM bookings take precedence" on the booking screen (MCD §15.10).
 
 ## Conventions
 
