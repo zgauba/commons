@@ -64,7 +64,7 @@ var ctBusy = false;       /* a status change is in flight */
 var pa = null;            /* R5d-1 Pets tab: { list (jc_admin_pets_list), link (jc_pets_group_get; undefined = couldn't read) } | { err } | null */
 var paLoading = false;
 var paSeq = 0;            /* bumped when a right ends: an answer from before is dropped (security review L2) */
-var paBusy = false;       /* the group link is being saved */
+var paBusy = false;       /* a Pets-tab write is in flight (group link save, Restore) */
 var paFocus = null;       /* an animal to show once, from its Admin button on Pets */
 var pe = null;            /* R5d-2b stray editor: { f (list card) | null, v {name, species, description, care_state, territory},
                              pin {lat, lng} | null, photo (data URL picked, not yet sent) | null, shrinking, saving } */
@@ -2141,7 +2141,6 @@ function paArchRow(p){
     '<div class="acts"><button class="mini" type="button" id="paRestore-' + esc(p.id) + '" data-parestore="' + esc(p.id) + '"' +
       (paBusy ? ' disabled' : '') + '>' + esc(jcT("pa_restore")) + '</button></div>') + '</li>';
 }
-var paBusy = false;
 function paRestore(id, btn){
   var f = petById(id);
   if (!f || paBusy || f.status === "active" || !paDaysLeft(f)) return;
@@ -2423,7 +2422,7 @@ function pmLoadHidden(me, seq){
     pmKeep();
   }, function(e){
     if (e && e.code === "NOT_ADMIN") return fail(e);
-    if (pv === me && seq === me.seq) me.hidden = null;
+    /* a failed read keeps what was shown (or leaves the section out if nothing was) */
   });
 }
 /* one write at a time; NOT_FOUND = archived or no longer a stray → the list; anything else stays on the form */
@@ -2554,7 +2553,7 @@ function pmUnhide(id, btn){
 }
 function pmSightAct(fn, id, btn, okKey){
   function gone(me){
-    me.detail = null; me.err = null; me.loading = false;    /* read the sightings (and hidden ones) again */
+    me.detail = null; me.err = null; me.loading = false; me.hidden = null;   /* read the sightings (and hidden ones) again */
     show("petadmin");
     showOk(jcT(okKey));
   }

@@ -1050,6 +1050,8 @@ test("soft archive: Hidden sightings on Manage — folded, Show again (no confir
   const b = backend({ petsOn: true });
   b.st.sights[ID(3)] = SIGHTS();
   b.st.sights[ID(3)][1].hidden = true;
+  const get = b.rpc.jc_pet_get; let gate = null;
+  b.rpc.jc_pet_get = (a) => (gate ? gate.then(() => get(a)) : get(a));
   await manageAny(page, b, ID(3));
   await expect(page.locator("#pmSight li")).toHaveCount(1);
   await expect(page.locator("#pmHiddenToggle")).toHaveText("Hidden sightings (1)");
@@ -1060,9 +1062,12 @@ test("soft archive: Hidden sightings on Manage — folded, Show again (no confir
   await expect(page.locator("#pmHidden li")).toHaveCount(1);
   await expect(page.locator("#pmHidden li")).toContainText("lol fake");
   if (process.env.SHOT_DIR) await page.screenshot({ path: process.env.SHOT_DIR + "/pm-hidden.png", fullPage: true });
+  let release; gate = new Promise((r) => { release = r; });                             // the re-read answers late
   await page.locator('[data-pmunhide="42"]').click();
   await expect(page.locator("#msg")).toHaveText("Sighting shown again.");
   expect(b.st.unhides).toEqual([{ p_sighting: 42 }]);
+  await expect(page.locator('[data-pmunhide="42"]')).toHaveCount(0);                     // not left in the fold while reading (review M)
+  gate = null; release();
   await expect(page.locator("#pmSight li")).toHaveCount(2);
   await expect(page.locator("#pmHiddenToggle")).toHaveCount(0);
   // hide → it lands under Hidden sightings
