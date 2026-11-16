@@ -86,7 +86,12 @@ redeploy. **Diff budget:** over 200 lines only because of the EN/AR copy sweep; 
 | 7 | Rollback | Need to undo | App: revert PR 1 (copy only + helper). DB: down-script (refuses if football rows exist — delete or retire them first). |
 | UX | "Behaves differently from…" | Section Names: a community that renamed Courts keeps "Courts" | Accepted — that's what Section Names is for. |
 
-## Questions for Zee
+## Decisions
+
+Zee approved the plan 2026-11-16 ("Agree"): Football, never soccer; the place noun is **"place"**; the CTA is
+**"Book a Court or Pitch"**. Order: DB PR (rehearse → reviews → apply on "apply") → app PR merges after.
+
+## Questions for Zee (answered: recommendations taken)
 
 1. **One word for "a place you book"** (today "court", ~45 strings: "New Court", "This court has no slots", "No courts to
    book yet"). **Recommend "place"** ("New Place", "This place has no slots on this day", "No places to book yet"):
