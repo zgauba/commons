@@ -113,7 +113,16 @@ begin
    where co.contype = 'f' and co.confrelid = 'auth.users'::regclass
      and co.connamespace = 'public'::regnamespace and co.confdeltype = 'n' and at.attnotnull;
   if n <> 0 then raise exception 'FAIL G10 % SET NULL user references are NOT NULL', n; end if;
-  k := k + 3;
+  -- PostgREST runs STABLE/IMMUTABLE RPCs in a read-only transaction: a write anywhere inside
+  -- (jc_assert_* touches last_used_at) fails live with 405 while direct-call tests pass (2026-11-16)
+  select count(*) into n from pg_proc pr join pg_namespace ns on ns.oid = pr.pronamespace
+   where ns.nspname = 'public' and pr.proname like 'jc\_%' and pr.provolatile in ('s', 'i')
+     and pr.prosrc ~* '(jc_assert_|insert\s+into|update\s+\w+\s+(\w+\s+)?set\s|delete\s+from)';
+  if n <> 0 then raise exception 'FAIL G20 % STABLE/IMMUTABLE functions write (read-only under PostgREST): %', n,
+    (select string_agg(pr.proname, ', ') from pg_proc pr join pg_namespace ns on ns.oid = pr.pronamespace
+      where ns.nspname = 'public' and pr.proname like 'jc\_%' and pr.provolatile in ('s', 'i')
+        and pr.prosrc ~* '(jc_assert_|insert\s+into|update\s+\w+\s+(\w+\s+)?set\s|delete\s+from)'); end if;
+  k := k + 4;
 
   -- storage (S4): one private bucket, exactly two policies, both delegating to jc_private;
   -- jc_private is never callable by anon, and holds only the two policy predicates
