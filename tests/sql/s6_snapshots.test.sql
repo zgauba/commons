@@ -42,7 +42,7 @@ begin
   insert into jc_pets (community_id, kind, home_id, species, name, missing, missing_since) values
     ('testville6', 'owned', v_h1, 'cat', 'Mish', true, now());
   insert into jc_pets (community_id, kind, species, name, care_state) values ('testville6', 'stray', 'dog', 'Rex', 'under_care');
-  insert into jc_pets (community_id, kind, home_id, species, name, status) values ('testville6', 'owned', v_h2, 'cat', 'Gone', 'archived');
+  insert into jc_pets (community_id, kind, home_id, species, name, status, archived_at, archived_how) values ('testville6', 'owned', v_h2, 'cat', 'Gone', 'archived', now(), 'household');
   perform jc_code_set('testville6', 'community', 'T4-TV6-ADMIN-01');
 
   -- ---------- N01 one row per module per community per hour ----------
