@@ -224,3 +224,14 @@ test("Closed: read only when chosen; outcome chips and the stray's link; no acti
   await expect(card(page, RID(6)).locator(".chip")).toHaveText("Expired (60 days)");
   await expect(page.locator("#prList button")).toHaveCount(0);
 });
+
+test("from the Strays tab's waiting line (?open=reports): straight to Reported strays, once", async ({ page }) => {
+  const b = backend();
+  await stubBackend(page, { rpc: b.rpc });
+  await signIn(page);
+  await page.goto("admin/?tab=pets&open=reports");
+  await expect(page.locator("h1")).toHaveText("Reported strays");
+  await expect(page.locator("#prList [data-report]")).toHaveCount(2);
+  await page.locator("#jcBackBtn").click();
+  await expect(page.locator("#paChips")).toBeVisible();                              // Back: the Pets tab, no jump again
+});

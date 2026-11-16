@@ -47,6 +47,7 @@ var rep = null;       /* report a stray: { id (made here: a retry never sends tw
                          view, zoom, moved, tok, photo, shrinking, wa, phone, confirm (the photo prompt is open) } */
 var reports;          /* my stray reports (jc_stray_reports_mine): undefined = not read (or unreadable: asked again on the next draw) */
 var repLoading = false;
+var queueN;           /* Pets organizers: open stray reports waiting (undefined = not read; null = unreadable / not an organizer) */
 var repDone = null;   /* the report just sent: { text } for the thank-you screen's WhatsApp message */
 
 /* ---------- helpers ---------- */
@@ -343,7 +344,7 @@ var VIEWS = {
       var active = strays.filter(function(p){ return p.care_state !== "rehomed"; });
       onMap = active.filter(strayPos);
       var unplaced = active.length - onMap.length;
-      body = '<div class="row"><button class="btn" type="button" id="rpOpen">' + esc(jcT("rp_cta")) + '</button></div>' +
+      body = queueHtml() + '<div class="row"><button class="btn" type="button" id="rpOpen">' + esc(jcT("rp_cta")) + '</button></div>' +
         '<p class="help" id="rpCtaHelp">' + esc(jcT("rp_cta_help")) + '</p>' +
         (!strays.length ? '<p class="help" id="ptStrays">' + esc(jcT("pt_strays_none")) + '</p>' :
         (typeof L === "undefined" ? '<p class="help" id="ptNoMap">' + esc(jcT("err_NETWORK")) + '</p>' :   /* no dead buttons */
@@ -1100,6 +1101,23 @@ VIEWS.repdone = function(){
   wireShareLinks(repDone.text);
   on("rpToStrays", function(){ repDone = null; tab = "strays"; setUrl(listUrl()); show("list"); });
 };
+
+/* Pets organizers: the waiting count where they already go (no notifications yet — Zee 2026-11-16). Only for someone
+   with Pets / community rights; any refusal (an expired grant: NOT_ADMIN) just hides the line. */
+function queueHtml(){
+  if (!canAdmin()) return '';
+  if (queueN === undefined) loadQueue();
+  if (!queueN) return '';
+  return '<p class="notice" id="rpQueue"><a href="../admin/?tab=pets&open=reports">' + esc(jcFmt(queueN === 1 ? "rp_queue_1" : "rp_queue", { n: queueN })) + '</a></p>';
+}
+function loadQueue(){
+  queueN = null;
+  rpc("jc_admin_stray_reports_list", { p_show: "open" }).then(function(d){
+    queueN = Array.isArray(d) ? d.length : null;
+    /* dropped in place: a redraw would rebuild the Strays map and lose where it was moved (review L1) */
+    if (queueN && current === "list" && tab === "strays" && !el("rpQueue") && el("rpOpen")) el("rpOpen").parentNode.insertAdjacentHTML("beforebegin", queueHtml());
+  }, function(){ queueN = null; });
+}
 
 /* My reports, under the Strays tab: what organizers decided; while open, the number and the photo can be taken back */
 var repSeq = 0;

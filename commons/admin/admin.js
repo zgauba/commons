@@ -21,6 +21,7 @@ var paShow = PA_SHOWS.indexOf(evShow) >= 0 ? evShow : "all";     /* OT-3: the Pe
 var paQ = "";                                                     /* OT-3: the Pets search */
 var OPEN_COURT = new URLSearchParams(location.search).get("court");   /* from a court's Admin button on Courts */
 var OPEN_PET = new URLSearchParams(location.search).get("pet");       /* R5d-1: from an animal's Admin button on Pets */
+var OPEN_REPORTS = new URLSearchParams(location.search).get("open") === "reports";   /* from the Strays tab's "waiting" line */
 /* ?eventadmin=<token> — a community admin's grant link (T5.2 PR B): asked, never auto-accepted */
 var GRANT = new URLSearchParams(location.search).get("eventadmin");
 if (GRANT && !/^[A-Za-z0-9_-]{16,64}$/.test(GRANT)) GRANT = null;
@@ -1987,6 +1988,13 @@ function loadPets(){
     if (seq !== paSeq || !isPetsAdmin()) return;         /* the right ended while it was on its way (as Courts) */
     pa = { list: Array.isArray(r[0]) ? r[0].filter(function(p){ return hObj(p) && typeof p.id === "string"; }) : [], link: r[1], linkErr: linkErr,
            reports: r[2], repErr: repErr };
+    if (OPEN_REPORTS) {                                  /* once: straight to Reported strays (from the Strays tab's line) */
+      OPEN_REPORTS = false; jcSetUrl("tab=pets");
+      if (current === "home" && admTab === "pets") {
+        pr = { show: "open", closed: null, busy: false, known: null, pick: "" };
+        return show("petreports");
+      }
+    }
     if (OPEN_PET) {                                      /* once: never a jump later */
       var want = OPEN_PET, oc = petById(want);
       OPEN_PET = null; jcSetUrl("tab=pets");

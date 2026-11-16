@@ -630,6 +630,9 @@ function petsBackend(opts = {}) {
       st.reports.unshift(r); st.adds.push(a);
       return ok(mineCard(r));
     },
+    // the organizers' queue, as read by the residents' Strays tab for its "waiting" line
+    jc_admin_stray_reports_list: () => opts.queueError ? raise(opts.queueError) : (((st.me.admin_scopes || []).some((s) => s === "pets" || s === "community"))
+      ? ok(Array.from({ length: opts.queue || 0 }, (_, i) => ({ id: "q" + i, species: "cat", state: "open" }))) : raise("NOT_ADMIN")),
     jc_stray_reports_mine: () => off() || (opts.mineError ? raise(opts.mineError) : ok(st.reports.map(mineCard))),
     jc_stray_report_contact_clear: (a) => {
       const r = st.reports.find((x) => x.id === a.p_id);
