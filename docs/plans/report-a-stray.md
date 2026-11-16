@@ -40,7 +40,7 @@ anything becomes public.
 
 | Layer | Touched | Check |
 |---|---|---|
-| Database / API | New `jc_stray_reports` (row security on, no grants). RPCs `jc_stray_report_add` (idempotent on a phone-made id), `jc_stray_reports_mine`, `jc_admin_stray_reports_list`, `jc_admin_stray_report_close`. Rate bucket `stray_report` | R5a / S4 / pets_care_v2 migrations |
+| Database / API | New `jc_stray_reports` (row security on, no grants). RPCs `jc_stray_report_add` (idempotent on a phone-made id), `jc_stray_reports_mine`, `jc_admin_stray_reports_list`, `jc_admin_stray_report_close`. Caps counted on the table (reporters are kept, so counts are exact; no `jc_rate` bucket) | R5a / S4 / pets_care_v2 migrations |
 | Storage | **Yes:** `jc_pet_photos` gains `report_id` (exactly one of pet / report). Bodies of `jc_private.pet_photo_can_write/_read` replaced (signatures unchanged). Write = reporter's own pending path within 15 min; read = reporter or Pets admin. New `jc_stray_report_photo_begin/commit`. Photo moves to the pet on "Add" | s4:242–284, s4:449–500 |
 | Scheduled jobs | `jc_pets_retention()` body: clear numbers, expire / delete reports, retire report photos for the T4 sweep. Same cron + log key | manifest line 130 |
 | Frontend | `pets.js` (form, My reports), `admin.js` (Reported chip + queue), `strings.js` (EN + AR) | pets.js 472–660, admin `PA_SHOWS` |
@@ -58,7 +58,7 @@ anything becomes public.
 | Queue filter | `PA_SHOWS` chips / `jcChipsHtml` | REUSE: + Reported |
 | Add as a stray | stray editor + `jc_admin_stray_save` | REUSE (signature unchanged) |
 | Close with reason | archive-with-reason (R5d-3b) | REUSE the pattern |
-| Rate limits | `jc_rate` buckets + advisory lock | REUSE |
+| Rate limits | sighting-style counts on the table + advisory locks (per reporter, then per community) | REUSE |
 | Double tap (mirror extension) | busy lock only | NEW: phone-made id makes the insert idempotent |
 | Phone number field | none (Commons stores no phones) | NEW: checked `^\+?[0-9]{8,15}$` after removing spaces; the phone may remember it locally to fill it in next time |
 
@@ -84,4 +84,5 @@ The queue (PR 2) ships before the form (PR 3), so a report never lands where nob
 | 6 | Photo shows a person or a house number | Never public until an organizer adopts it into a stray; organizer can add without the photo |
 | 7 | Rollback (pre-launch) | Drop the new functions + table; restore the storage-rule and retention bodies; drop `report_id` (after deleting report photo rows); restore the bucket check |
 | UX | "Behaves differently from sightings" | Same form shape; the privacy line explains why this one names your home (organizers may need to reach you) |
-| Data | Report-photo rows block report deletion (FK) | Retention deletes a report only after its photos are purged, then deletes their photo rows |
+| Data | Report-photo rows block report deletion (FK) | **PR 1b must replace `jc_pets_retention`**: retire report photos first, delete a report only when it has no photo rows left (else the FK aborts the whole nightly job, sightings purge included — db review M2). Photo FK NO ACTION, never CASCADE (orphans storage objects). Close-with-photo-move under the row lock; the idempotent retry must not move again |
+| UX | Expired reports can't be actioned (ALREADY_CLOSED) | PR 2 hides the outcome buttons on closed / expired reports (db review L7) |
