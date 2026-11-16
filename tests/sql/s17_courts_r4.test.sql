@@ -79,15 +79,28 @@ begin
   v := jc_admin_facility_save(null, '{"kind": "basketball", "name_en": "Hoops", "walk_on": true}');
   select (x ->> 'id')::uuid into cw from jsonb_array_elements(v) x where x ->> 'name_en' = 'Hoops';
   if ct is null or cw is null then raise exception 'FAIL K01b tennis / basketball not created: %', v; end if;
+  -- B-1: football is a kind; "soccer" never is (Zee 2026-11-16)
+  v := jc_admin_facility_save(null, '{"kind": "football", "name_en": "Pitch 1"}');
+  if not exists (select 1 from jsonb_array_elements(v) x where x ->> 'name_en' = 'Pitch 1' and x ->> 'kind' = 'football') then
+    raise exception 'FAIL K01d football not created: %', v; end if;
+  if pg_temp.s17_err($q$select jc_admin_facility_save(null, '{"kind": "soccer", "name_en": "S"}')$q$) is distinct from 'BAD_FIELDS' then
+    raise exception 'FAIL K01e soccer accepted'; end if;
   execute 'reset role';
+  delete from jc_facilities where community_id = 'testville17' and name_en = 'Pitch 1';   -- later counts expect 2 places
   begin
     insert into jc_facilities (community_id, kind, name_en) values ('testville17', 'padel', 'Direct');
     msg := null;
   exception when check_violation then msg := 'check';
   end;
   if msg is distinct from 'check' then raise exception 'FAIL K01c the table accepts padel'; end if;
+  begin
+    insert into jc_facilities (community_id, kind, name_en) values ('testville17', 'soccer', 'Direct');
+    msg := null;
+  exception when check_violation then msg := 'check';
+  end;
+  if msg is distinct from 'check' then raise exception 'FAIL K01f the table accepts soccer'; end if;
   execute 'set local role authenticated';
-  k := k + 3;
+  k := k + 6;
 
   -- ---------- W01 walk-on courts: listed, no grid, no booking ----------
   perform pg_temp.s17_as(a2);
