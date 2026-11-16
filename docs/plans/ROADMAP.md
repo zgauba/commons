@@ -225,6 +225,10 @@ so the Commons button feels wasted. Needs `/plan-change`, and a clickable mockup
     2026-11-14 (possibly paused).
   - **Leftovers:** `jc_communities.links.halloween_archive` (unread since #111), the `admin.js` wording comment, test
     stubs, and the /jubail/ page copy that mentions it.
+- **Re-review all help copy** (Zee 2026-11-16) — every page help "?" panel and in-screen help/explainer text across
+  every module (Events, Courts, Pets incl. stray reports, The Community, My Home, Organizer Tools), EN + AR, against
+  what the screens actually do at launch. Help was written feature by feature, so expect stale steps and drift.
+  After the last feature (Commons home v2) so it's reviewed once, against the final app.
 - Per-community split of App Health's platform numbers (needed before a second community admin exists).
 - Teardown of `e2e` test data when Zee says testing is done.
 - **Commons into its own private repo** (Zee 2026-11-14), done with the commons.ae move (a custom domain means its own
