@@ -4,7 +4,7 @@
 
 do $t$
 declare
-  k int := 0; n int; v_actual text[];
+  k int := 0; n int; s text; v_actual text[];
   v_anon_expected text[] := array['jc_config_get', 'jc_health', 'jc_hit'];  -- T3 retired jc_code_check; T4b jc_health
   v_auth_expected text[] := array[
     -- S1
@@ -59,7 +59,9 @@ declare
     'jc_stray_report_add', 'jc_stray_reports_mine', 'jc_admin_stray_reports_list', 'jc_admin_stray_report_close',
     'jc_stray_report_contact_clear',
     -- report a new stray (PR 1b: photos)
-    'jc_stray_report_photo_begin', 'jc_stray_report_photo_commit', 'jc_stray_report_photo_remove'];
+    'jc_stray_report_photo_begin', 'jc_stray_report_photo_commit', 'jc_stray_report_photo_remove',
+    -- soft archive (PR 1)
+    'jc_admin_pet_restore', 'jc_admin_pet_hidden_sightings', 'jc_admin_sighting_unhide'];
 begin
   -- Pre-launch suite: fixtures are written into 'jubail' and rolled back. Refuse to run
   -- once real residents exist — post-launch tests must move to a test community.
@@ -114,15 +116,35 @@ begin
      and co.connamespace = 'public'::regnamespace and co.confdeltype = 'n' and at.attnotnull;
   if n <> 0 then raise exception 'FAIL G10 % SET NULL user references are NOT NULL', n; end if;
   -- PostgREST runs STABLE/IMMUTABLE RPCs in a read-only transaction: a write anywhere inside
-  -- (jc_assert_* touches last_used_at) fails live with 405 while direct-call tests pass (2026-11-16)
-  select count(*) into n from pg_proc pr join pg_namespace ns on ns.oid = pr.pronamespace
-   where ns.nspname = 'public' and pr.proname like 'jc\_%' and pr.provolatile in ('s', 'i')
-     and pr.prosrc ~* '(jc_assert_|insert\s+into|update\s+\w+\s+(\w+\s+)?set\s|delete\s+from)';
-  if n <> 0 then raise exception 'FAIL G20 % STABLE/IMMUTABLE functions write (read-only under PostgREST): %', n,
-    (select string_agg(pr.proname, ', ') from pg_proc pr join pg_namespace ns on ns.oid = pr.pronamespace
-      where ns.nspname = 'public' and pr.proname like 'jc\_%' and pr.provolatile in ('s', 'i')
-        and pr.prosrc ~* '(jc_assert_|insert\s+into|update\s+\w+\s+(\w+\s+)?set\s|delete\s+from)'); end if;
-  k := k + 4;
+  -- (jc_assert_* touches last_used_at) fails live with 405 while direct-call tests pass (2026-11-16).
+  -- Transitive (soft archive): a writer is any public / jc_private function that writes, or calls a writer by name.
+  with recursive fn as (
+    select pr.proname::text nm, pr.provolatile vol, pr.prosrc src from pg_proc pr join pg_namespace ns on ns.oid = pr.pronamespace
+     where ns.nspname in ('public', 'jc_private') and pr.prolang <> 13),
+  w(nm) as (
+    select nm from fn where src ~* '(insert\s+into|update\s+\w+(\.\w+)?\s+(\w+\s+)?set\s|delete\s+from|\mjc_assert_)'
+    union
+    select f.nm from fn f join w on f.src ~ ('\m' || w.nm || '\s*\(') and f.nm <> w.nm)
+  select count(*), string_agg(f.nm, ', ') into n, s from fn f join w on w.nm = f.nm
+   where f.vol in ('s', 'i') and f.nm like 'jc\_%';
+  if n <> 0 then raise exception 'FAIL G20 % STABLE/IMMUTABLE functions write (read-only under PostgREST): %', n, s; end if;
+  -- G20 probe: a STABLE function two calls away from a write is caught (stable → plain → jc_notice's insert)
+  execute $p$create function public.jc_zz_g20_mid() returns void language sql security definer set search_path = public, pg_temp
+           as 'select jc_notice(null, null, null, null)'$p$;
+  execute $p$create function public.jc_zz_g20_top() returns int language sql stable security definer set search_path = public, pg_temp
+           as 'select 1 from (select jc_zz_g20_mid()) x'$p$;
+  with recursive fn as (
+    select pr.proname::text nm, pr.provolatile vol, pr.prosrc src from pg_proc pr join pg_namespace ns on ns.oid = pr.pronamespace
+     where ns.nspname in ('public', 'jc_private') and pr.prolang <> 13),
+  w(nm) as (
+    select nm from fn where src ~* '(insert\s+into|update\s+\w+(\.\w+)?\s+(\w+\s+)?set\s|delete\s+from|\mjc_assert_)'
+    union
+    select f.nm from fn f join w on f.src ~ ('\m' || w.nm || '\s*\(') and f.nm <> w.nm)
+  select string_agg(f.nm, ', ') into s from fn f join w on w.nm = f.nm where f.vol in ('s', 'i') and f.nm like 'jc\_%';
+  execute 'drop function public.jc_zz_g20_top()';
+  execute 'drop function public.jc_zz_g20_mid()';
+  if s is distinct from 'jc_zz_g20_top' then raise exception 'FAIL G21 transitive probe not caught: %', s; end if;
+  k := k + 5;
 
   -- storage (S4): one private bucket, exactly two policies, both delegating to jc_private;
   -- jc_private is never callable by anon, and holds only the two policy predicates

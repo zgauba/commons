@@ -280,7 +280,9 @@ begin
   select count(*) into n from storage.objects where bucket_id = 'pet-photos' and name = v_path1;
   if n <> 0 then raise exception 'FAIL P12b archived pet''s photo still readable'; end if;
   execute 'reset role';
-  if exists (select 1 from jc_pet_photos where pet_id = v_simba and state <> 'retired') then
+  -- soft archive (2026-11-17): only the kept photo stays 'current' for the 30-day window (still unreadable, P12b)
+  if exists (select 1 from jc_pet_photos ph join jc_pets p on p.id = ph.pet_id
+              where ph.pet_id = v_simba and ph.state <> 'retired' and ph.path is distinct from p.archived_photo_path) then
     raise exception 'FAIL P12c ledger not retired'; end if;
   execute 'set local role authenticated';
   k := k + 3;

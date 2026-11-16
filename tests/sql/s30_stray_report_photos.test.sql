@@ -294,7 +294,8 @@ begin
   k := k + 4;
 
   -- ---------- P15 nightly: a current photo left on an archived pet is retired (close-vs-archive race, db M1) ----------
-  update jc_pets set status = 'archived', photo_path = null where id = v_cat;   -- jc_pet_retire's pets update, after the move
+  -- jc_pet_retire's pets update, after the move (soft archive: the move landed after retire chose what to keep → not kept)
+  update jc_pets set status = 'archived', photo_path = null, archived_at = now(), archived_how = 'organizer' where id = v_cat;
   perform jc_pets_retention();
   if (select state from jc_pet_photos where path = v_p4) <> 'retired' then raise exception 'FAIL P15 archived pet''s photo kept'; end if;
   k := k + 1;
