@@ -64,7 +64,7 @@ var ctBusy = false;       /* a status change is in flight */
 var pa = null;            /* R5d-1 Pets tab: { list (jc_admin_pets_list), link (jc_pets_group_get; undefined = couldn't read) } | { err } | null */
 var paLoading = false;
 var paSeq = 0;            /* bumped when a right ends: an answer from before is dropped (security review L2) */
-var paBusy = false;       /* the group link is being saved */
+var paBusy = false;       /* a Pets-tab write is in flight (group link save, Restore) */
 var paFocus = null;       /* an animal to show once, from its Admin button on Pets */
 var pe = null;            /* R5d-2b stray editor: { f (list card) | null, v {name, species, description, care_state, territory},
                              pin {lat, lng} | null, photo (data URL picked, not yet sent) | null, shrinking, saving } */
@@ -283,10 +283,11 @@ function show(name){
 /* ---------- App health (T5.2 PR 6) ---------- */
 var HEALTH_ICON = { ok: "✅", warn: "⚠️", bad: "❌", unknown: "❔", info: "📊" };
 /* known keys → string key (jcOwn: own string values only) */
-var NOTICE_KINDS = { departure: "y", pin_flag: "y", over_cap: "y", event_ended: "y", autoclose_failed: "y" };
+var NOTICE_KINDS = { departure: "y", pin_flag: "y", over_cap: "y", event_ended: "y", autoclose_failed: "y", moderation_spike: "y" };
 /* R2a (D2): event notices name the event, not a home */
 var EVENT_NOTICES = { event_ended: "y", autoclose_failed: "y" };
 function noticeHead(n){
+  if (n.kind === "moderation_spike") return jcT("adm_h_n_mod_head");       /* soft archive: community-wide, no home */
   if (!jcOwn(EVENT_NOTICES, n.kind)) return noticeHome(n.home);
   var d = hObj(n.detail) || {};
   return typeof d.title === "string" && d.title ? d.title : typeof d.slug === "string" ? d.slug : jcT("adm_h_n_event");
@@ -294,6 +295,10 @@ function noticeHead(n){
 function noticeBody(n){
   var d = hObj(n.detail) || {};
   if (n.kind === "event_ended") return jcFmt("adm_h_n_event_ended", { t: fmtDate(d.closes_at) });
+  if (n.kind === "moderation_spike") {
+    var c = function(k){ return Number.isSafeInteger(d[k]) && d[k] >= 0 ? d[k] : 0; };
+    return jcFmt("adm_h_n_moderation_spike", { a: c("archives"), r: c("restores"), h: c("hides"), u: c("unhides") });
+  }
   return jcT(jcOwn(NOTICE_KINDS, n.kind) ? "adm_h_n_" + n.kind : "adm_h_n_other");
 }
 /* the state log's fields, in words; anything new shows as its own name */
@@ -815,7 +820,7 @@ var VIEWS = {
             return '<li><div class="meta">' + esc(jcT("pt_log_" + k) + " · " + hDate(c.at)) + '</div>' + jcCareLogBody(c) + '</li>';
           }).join("") + '</ul>';
     }
-    html += pmSightHtml(live, busyOff) + pmArchiveHtml(f, stray, home, busyOff);
+    html += pmSightHtml(live, busyOff) + pmHiddenHtml(live, busyOff) + pmArchiveHtml(f, stray, home, busyOff);
     el("view").innerHTML = html;
     if (el("pmDate")) { el("pmDate").value = pv.cd.d; el("pmNote").value = pv.cd.n; }      /* values, not markup */
     if (el("pmLogNote")) el("pmLogNote").value = pv.log.note;
@@ -840,6 +845,8 @@ var VIEWS = {
     if (el("pmLogNote")) el("pmLogNote").addEventListener("input", function(){ pv.log.note = el("pmLogNote").value; });
     if (el("pmWhy")) el("pmWhy").addEventListener("input", function(){ pv.why = el("pmWhy").value; });
     each("[data-pmhide]", function(b){ pmHide(Number(b.dataset.pmhide), b.id); });
+    each("[data-pmunhide]", function(b){ pmUnhide(Number(b.dataset.pmunhide), b.id); });
+    on("pmHiddenToggle", function(){ pv.hiddenOpen = !pv.hiddenOpen; show("petadmin"); if (el("pmHiddenToggle")) el("pmHiddenToggle").focus(); });
     each("[data-pmstate]", function(b){ pmStateSet(b.dataset.pmstate, b.id); });
     on("pmArchOpen", function(){ if (pv.busy) return; pv.arch = true; show("petadmin"); el("pmWhy").focus(); });
     on("pmArchKeep", function(){ pv.arch = false; pv.why = ""; show("petadmin"); if (el("pmArchOpen")) el("pmArchOpen").focus(); });
@@ -1561,7 +1568,9 @@ var LOG_KEYS = { home_edit: "y", home_pin_set: "y", home_suppress: "y" /* old ro
   /* RM */
   module_label_set: "y",
   /* R5d-1: Pets (S4 + R5a) */
-  stray_save: "y", pet_care_set: "y", pet_care_add: "y", pet_archive: "y", sighting_hide: "y", pets_group_set: "y" };
+  stray_save: "y", pet_care_set: "y", pet_care_add: "y", pet_archive: "y", sighting_hide: "y", pets_group_set: "y",
+  /* soft archive */
+  pet_restore: "y", sighting_unhide: "y" };
 /* the homes list, well-formed rows only (a null row would throw while drawing) */
 function hhShape(d){
   if (!hObj(d) || !Array.isArray(d.homes) || !Array.isArray(d.pending)) return null;
@@ -2095,9 +2104,9 @@ function paParts(){
   var list = m[paShow], html;
   if (!list.length) html = '<p class="help" id="paNone" role="status">' +
     esc(q ? jcFmt("pa_no_match", { q: q }) : jcT(paShow === "all" ? "pa_none" : "pa_none_" + paShow)) + '</p>';
-  /* archived: names only, no restore on the server; the reason is in the admin log (Zee Q3, 2026-11-14) */
+  /* archived: names; Restore for 30 days (soft archive), names only after. The reason is in the admin log. */
   else if (paShow === "archived") html = '<ul class="sulist" id="paArchived">' + list.slice().sort(function(a, b){
-      return petName(a).localeCompare(petName(b), jcLang()); }).map(function(p){ return '<li><span dir="auto">' + esc(petName(p)) + '</span></li>'; }).join("") + '</ul>';
+      return petName(a).localeCompare(petName(b), jcLang()); }).map(paArchRow).join("") + '</ul>';
   else html = petGroups(list).map(function(g){
       return '<h2 class="group">' + esc(g.key ? jcVillageName(cfg, g.key) : jcT("pa_strays")) + ' · ' + esc(g.list.length) + '</h2>' +
         '<ul class="sulist" id="paList-' + esc(g.key || "strays") + '">' + g.list.map(petRow).join("") + '</ul>';
@@ -2120,6 +2129,41 @@ function admPetsHtml(){
     jcSearchHtml({ id: "paSearch", placeholder: jcT("pa_search"), value: paQ }) + '</div>' +
     '<div id="paListBox">' + p.list + '</div>';
 }
+/* soft archive: whole days left to restore (the server's restorable_until is null once it can't be) */
+function paDaysLeft(p, now){
+  var t = Date.parse(p && p.restorable_until), ms = t - (now || Date.now());
+  return isFinite(t) && ms > 0 ? Math.ceil(ms / 864e5) : 0;
+}
+function paArchRow(p){
+  var left = paDaysLeft(p);
+  return '<li data-pet="' + esc(p.id) + '"><span dir="auto">' + esc(petName(p)) + '</span>' + (!left ? '' :
+    '<div class="meta">' + esc(left === 1 ? jcT("pa_restore_left_1") : jcFmt("pa_restore_left", { d: left })) + '</div>' +
+    '<div class="acts"><button class="mini" type="button" id="paRestore-' + esc(p.id) + '" data-parestore="' + esc(p.id) + '"' +
+      (paBusy ? ' disabled' : '') + '>' + esc(jcT("pa_restore")) + '</button></div>') + '</li>';
+}
+function paRestore(id, btn){
+  var f = petById(id);
+  if (!f || paBusy || f.status === "active" || !paDaysLeft(f)) return;
+  var n = petName(f);
+  if (!window.confirm(jcFmt(f.kind === "owned" ? "pa_restore_q_owned" : "pa_restore_q", { n: n }))) return;
+  paBusy = true; busy(btn, true);
+  rpc("jc_admin_pet_restore", { p_pet: id }).then(function(list){
+    paBusy = false;
+    if (Array.isArray(list) && pa && !pa.err) pa.list = list.filter(function(p){ return hObj(p) && typeof p.id === "string"; });
+    else pa = null;
+    if (current !== "home" || admTab !== "pets") return;
+    show("home");
+    showOk(jcFmt("pa_restored", { n: n }));
+  }, function(e){
+    paBusy = false;
+    var code = (e && e.code) || "UNKNOWN";
+    if (code === "NOT_ADMIN") return fail(e);
+    if (current !== "home" || admTab !== "pets") return;
+    if (code === "NOT_FOUND" || code === "RESTORE_EXPIRED") pa = null;    /* the row changed: read the list again */
+    show("home");
+    jcShowErrFor("pa_err_", code);
+  });
+}
 function wirePaChips(){
   jcChipsWire("paChips", "paShow-", function(k){
     if (PA_SHOWS.indexOf(k) < 0) return;
@@ -2133,6 +2177,8 @@ function wirePets(){
   on("paNew", function(){ peOpen(null); });
   /* one listener on the box: the search redraws the rows inside it */
   if (el("paListBox")) el("paListBox").addEventListener("click", function(e){
+    var r = e.target.closest && e.target.closest("[data-parestore]");
+    if (r) return paRestore(r.dataset.parestore, r.id);
     var b = e.target.closest && e.target.closest("[data-pamanage]");
     var f = b && petById(b.dataset.pamanage);
     if (f) pmOpen(f);
@@ -2313,7 +2359,7 @@ function pmCan(p){ return !!p && p.status === "active"; }   /* R5d-3b: every act
 function pmOpen(f){
   if (!isPetsAdmin() || !pmCan(f)) return;
   pv = { id: f.id, detail: null, err: null, loading: false, item: null, cd: { s: "", d: "", n: "" }, log: { kind: "fed", note: "" }, busy: false,
-         arch: false, why: "" };
+         arch: false, why: "", hidden: null, hiddenOpen: false };
   admTab = "pets";
   show("petadmin");
   try { window.scrollTo(0, 0); } catch(e){}
@@ -2357,6 +2403,7 @@ function pmLoad(){
     me.loading = false;
     me.detail = hObj(d) || { care_log: [] }; me.err = null;
     pmKeep();
+    pmLoadHidden(me, seq);
   }, function(e){
     var code = (e && e.code) || "UNKNOWN";
     if (code === "NOT_ADMIN") return fail(e);
@@ -2365,6 +2412,17 @@ function pmLoad(){
     if (code === "NOT_FOUND") return current === "petadmin" ? pmGone() : null;
     me.err = code;                                       /* MODULE_OFF → the "once Pets is on" notice (Zee Q1 = A) */
     pmKeep();
+  });
+}
+/* soft archive: hidden sightings, read after the pet (a failed read just leaves the section out) */
+function pmLoadHidden(me, seq){
+  rpc("jc_admin_pet_hidden_sightings", { p_pet: me.id }).then(function(h){
+    if (pv !== me || seq !== me.seq) return;
+    me.hidden = Array.isArray(h) ? h.filter(function(s){ return hObj(s) && Number.isSafeInteger(s.id); }) : [];
+    pmKeep();
+  }, function(e){
+    if (e && e.code === "NOT_ADMIN") return fail(e);
+    /* a failed read keeps what was shown (or leaves the section out if nothing was) */
   });
 }
 /* one write at a time; NOT_FOUND = archived or no longer a stray → the list; anything else stays on the form */
@@ -2453,14 +2511,24 @@ function pmSightHtml(live, off){
   return h + (g.recent.length ? '' : '<p class="help">' + esc(jcT("pm_hide_help")) + '</p>') +
     '<ul class="sulist" id="pmSight">' + g.older.map(function(s){ return pmSightLi(s, off); }).join("") + '</ul>';
 }
-function pmSightLi(s, off){
+function pmHiddenHtml(live, off){
+  var list = live && pv.hidden;
+  if (!list || !list.length) return '';
+  return '<button class="btn ghost" type="button" id="pmHiddenToggle" aria-expanded="' + pv.hiddenOpen + '" aria-controls="pmHidden">' +
+      esc(jcFmt("pm_hidden_n", { n: list.length })) + '</button>' +
+    (!pv.hiddenOpen ? '' : '<p class="help">' + esc(jcT("pm_unhide_help")) + '</p>' +
+      '<ul class="sulist" id="pmHidden">' + list.map(function(s){ return pmSightLi(s, off, true); }).join("") + '</ul>');
+}
+function pmSightLi(s, off, hidden){
   var pos = jcFinite(s.lat) && jcFinite(s.lng);
   return '<li data-sighting="' + esc(String(s.id)) + '"><div class="meta">' + esc(hDate(s.seen_at)) + '</div>' +
     (s.note ? '<div dir="auto">' + esc(s.note) + '</div>' : '') +
     '<div class="acts">' + (pos ? '<a class="btn ghost small" target="_blank" rel="noopener noreferrer" href="' +
       esc("https://www.google.com/maps/search/?api=1&query=" + encodeURIComponent(s.lat + "," + s.lng)) + '">' + esc(jcT("pt_on_map")) + '</a>' : '') +
-    '<button class="mini danger" type="button" id="pmHide-' + esc(String(s.id)) + '" data-pmhide="' + esc(String(s.id)) + '"' + off + '>' +
-      esc(jcT("pm_hide")) + '</button></div></li>';
+    (hidden ? '<button class="mini" type="button" id="pmUnhide-' + esc(String(s.id)) + '" data-pmunhide="' + esc(String(s.id)) + '"' + off + '>' +
+      esc(jcT("pm_unhide")) + '</button>'
+    : '<button class="mini danger" type="button" id="pmHide-' + esc(String(s.id)) + '" data-pmhide="' + esc(String(s.id)) + '"' + off + '>' +
+      esc(jcT("pm_hide")) + '</button>') + '</div></li>';
 }
 function pmArchiveHtml(f, stray, home, off){
   var n = petName(f);
@@ -2476,14 +2544,22 @@ function pmArchiveHtml(f, stray, home, off){
 function pmHide(id, btn){
   if (!pv || pv.busy || !Number.isSafeInteger(id)) return;
   if (!window.confirm(jcT("pm_hide_q"))) return;
+  pmSightAct("jc_admin_sighting_hide", id, btn, "pm_hidden");
+}
+/* soft archive: no confirm — showing it again is the undo, and Hide is one tap away */
+function pmUnhide(id, btn){
+  if (!pv || pv.busy || !Number.isSafeInteger(id)) return;
+  pmSightAct("jc_admin_sighting_unhide", id, btn, "pm_unhidden");
+}
+function pmSightAct(fn, id, btn, okKey){
   function gone(me){
-    me.detail = null; me.err = null; me.loading = false;    /* read the sightings again (the hidden one is left out) */
+    me.detail = null; me.err = null; me.loading = false; me.hidden = null;   /* read the sightings (and hidden ones) again */
     show("petadmin");
-    showOk(jcT("pm_hidden"));
+    showOk(jcT(okKey));
   }
   var me0 = pv;
   me0.busy = true; busy(btn, true);
-  rpc("jc_admin_sighting_hide", { p_sighting: id }).then(function(){
+  rpc(fn, { p_sighting: id }).then(function(){
     me0.busy = false;
     if (pv === me0 && current === "petadmin") gone(me0);
   }, function(e){
@@ -2491,7 +2567,7 @@ function pmHide(id, btn){
     var code = (e && e.code) || "UNKNOWN";
     if (code === "NOT_ADMIN") return fail(e);
     if (pv !== me0 || current !== "petadmin") return;
-    if (code === "NOT_FOUND") return gone(me0);           /* already hidden (another tap, another organizer) */
+    if (code === "NOT_FOUND") return gone(me0);           /* already done (another tap, another organizer) */
     show("petadmin");
     jcShowErrFor("pm_err_", code);
   });
