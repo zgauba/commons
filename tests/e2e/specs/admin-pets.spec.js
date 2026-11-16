@@ -268,9 +268,9 @@ test("the pets right ends while the list is on its way: back to the lock, nothin
 });
 
 // ── OT-3: chips, search, the group screen ──
-test("chips: All · Strays · Homes' pets · Missing · Archived with counts; each shows its own; kept in the address", async ({ page }) => {
+test("chips: All · Strays · Needs help · Homes' pets · Missing · Archived with counts; each shows its own; kept in the address", async ({ page }) => {
   await openPets(page, backend());
-  await expect(page.locator("#paChips button")).toHaveText(["All 6", "Strays 2", "Homes' pets 4", "Missing 1", "Archived 1"]);
+  await expect(page.locator("#paChips button")).toHaveText(["All 6", "Strays 2", "Needs help 1", "Homes' pets 4", "Missing 1", "Archived 1"]);
   await expect(page.locator("#paShow-all")).toHaveAttribute("aria-pressed", "true");
   await page.locator("#paShow-strays").click();
   await expect(page.locator("#paShow-strays")).toBeFocused();
@@ -302,7 +302,7 @@ test("search: name, home, area or village narrows every count; the box keeps foc
   const box = page.locator("#paSearch");
   await box.fill("mosque");                                                         // a stray's area
   expect(await rowIds(page, "#paListBox")).toEqual([ID(3)]);
-  await expect(page.locator("#paChips button")).toHaveText(["All 1", "Strays 1", "Homes' pets 0", "Missing 0", "Archived 0"]);
+  await expect(page.locator("#paChips button")).toHaveText(["All 1", "Strays 1", "Needs help 1", "Homes' pets 0", "Missing 0", "Archived 0"]);
   await expect(box).toBeFocused();
   await box.fill("villa 12");                                                       // a home
   expect(await rowIds(page, "#paListBox")).toEqual([ID(7), ID(4)]);
@@ -382,8 +382,9 @@ async function editStray(page, id) {
   if (!(await page.locator("#pmEdit").count())) await page.locator(`li[data-pet="${id}"] [data-pamanage]`).click();
   await page.locator("#pmEdit").click();
   await expect(page.locator("#peForm")).toBeVisible();
-  // Rehomed vs Archive, said where the choice is made (stray-care review, 2026-11-15)
-  await expect(page.locator("#peCareHelp")).toContainText("To remove them for good, use Archive on Manage.");
+  // care v2 (Zee Q5): an existing stray's status changes on Manage (auto-logged), not here
+  await expect(page.locator("#peCare")).toHaveCount(0);
+  await expect(page.locator("#peCareManage")).toHaveText("To change how they're doing, use Manage: each change goes in the log.");
 }
 
 test("R5d-2b: Edit only on active strays (a household's pet is theirs); Add a Stray opens an empty form", async ({ page }) => {
@@ -401,6 +402,8 @@ test("R5d-2b: Edit only on active strays (a household's pet is theirs); Add a St
   await expect(page.locator("#peName")).toHaveValue("");
   await expect(page.locator("#peSpecies [aria-pressed=true]")).toHaveCount(0);
   await expect(page.locator("#peCare [aria-pressed=true]")).toHaveText("Under care");       // the server's default
+  // Rehomed vs Archive, said where the choice is made (stray-care review, 2026-11-15): adding only, since care v2
+  await expect(page.locator("#peCareHelp")).toContainText("To remove them for good, use Archive on Manage.");
   await expect(page.locator("#pePinState")).toHaveText("No spot set.");
   await expect(page.locator("#pePinClear")).toBeHidden();
   await page.locator("#peCancel").click();
@@ -458,7 +461,6 @@ test("R5d-2b: an edit sends only what changed — a rename alone; a cleared area
   await expect(page.locator("h1")).toHaveText("Edit Ginger");
   await expect(page.locator("#peDesc")).toHaveValue("Ginger tabby, torn left ear");
   await expect(page.locator("#peArea")).toHaveValue("Behind the mosque");
-  await expect(page.locator("#peCare [aria-pressed=true]")).toHaveText("Needs help");
   await expect(page.locator("#pePinState")).toHaveText("Spot set.");
   await page.locator("#peName").fill("Ginger Tom");
   await page.locator("#peSave").click();
@@ -509,12 +511,12 @@ test("R5d-2b: a photo that fails keeps the details and says so; one Save at a ti
   await signIn(page);
   await page.goto("admin/?tab=pets");
   await editStray(page, ID(3));
-  await page.locator('[data-pecare="under_care"]').click();
+  await page.locator("#peDesc").fill("Shy, ginger");
   await page.locator("#pePhotoIn").setInputFiles(await jpeg(page));
   await expect(page.locator("#pePhotoNew")).toBeVisible();
   await page.locator("#peSave").dblclick();
   await expect(page.locator("#msg")).toHaveText("Ginger is saved, but the photo didn't upload: The upload didn't go through. Check your connection. Try again with Edit.");
-  expect(saves(calls)).toEqual([{ p_pet: ID(3), p_fields: { care_state: "under_care" } }]);
+  expect(saves(calls)).toEqual([{ p_pet: ID(3), p_fields: { description: "Shy, ginger" } }]);
   expect(calls.filter((c) => c.name === "jc_pet_photo_begin")).toHaveLength(1);
 });
 
@@ -726,7 +728,8 @@ test("R5d-3a: Manage in Arabic keeps an open item's draft", async ({ page }) => 
   await page.locator('[data-pmst="due"]').click();
   await page.locator("#pmNote").fill("Rabies booster");
   await page.locator("#langBtn").click();
-  await expect(page.locator("#pmCare h2, #view h2.group").first()).toHaveText("سجل الرعاية");
+  await expect(page.locator("#pmStateH")).toHaveText("كيف حاله");                           // care v2: the picker heads Manage
+  await expect(page.locator("#view h2.group").nth(1)).toHaveText("سجل الرعاية");
   await expect(page.locator("#pmNote")).toHaveValue("Rabies booster");
   await expect(page.locator('[data-pmst="due"]')).toHaveAttribute("aria-pressed", "true");
   await expect(page.locator("#pmLogAdd")).toHaveText("إضافة إلى السجل");
@@ -782,6 +785,7 @@ test("R5d-3b: a home's pet on Manage — no care or editing, sightings wait whil
 });
 
 test("R5d-3b: hide a sighting (Pets on) — asks first, the exact call, read again; one already hidden counts as hidden", async ({ page }) => {
+  await page.clock.setFixedTime(new Date("2026-11-21T12:00:00Z"));                      // both sightings older than 7 days (care v2)
   const b = backend({ petsOn: true });
   b.st.sights[ID(3)] = SIGHTS();
   const { calls } = await manageAny(page, b, ID(3));
@@ -876,4 +880,97 @@ test("R5d rate limit: over the limit, archive and hide say so in words (the serv
   await page.locator("#pmArchGo").click();
   await expect(page.locator("#msg")).toHaveText(/^That's the limit for now/);
   await expect(page.locator("#pmWhy")).toHaveValue("Added twice");                       // the reason stays for later
+});
+
+// ---------- care v2 PR 2 (plan docs/plans/pets-care-v2.md, Zee Q1–Q5, 2026-11-15) ----------
+const T0 = new Date("2026-11-19T12:00:00Z");
+const ago = (days) => new Date(T0.getTime() - days * 864e5).toISOString();
+
+test("care v2: How they're doing on Manage — one tap, the exact call, the log read again; the same state sends nothing", async ({ page }) => {
+  const b = backend({ petsOn: true });
+  const { calls } = await manage(page, b, ID(3));                                       // Ginger, needs help
+  await expect(page.locator("#pmState [aria-pressed=true]")).toHaveText("Needs help");
+  await expect(page.locator("#pmStateHelp")).toContainText("Each change goes in the log residents see.");
+  await page.locator('[data-pmstate="needs_help"]').click();                            // already: nothing sent
+  await page.locator('[data-pmstate="under_care"]').dblclick();
+  await expect(page.locator("#msg")).toHaveText("Ginger: Under care. Added to the log.");
+  expect(saves(calls)).toEqual([{ p_pet: ID(3), p_fields: { care_state: "under_care" } }]);
+  await expect(page.locator("#pmState [aria-pressed=true]")).toHaveText("Under care");
+  await expect(page.locator('[data-pmstate="under_care"]')).toBeFocused();
+  expect(calls.filter((c) => c.name === "jc_pet_get")).toHaveLength(2);                  // opened + after the change
+  await page.locator("#jcBackBtn").click();
+  await expect(page.locator(`li[data-pet="${ID(3)}"] .chip`).first()).toHaveText("Under care");   // the list agrees
+});
+
+test("care v2: a household's pet has no state picker; a stray's still works with Pets off; a failure says why", async ({ page }) => {
+  const b = backend();
+  const { calls } = await manageAny(page, b, ID(2));                                     // Luna, a home's pet
+  await expect(page.locator("#pmState")).toHaveCount(0);
+  await page.locator("#jcBackBtn").click();
+  await page.locator(`li[data-pet="${ID(5)}"] [data-pamanage]`).click();                 // Archie, Pets off
+  await page.locator('[data-pmstate="rehomed"]').click();
+  await expect(page.locator("#msg")).toHaveText("Archie: Rehomed. Added to the log.");
+  expect(calls.filter((c) => c.name === "jc_pet_get")).toEqual([]);                      // Pets off: never asked
+  b.st.saveRaises = "UNKNOWN";
+  await page.locator('[data-pmstate="known_fine"]').click();
+  await expect(page.locator("#msg")).not.toHaveText(/Added to the log/);
+  await expect(page.locator("#pmState [aria-pressed=true]")).toHaveText("Rehomed");     // unchanged on a failure
+  await expect(page.locator('[data-pmstate="known_fine"]')).toBeEnabled();
+  b.st.saveRaises = "NOT_FOUND";                                                         // archived meanwhile
+  await page.locator('[data-pmstate="known_fine"]').click();
+  await expect(page.locator("#paChips")).toBeVisible();
+  await expect(page.locator("#msg")).toHaveText("That animal isn't in the list any more.");
+});
+
+test("care v2: new sightings (last 7 days) sit at the top of Manage; older ones stay below; Hide works in both", async ({ page }) => {
+  await page.clock.setFixedTime(T0);
+  const b = backend({ petsOn: true });
+  b.st.sights[ID(3)] = SIGHTS();                                                         // 41: 5.7 days ago · 42: 7.2 days ago
+  b.st.sights[ID(3)].push({ id: 43, note: "Clock skew", lat: null, lng: null, seen_at: "2026-11-20T12:00:00Z", by_me: false });
+  await manageAny(page, b, ID(3));
+  await expect(page.locator('#pmSight [data-sighting="43"]')).toHaveCount(1);           // a future time is never "new"
+  await expect(page.locator("#pmSightNewH")).toHaveText("New sightings (last 7 days)");
+  await expect(page.locator("#pmSightNew [data-sighting]")).toHaveCount(1);
+  await expect(page.locator('#pmSightNew [data-sighting="41"]')).toContainText("Under the blue car");
+  await expect(page.locator('#pmSight [data-sighting="42"]')).toHaveCount(1);
+  const order = await page.locator("#pmSightNewH, #pmStateH, #pmCare, #pmSight").evaluateAll((ls) => ls.map((l) => l.id));
+  expect(order).toEqual(["pmSightNewH", "pmStateH", "pmCare", "pmSight"]);               // new sightings first
+  if (process.env.SHOT_DIR) await page.screenshot({ path: process.env.SHOT_DIR + "/pm-care-v2.png", fullPage: true });
+  page.once("dialog", (d) => d.accept());
+  await page.locator('[data-pmhide="41"]').click();
+  await expect(page.locator("#msg")).toHaveText("Sighting hidden.");
+  await expect(page.locator("#pmSightNew")).toHaveCount(0);                              // no new ones: the section goes
+  await expect(page.locator('#pmSight [data-sighting="42"]')).toHaveCount(1);
+});
+
+test("care v2: the Needs help chip shows active strays that need help, kept in the address", async ({ page }) => {
+  await openPets(page, backend());
+  await page.locator("#paShow-help").click();
+  expect(await rowIds(page, "#paListBox")).toEqual([ID(3)]);
+  await expect(page).toHaveURL(/tab=pets&show=help/);
+  await page.reload();
+  await expect(page.locator("#paShow-help")).toHaveAttribute("aria-pressed", "true");
+});
+
+test("care v2: an empty Needs help chip says so in words", async ({ page }) => {
+  const list = ANIMALS().map((p) => (p.id === ID(3) ? Object.assign(p, { care_state: "under_care" }) : p));
+  await openPets(page, backend({ list }), "&show=help");
+  await expect(page.locator("#paNone")).toHaveText("No animal needs help right now.");
+});
+
+test("care v2: Not fed (2+ days, only once ever fed) and Not seen (7+ days) on active strays that aren't rehomed", async ({ page }) => {
+  await page.clock.setFixedTime(T0);
+  const list = ANIMALS();
+  Object.assign(list.find((p) => p.id === ID(3)), { last_fed_at: ago(3.5), last_contact_at: ago(8.2) });   // both
+  Object.assign(list.find((p) => p.id === ID(5)), { last_fed_at: ago(1.5), last_contact_at: ago(1.5) });   // fed yesterday: none
+  list.push(PET({ id: ID(8), name: "Pip", kind: "stray", care_state: "under_care", last_fed_at: null, last_contact_at: null }),   // never: none
+            PET({ id: ID(9), name: "Rosie", kind: "stray", care_state: "rehomed", last_fed_at: ago(30), last_contact_at: ago(30) }));   // rehomed: none
+  await openPets(page, backend({ list }));
+  const chips = (id) => page.locator(`li[data-pet="${id}"] .chip`);
+  await expect(chips(ID(3)).filter({ hasText: "Not fed in 3 days" })).toHaveClass(/warn/);
+  await expect(chips(ID(3)).filter({ hasText: "Not seen in 8 days" })).toHaveCount(1);
+  for (const id of [ID(5), ID(8), ID(9)]) await expect(chips(id).filter({ hasText: /Not (fed|seen)/ })).toHaveCount(0);
+  await page.locator("#langBtn").click();
+  await expect(chips(ID(3)).filter({ hasText: "أيام بلا إطعام: 3" })).toHaveCount(1);
+  if (process.env.SHOT_DIR) await page.screenshot({ path: process.env.SHOT_DIR + "/pa-care-chips.png", fullPage: true });
 });

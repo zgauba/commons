@@ -16,7 +16,7 @@ var OPEN_EVENT = new URLSearchParams(location.search).get("event");
 var EV_SHOWS = ["all", "now", "upcoming", "past"];   /* All first, as on Pets (Zee 2026-11-14) */
 var evShow = new URLSearchParams(location.search).get("show");   /* OT-1: the Events chip (?tab=events&show=past); null = the default */
 var evQ = "";                                                     /* OT-1: the Events search, kept across redraws */
-var PA_SHOWS = ["all", "strays", "homes", "missing", "archived"];
+var PA_SHOWS = ["all", "strays", "help", "homes", "missing", "archived"];   /* care v2: + Needs help */
 var paShow = PA_SHOWS.indexOf(evShow) >= 0 ? evShow : "all";     /* OT-3: the Pets chip (?tab=pets&show=missing) */
 var paQ = "";                                                     /* OT-3: the Pets search */
 var OPEN_COURT = new URLSearchParams(location.search).get("court");   /* from a court's Admin button on Courts */
@@ -608,9 +608,11 @@ var VIEWS = {
       '<form class="panel" id="peForm" novalidate data-no-autoreload>' +
         '<label><span>' + esc(jcT("pt_name")) + REQ + '</span><input type="text" id="peName" maxlength="40" dir="auto" autocomplete="off" required aria-required="true"></label>' +
         '<fieldset><legend>' + esc(jcT("pt_species")) + REQ + '</legend>' + opts("peSpecies", "data-pesp", PE_SPECIES, v.species, "pt_sp_") + '</fieldset>' +
-        '<fieldset><legend>' + esc(jcT("pa_care")) + '</legend>' + opts("peCare", "data-pecare", PE_CARE, v.care_state, "pt_care_") + '</fieldset>' +
-        /* Rehomed vs Archive was unclear (stray-care review, 2026-11-15) */
-        '<p class="help" id="peCareHelp">' + esc(jcT("pa_care_help")) + '</p>' +
+        /* care v2 (Zee Q5): status is set here only when adding; an existing stray's changes on Manage (auto-logged) */
+        (f ? '<p class="help" id="peCareManage">' + esc(jcT("pa_care_on_manage")) + '</p>'
+           : '<fieldset><legend>' + esc(jcT("pa_care")) + '</legend>' + opts("peCare", "data-pecare", PE_CARE, v.care_state, "pt_care_") + '</fieldset>' +
+             /* Rehomed vs Archive was unclear (stray-care review, 2026-11-15) */
+             '<p class="help" id="peCareHelp">' + esc(jcT("pa_care_help")) + '</p>') +
         '<label>' + esc(jcT("pt_desc")) + '<textarea id="peDesc" maxlength="280" dir="auto"></textarea></label>' +
         '<label>' + esc(jcT("pa_territory")) + '<input type="text" id="peArea" maxlength="120" dir="auto" autocomplete="off"></label>' +
         '<p class="help">' + esc(jcT("pa_territory_help")) + '</p>' +
@@ -710,7 +712,14 @@ var VIEWS = {
       msgBox() +
       '<div class="row">' + (stray ? '<button class="btn ghost" type="button" id="pmEdit">' + esc(jcT("pm_edit")) + '</button>' : '') +
       '<a class="btn ghost" href="../pets/?pet=' + encodeURIComponent(f.id) + '">' + esc(jcT("pm_view")) + '</a></div>' +
-      (live ? '' : '<p class="notice" id="pmOff">' + esc(jcT(stray ? "pm_off" : "pm_off_owned")) + '</p>') + (!stray ? '' :
+      (live ? '' : '<p class="notice" id="pmOff">' + esc(jcT(stray ? "pm_off" : "pm_off_owned")) + '</p>') +
+      pmSightNewHtml(live, busyOff) + (!stray ? '' :
+      /* care v2: how they're doing, one tap; the server logs the change for residents */
+      '<h2 class="group" id="pmStateH">' + esc(jcT("pa_care")) + '</h2>' +
+      '<div class="opts" id="pmState" role="group" aria-labelledby="pmStateH" aria-describedby="pmStateHelp">' + PE_CARE.map(function(k){
+        return '<button type="button" id="pmState-' + k + '" data-pmstate="' + k + '" aria-pressed="' + (f.care_state === k) + '"' + busyOff + '>' +
+          esc(jcT("pt_care_" + k)) + '</button>';
+      }).join("") + '</div><p class="help" id="pmStateHelp">' + esc(jcT("pm_state_help")) + '</p>' +
       '<h2 class="group">' + esc(jcT("pt_care_record")) + '</h2><p class="help">' + esc(jcT("pm_care_help")) + '</p>' +
       '<ul class="care" id="pmCare">' + PM_CARE.map(function(k){
         var it = hObj(care[k]), s = it && PM_ST.indexOf(it.s) >= 0 ? it.s : null;
@@ -769,6 +778,7 @@ var VIEWS = {
     if (el("pmLogNote")) el("pmLogNote").addEventListener("input", function(){ pv.log.note = el("pmLogNote").value; });
     if (el("pmWhy")) el("pmWhy").addEventListener("input", function(){ pv.why = el("pmWhy").value; });
     each("[data-pmhide]", function(b){ pmHide(Number(b.dataset.pmhide), b.id); });
+    each("[data-pmstate]", function(b){ pmStateSet(b.dataset.pmstate, b.id); });
     on("pmArchOpen", function(){ if (pv.busy) return; pv.arch = true; show("petadmin"); el("pmWhy").focus(); });
     on("pmArchKeep", function(){ pv.arch = false; pv.why = ""; show("petadmin"); if (el("pmArchOpen")) el("pmArchOpen").focus(); });
     on("pmArchGo", function(){ pmArchive(f, home); });
@@ -1955,12 +1965,22 @@ function petGroups(list){
     return { key: k, list: groups[k].slice().sort(function(a, b){ return petName(a).localeCompare(petName(b), jcLang()); }) };
   });
 }
+/* care v2 (Zee 2026-11-15): an active stray not rehomed — "Not fed" from 2 days, only once it has ever been fed
+   (most strays have no feeding logged yet); "Not seen" from 7 days since the last sighting or feed / vet visit */
+function paStale(p){
+  if (p.kind !== "stray" || p.status !== "active" || p.care_state === "rehomed") return "";
+  var nf = jcDaysSince(p.last_fed_at), ns = jcDaysSince(p.last_contact_at), h = "";
+  if (nf >= 2) h += '<span class="chip warn">' + esc(jcFmt("pa_not_fed", { n: nf })) + '</span>';
+  if (ns >= 7) h += '<span class="chip">' + esc(jcFmt("pa_not_seen", { n: ns })) + '</span>';
+  return h;
+}
 function petRow(p){
   var sp = ["cat", "dog", "bird", "rabbit", "other"].indexOf(p.species) >= 0 ? p.species : "other";
   var where = p.kind === "owned" ? (hObj(p.home) && p.home.number != null ? jcHomeLabel(p.home) : "") : (p.territory || "");
   var chips = (p.missing === true ? '<span class="chip miss">' + esc(jcT("pt_missing_chip")) + '</span>' : '') +
     (p.kind === "stray" && ["needs_help", "under_care", "known_fine", "rehomed"].indexOf(p.care_state) >= 0
       ? '<span class="chip' + (p.care_state === "needs_help" ? " warn" : "") + '">' + esc(jcT("pt_care_" + p.care_state)) + '</span>' : '') +
+    paStale(p) +
     (!p.photo_path ? '<span class="chip">' + esc(jcT("pa_no_photo")) + '</span>' : '') +
     (p.sightings_7d > 0 ? '<span class="chip">' + esc(jcFmt("pa_sightings_7d", { n: p.sightings_7d })) + '</span>' : '');
   return '<li data-pet="' + esc(p.id) + '"><b dir="auto">' + esc(petName(p)) + '</b>' +
@@ -1987,6 +2007,7 @@ function paParts(){
   var all = {
     all: live,
     strays: live.filter(function(p){ return p.kind !== "owned"; }),
+    help: live.filter(function(p){ return p.kind === "stray" && p.care_state === "needs_help"; }),
     homes: live.filter(function(p){ return p.kind === "owned"; }),
     missing: live.filter(function(p){ return p.missing === true; }),
     archived: pa.list.filter(function(p){ return p.status !== "active"; })
@@ -2180,6 +2201,19 @@ function pmCareSet(status, btn){
     pmFocusItem(k);
   });
 }
+/* care v2: one tap saves the state (the server writes the public log line); the same state again sends nothing */
+function pmStateSet(k, btn){
+  var f = pv && petById(pv.id);
+  if (!f || pv.busy || PE_CARE.indexOf(k) < 0 || f.care_state === k) return;
+  pmWrite(btn, function(){ return rpc("jc_admin_stray_save", { p_pet: f.id, p_fields: { care_state: k } }); }, function(c, me){
+    if (hObj(c)) Object.assign(f, c);
+    f.care_state = k;
+    me.detail = null; me.err = null; me.loading = false;  /* the log is read again: the new line shows */
+    show("petadmin");
+    showOk(jcFmt("pm_state_saved", { n: petName(f), s: jcT("pt_care_" + k) }));
+    if (el("pmState-" + k)) el("pmState-" + k).focus();
+  });
+}
 function pmLogAdd(){
   if (!pv) return;
   var kind = PM_LOG.indexOf(pv.log.kind) >= 0 ? pv.log.kind : "note", note = pv.log.note.trim();
@@ -2194,21 +2228,36 @@ function pmLogAdd(){
 }
 
 /* ---------- R5d-3b: moderation on Manage — hide a sighting, archive with a reason (server S4) ---------- */
+/* care v2 (Zee Q1): sightings from the last 7 days in their own section at the top of Manage; older ones stay below */
+function pmSights(){
+  var list = pv.detail && Array.isArray(pv.detail.sightings) ? pv.detail.sightings.filter(function(s){ return hObj(s) && Number.isSafeInteger(s.id); }) : null;
+  if (!list) return null;
+  var fresh = function(s){ var d = jcDaysSince(s.seen_at); return d >= 0 && d < 7; };
+  return { recent: list.filter(fresh), older: list.filter(function(s){ return !fresh(s); }) };
+}
+function pmSightNewHtml(live, off){
+  var g = live ? pmSights() : null;
+  if (!g || !g.recent.length) return '';
+  return '<h2 class="group" id="pmSightNewH">' + esc(jcT("pm_sight_new")) + '</h2><p class="help">' + esc(jcT("pm_hide_help")) + '</p>' +
+    '<ul class="sulist" id="pmSightNew">' + g.recent.map(function(s){ return pmSightLi(s, off); }).join("") + '</ul>';
+}
 function pmSightHtml(live, off){
   var h = '<h2 class="group">' + esc(jcT("pt_sightings")) + '</h2>';
   if (!live) return h + '<p class="help" id="pmSightOff">' + esc(jcT("pm_sight_off")) + '</p>';
-  var list = pv.detail && Array.isArray(pv.detail.sightings) ? pv.detail.sightings.filter(function(s){ return hObj(s) && Number.isSafeInteger(s.id); }) : null;
-  if (!list) return h + (pv.err ? '' : '<p class="help">' + esc(jcT("working")) + '</p>');
-  if (!list.length) return h + '<p class="help" id="pmSightNone">' + esc(jcT("pt_sightings_none")) + '</p>';
-  return h + '<p class="help">' + esc(jcT("pm_hide_help")) + '</p><ul class="sulist" id="pmSight">' + list.map(function(s){
-    var pos = jcFinite(s.lat) && jcFinite(s.lng);
-    return '<li data-sighting="' + esc(String(s.id)) + '"><div class="meta">' + esc(hDate(s.seen_at)) + '</div>' +
-      (s.note ? '<div dir="auto">' + esc(s.note) + '</div>' : '') +
-      '<div class="acts">' + (pos ? '<a class="btn ghost small" target="_blank" rel="noopener noreferrer" href="' +
-        esc("https://www.google.com/maps/search/?api=1&query=" + encodeURIComponent(s.lat + "," + s.lng)) + '">' + esc(jcT("pt_on_map")) + '</a>' : '') +
-      '<button class="mini danger" type="button" id="pmHide-' + esc(String(s.id)) + '" data-pmhide="' + esc(String(s.id)) + '"' + off + '>' +
-        esc(jcT("pm_hide")) + '</button></div></li>';
-  }).join("") + '</ul>';
+  var g = pmSights();
+  if (!g) return h + (pv.err ? '' : '<p class="help">' + esc(jcT("working")) + '</p>');
+  if (!g.older.length) return g.recent.length ? '' : h + '<p class="help" id="pmSightNone">' + esc(jcT("pt_sightings_none")) + '</p>';
+  return h + (g.recent.length ? '' : '<p class="help">' + esc(jcT("pm_hide_help")) + '</p>') +
+    '<ul class="sulist" id="pmSight">' + g.older.map(function(s){ return pmSightLi(s, off); }).join("") + '</ul>';
+}
+function pmSightLi(s, off){
+  var pos = jcFinite(s.lat) && jcFinite(s.lng);
+  return '<li data-sighting="' + esc(String(s.id)) + '"><div class="meta">' + esc(hDate(s.seen_at)) + '</div>' +
+    (s.note ? '<div dir="auto">' + esc(s.note) + '</div>' : '') +
+    '<div class="acts">' + (pos ? '<a class="btn ghost small" target="_blank" rel="noopener noreferrer" href="' +
+      esc("https://www.google.com/maps/search/?api=1&query=" + encodeURIComponent(s.lat + "," + s.lng)) + '">' + esc(jcT("pt_on_map")) + '</a>' : '') +
+    '<button class="mini danger" type="button" id="pmHide-' + esc(String(s.id)) + '" data-pmhide="' + esc(String(s.id)) + '"' + off + '>' +
+      esc(jcT("pm_hide")) + '</button></div></li>';
 }
 function pmArchiveHtml(f, stray, home, off){
   var n = petName(f);
