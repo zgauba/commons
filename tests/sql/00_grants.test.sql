@@ -57,7 +57,9 @@ declare
     'jc_pets_alerts',
     -- report a new stray (PR 1a)
     'jc_stray_report_add', 'jc_stray_reports_mine', 'jc_admin_stray_reports_list', 'jc_admin_stray_report_close',
-    'jc_stray_report_contact_clear'];
+    'jc_stray_report_contact_clear',
+    -- report a new stray (PR 1b: photos)
+    'jc_stray_report_photo_begin', 'jc_stray_report_photo_commit', 'jc_stray_report_photo_remove'];
 begin
   -- Pre-launch suite: fixtures are written into 'jubail' and rolled back. Refuse to run
   -- once real residents exist — post-launch tests must move to a test community.
