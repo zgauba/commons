@@ -393,7 +393,7 @@ test("My Pets: add (exact fields), then edit, then remove; the pet opens after a
   await page.locator("#ptEdit").click();
   await expect(page.locator("#ptArchive")).toHaveText("Remove Pepper from the directory");
   if (process.env.SHOT_DIR) await page.screenshot({ path: process.env.SHOT_DIR + "/pt-edit.png", fullPage: true });
-  page.once("dialog", (d) => { expect(d.message()).toBe("Remove Pepper from the directory? This can't be undone."); d.accept(); });
+  page.once("dialog", (d) => { expect(d.message()).toBe("Remove Pepper from the directory? For 30 days a Pets organizer can bring Pepper back; after that it's for good."); d.accept(); });
   await page.locator("#ptArchive").click();
   await expect(page.locator("#msg")).toHaveText("Pepper was removed from the directory.");
   expect(lastCall(calls, "jc_pet_archive").args).toEqual({ p_pet: id });

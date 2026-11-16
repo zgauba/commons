@@ -99,7 +99,13 @@ function's query is unchanged).
 | 7 | Rollback | Need to undo | Header down-script: restore the 6 bodies (captured), drop 3 RPCs + 3 columns + the CHECK value (after deleting any `moderation_spike` rows). |
 | UX | "Behaves differently from…" | Restore exists for pets but not for other organizer acts (event withdraw has no Undo, R2b-1 Q2) | Accepted. Pets archive deletes photos and is the one the review flagged. |
 
-## Questions for Zee
+## Decisions
+
+Zee approved the plan 2026-11-16 ("proceed", two PRs), recommendations Q1–Q4 taken as written. Review changes
+(`docs/qa/soft-archive-db-review-2026-11-17.md`): restore enforces the 10-pet cap; unhides count with hides; an open
+alert refreshes its counts; the resident disclosure copy (`pt_photo_who`, `pt_archive_q`) moved into PR 1.
+
+## Questions for Zee (answered: recommendations taken)
 
 1. **Who can restore?** Recommend **Pets organizers only**, for both strays and household pets. A household that archived by mistake asks an organizer. A self-restore button on My Pets is a small follow-up if it's ever wanted.
 2. **Alert thresholds.** Recommend **≥ 10 organizer archives or ≥ 20 hides in 24 h** in one community. Today's hourly caps are 20 per account and 60 per community, so this catches a slow drip the caps don't.

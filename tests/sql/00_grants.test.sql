@@ -117,16 +117,17 @@ begin
   if n <> 0 then raise exception 'FAIL G10 % SET NULL user references are NOT NULL', n; end if;
   -- PostgREST runs STABLE/IMMUTABLE RPCs in a read-only transaction: a write anywhere inside
   -- (jc_assert_* touches last_used_at) fails live with 405 while direct-call tests pass (2026-11-16).
-  -- Transitive (soft archive): a writer is any public / jc_private function that writes, or calls a writer by name.
+  -- Transitive (soft archive): a writer is any public / jc_private function that writes (incl. merge, row locks), or
+  -- calls a writer by name. Name-based: comments can only add false positives; dynamic SQL is not seen (db review #6).
   with recursive fn as (
     select pr.proname::text nm, pr.provolatile vol, pr.prosrc src from pg_proc pr join pg_namespace ns on ns.oid = pr.pronamespace
      where ns.nspname in ('public', 'jc_private') and pr.prolang <> 13),
   w(nm) as (
-    select nm from fn where src ~* '(insert\s+into|update\s+\w+(\.\w+)?\s+(\w+\s+)?set\s|delete\s+from|\mjc_assert_)'
+    select nm from fn where src ~* '(insert\s+into|update\s+\w+(\.\w+)?\s+(\w+\s+)?set\s|delete\s+from|merge\s+into|for\s+(no\s+key\s+)?update|\mjc_assert_)'
     union
     select f.nm from fn f join w on f.src ~ ('\m' || w.nm || '\s*\(') and f.nm <> w.nm)
   select count(*), string_agg(f.nm, ', ') into n, s from fn f join w on w.nm = f.nm
-   where f.vol in ('s', 'i') and f.nm like 'jc\_%';
+   where f.vol in ('s', 'i');   -- both schemas: a jc_private storage rule is STABLE too (db review #7)
   if n <> 0 then raise exception 'FAIL G20 % STABLE/IMMUTABLE functions write (read-only under PostgREST): %', n, s; end if;
   -- G20 probe: a STABLE function two calls away from a write is caught (stable → plain → jc_notice's insert)
   execute $p$create function public.jc_zz_g20_mid() returns void language sql security definer set search_path = public, pg_temp
@@ -137,10 +138,10 @@ begin
     select pr.proname::text nm, pr.provolatile vol, pr.prosrc src from pg_proc pr join pg_namespace ns on ns.oid = pr.pronamespace
      where ns.nspname in ('public', 'jc_private') and pr.prolang <> 13),
   w(nm) as (
-    select nm from fn where src ~* '(insert\s+into|update\s+\w+(\.\w+)?\s+(\w+\s+)?set\s|delete\s+from|\mjc_assert_)'
+    select nm from fn where src ~* '(insert\s+into|update\s+\w+(\.\w+)?\s+(\w+\s+)?set\s|delete\s+from|merge\s+into|for\s+(no\s+key\s+)?update|\mjc_assert_)'
     union
     select f.nm from fn f join w on f.src ~ ('\m' || w.nm || '\s*\(') and f.nm <> w.nm)
-  select string_agg(f.nm, ', ') into s from fn f join w on w.nm = f.nm where f.vol in ('s', 'i') and f.nm like 'jc\_%';
+  select string_agg(f.nm, ', ') into s from fn f join w on w.nm = f.nm where f.vol in ('s', 'i');
   execute 'drop function public.jc_zz_g20_top()';
   execute 'drop function public.jc_zz_g20_mid()';
   if s is distinct from 'jc_zz_g20_top' then raise exception 'FAIL G21 transitive probe not caught: %', s; end if;

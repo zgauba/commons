@@ -1,6 +1,7 @@
 -- TARGET PROJECT: JubailCommons (qrpxfssdeeuzmsmlbtbu) — NEVER SignalPost.
 -- Soft archive, PR 1 (DB). Plan docs/plans/soft-archive.md; Zee 2026-11-16: 30-day restore window, in-app alert,
--- restore = Pets organizers only, alert at >= 10 organizer archives+restores or >= 20 hides in 24 h, community admins.
+-- restore = Pets organizers only, alert at >= 10 organizer archives+restores or >= 20 hides+unhides in 24 h, community
+-- admins only. Reviews: docs/qa/soft-archive-db-review-2026-11-17.md.
 --
 -- jc_pets                 + archived_at, archived_how (organizer | household | vacated), archived_photo_path.
 --                         CHECK jc_pets_archived_shape ties them to status (0 archived rows live 2026-11-16: no backfill).
@@ -134,6 +135,9 @@ create or replace function public.jc_home_vacated(p_home uuid)
  set search_path to 'public', 'pg_temp'
 as $function$
 begin
+  -- SOFT ARCHIVE: lock the home's pets first, so a restore racing this leave either lands before (and the pet is
+  -- vacated below) or waits and then fails the membership rule (db review #2)
+  perform 1 from jc_pets where home_id = p_home for no key update;
   -- a vacant home starts clean for the next family
   update jc_home_invites set expires_at = least(expires_at, now())
    where home_id = p_home and used_at is null;
@@ -184,6 +188,9 @@ begin
   select * into p from jc_pets where id = p_pet and community_id = v_comm for no key update;
   if p.id is null or p.status <> 'archived' then raise exception 'NOT_FOUND'; end if;
   if not jc_pet_restorable(p) then raise exception 'RESTORE_EXPIRED'; end if;
+  -- the per-home cap holds on the way back too (db review #1)
+  if p.kind = 'owned' and (select count(*) from jc_pets where home_id = p.home_id and status = 'active') >= 10 then
+    raise exception 'TOO_MANY_PETS'; end if;
   -- the photo comes back only if nothing retired it meanwhile
   select path into v_photo from jc_pet_photos
    where path = p.archived_photo_path and pet_id = p.id and state = 'current';
@@ -276,16 +283,22 @@ begin
     select l.community_id,
            count(*) filter (where l.action = 'pet_archive') archives,
            count(*) filter (where l.action = 'pet_restore') restores,
-           count(*) filter (where l.action = 'sighting_hide') hides
+           count(*) filter (where l.action = 'sighting_hide') hides,
+           count(*) filter (where l.action = 'sighting_unhide') unhides
       from jc_admin_log l
-     where l.at > now() - interval '24 hours' and l.action in ('pet_archive', 'pet_restore', 'sighting_hide')
+     where l.at > now() - interval '24 hours'
+       and l.action in ('pet_archive', 'pet_restore', 'sighting_hide', 'sighting_unhide')
      group by l.community_id
   loop
-    continue when r.archives + r.restores < 10 and r.hides < 20;
-    continue when exists (select 1 from jc_admin_notices x where x.community_id = r.community_id
-                            and x.kind = 'moderation_spike' and x.resolved_at is null);
-    perform jc_notice(r.community_id, 'moderation_spike', null,
-                      jsonb_build_object('archives', r.archives, 'restores', r.restores, 'hides', r.hides));
+    continue when r.archives + r.restores < 10 and r.hides + r.unhides < 20;
+    -- one open notice per community: a later night refreshes its counts instead of hiding them (security review #4)
+    update jc_admin_notices set detail = jsonb_build_object('archives', r.archives, 'restores', r.restores,
+                                                            'hides', r.hides, 'unhides', r.unhides), created_at = now()
+     where community_id = r.community_id and kind = 'moderation_spike' and resolved_at is null;
+    if not found then
+      perform jc_notice(r.community_id, 'moderation_spike', null,
+                        jsonb_build_object('archives', r.archives, 'restores', r.restores, 'hides', r.hides, 'unhides', r.unhides));
+    end if;
     n := n + 1;
   end loop;
   return n;

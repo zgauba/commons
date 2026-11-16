@@ -236,7 +236,7 @@ begin
   insert into jc_admin_log (community_id, actor, action, target) values ('testville31b', o1, 'sighting_hide', '{}');
   perform jc_pets_retention();
   if (select detail from jc_admin_notices where community_id = 'testville31' and kind = 'moderation_spike' and resolved_at is null)
-     is distinct from '{"archives": 9, "restores": 1, "hides": 0}'::jsonb then
+     is distinct from '{"archives": 9, "restores": 1, "hides": 0, "unhides": 0}'::jsonb then
     raise exception 'FAIL SA09b archives+restores: %', (select jsonb_agg(detail) from jc_admin_notices where community_id = 'testville31'); end if;
   if (select detail ->> 'hides' from jc_admin_notices where community_id = 'testville31b' and kind = 'moderation_spike') <> '20' then
     raise exception 'FAIL SA09c hides'; end if;
@@ -276,8 +276,53 @@ begin
     raise exception 'FAIL SA11c clean run still shows the error'; end if;
   k := k + 3;
 
+  -- ---------- SA13 review gaps: exactly 30 days = expired; empty home; the per-home cap on the way back ----------
+  update jc_pets set status = 'active', archived_at = null, archived_how = null, archived_photo_path = null where id = v_dog;
+  execute 'set local role authenticated';
+  perform set_config('request.jwt.claims', json_build_object('sub', a1, 'role', 'authenticated')::text, true);
+  perform jc_admin_pet_archive(v_dog, 'boundary check');
+  execute 'reset role';
+  update jc_pets set archived_at = now() - interval '30 days' where id = v_dog;
+  execute 'set local role authenticated';
+  v_err := null; begin perform jc_admin_pet_restore(v_dog); exception when others then v_err := sqlerrm; end;
+  if v_err is distinct from 'RESTORE_EXPIRED' then raise exception 'FAIL SA13a exactly 30 days: %', v_err; end if;
+  -- a new household on home 32: archive one pet, fill the home to 10, then restore → TOO_MANY_PETS; empty home → expired
+  perform set_config('request.jwt.claims', json_build_object('sub', m1, 'role', 'authenticated')::text, true);
+  perform jc_home_claim('north', 'villa', null, '32');
+  v_bo := (jc_pet_save(null, '{"species": "cat", "name": "S31 Kit"}') ->> 'id')::uuid;
+  perform jc_pet_archive(v_bo);
+  for i in 1..10 loop perform jc_pet_save(null, jsonb_build_object('species', 'other', 'name', 'S31 fish ' || i)); end loop;
+  perform set_config('request.jwt.claims', json_build_object('sub', a1, 'role', 'authenticated')::text, true);
+  v_err := null; begin perform jc_admin_pet_restore(v_bo); exception when others then v_err := sqlerrm; end;
+  if v_err is distinct from 'TOO_MANY_PETS' then raise exception 'FAIL SA13b over the cap: %', v_err; end if;
+  execute 'reset role';
+  delete from jc_home_members where user_id = m1;            -- members gone without the leave path (no vacate)
+  execute 'set local role authenticated';
+  v_err := null; begin perform jc_admin_pet_restore(v_bo); exception when others then v_err := sqlerrm; end;
+  if v_err is distinct from 'RESTORE_EXPIRED' then raise exception 'FAIL SA13c empty home: %', v_err; end if;
+  execute 'reset role';
+  k := k + 3;
+
+  -- ---------- SA14 alert: an open notice is refreshed, not duplicated; unhides count with hides ----------
+  delete from jc_admin_log where community_id = 'testville31b';
+  delete from jc_admin_notices where community_id = 'testville31b';
+  insert into jc_admin_log (community_id, actor, action, target)
+    select 'testville31b', o1, 'sighting_hide', '{}' from generate_series(1, 12);
+  insert into jc_admin_log (community_id, actor, action, target)
+    select 'testville31b', o1, 'sighting_unhide', '{}' from generate_series(1, 8);
+  perform jc_pets_retention();
+  if (select detail from jc_admin_notices where community_id = 'testville31b' and kind = 'moderation_spike' and resolved_at is null)
+     is distinct from '{"archives": 0, "restores": 0, "hides": 12, "unhides": 8}'::jsonb then
+    raise exception 'FAIL SA14a: %', (select jsonb_agg(detail) from jc_admin_notices where community_id = 'testville31b'); end if;
+  insert into jc_admin_log (community_id, actor, action, target) values ('testville31b', o1, 'sighting_hide', '{}');
+  perform jc_pets_retention();
+  if (select count(*) from jc_admin_notices where community_id = 'testville31b' and kind = 'moderation_spike') <> 1
+     or (select detail ->> 'hides' from jc_admin_notices where community_id = 'testville31b' and kind = 'moderation_spike') <> '13' then
+    raise exception 'FAIL SA14b not refreshed: %', (select jsonb_agg(detail) from jc_admin_notices where community_id = 'testville31b'); end if;
+  k := k + 2;
+
   -- ---------- SA12 shape check: archived fields only on archived rows ----------
-  v_err := null; begin update jc_pets set archived_at = now() where id = v_dog; exception when others then v_err := sqlstate; end;
+  v_err := null; begin update jc_pets set archived_at = now() where id = v_cat; exception when others then v_err := sqlstate; end;
   if v_err is distinct from '23514' then raise exception 'FAIL SA12a active with archived_at: %', v_err; end if;
   v_err := null; begin update jc_pets set archived_photo_path = 'x' where id = v_rex; exception when others then v_err := sqlstate; end;
   if v_err is distinct from '23514' then raise exception 'FAIL SA12b vacated keeps a photo: %', v_err; end if;
