@@ -67,6 +67,8 @@ Last groomed: 2026-11-02
       caps) mandatory; one-tap cancellation; admin slot-blocking; "official
       community-management bookings take precedence" on the booking screen;
       feature-flag kill switch. Prerequisite: facility inventory.
+- [ ] **Find a Game / "looking for players"** (Zee 2026-11-04, item 9): post sport + usual availability, others join;
+      opt-in contact, auto-expire, tap-to-reveal. → ROADMAP "After launch" (inside Bookings).
 - [ ] Privacy-clean analytics: anonymous hit counter in our own backend — no
       cookies, no IPs, no third parties.
 - [ ] Per-event safety info block (static: security number + agreed meeting

@@ -276,6 +276,13 @@ From `docs/qa/SYNTHESIS-2026-11-03.md` T6, plus items found since:
   - **Start now, in parallel:** ask the curator whether her Wix content is a CMS collection (CSV export → import)
     or hand-built pages (manual transcription) — that sets the size of the import.
   - Depends on RM (renamable modules).
+- **Find a Game — "looking for players" (Bookings)** (Zee 2026-11-04, feedback item 9; re-raised 2026-11-16 — it had
+  dropped out of the plan). A resident posts "Tennis, Thu evenings, need 1, intermediate"; others tap "I'm in". Lives
+  **inside Bookings** as a "Find a game" tab (sport = the court `kind`; a match ends in a booking; reuses the Bookings flag
+  and admins), not in Events (organizer-run, community-wide) and not a new bar module. Zee's 2026-11-04 shape: sport,
+  usual availability, contact — **PII opt-in, posts auto-expire, number tap-to-reveal**. Contact model decided at its
+  `/plan-change`: home label only → opt-in WhatsApp number (stray-report pattern); **no in-app chat** (moderation +
+  data). Needs real court traffic first, so after launch; depends on B-1.
 - **Suggested walking route** (nearest-neighbor + 2-opt loop over stocked homes; `route` flag off) and
   **kilometers walked** (on-device only, "at least X km", nothing sent).
 - **Second community / B2B** — trigger: a second community asks. Needs the platform console + per-community
