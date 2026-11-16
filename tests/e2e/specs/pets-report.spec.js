@@ -260,3 +260,10 @@ test("a resident sees no waiting line and the organizers' queue is never asked f
   await expect(page.locator("#rpQueue")).toHaveCount(0);
   expect(named(calls, "jc_admin_stray_reports_list")).toEqual([]);
 });
+
+test("an organizer whose rights lapsed (NOT_ADMIN): no line, no error", async ({ page }) => {
+  await open(page, backend({ me: Object.assign({}, MEMBER, { admin_scopes: ["pets"] }), queueError: "NOT_ADMIN" }));
+  await expect(page.locator("#rpOpen")).toBeVisible();
+  await expect(page.locator("#rpQueue")).toHaveCount(0);
+  await expect(page.locator("#msg")).toHaveText("");
+});

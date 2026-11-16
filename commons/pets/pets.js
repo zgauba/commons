@@ -1114,7 +1114,8 @@ function loadQueue(){
   queueN = null;
   rpc("jc_admin_stray_reports_list", { p_show: "open" }).then(function(d){
     queueN = Array.isArray(d) ? d.length : null;
-    if (queueN && current === "list" && tab === "strays" && !el("rpQueue")) show("list");
+    /* dropped in place: a redraw would rebuild the Strays map and lose where it was moved (review L1) */
+    if (queueN && current === "list" && tab === "strays" && !el("rpQueue") && el("rpOpen")) el("rpOpen").parentNode.insertAdjacentHTML("beforebegin", queueHtml());
   }, function(){ queueN = null; });
 }
 
