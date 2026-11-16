@@ -741,7 +741,7 @@ var VIEWS = {
         : !logs.length ? '<p class="help" id="pmLogNone">' + esc(jcT("pm_log_none")) + '</p>'
         : '<ul class="sulist" id="pmLog">' + logs.map(function(c){
             var k = PM_LOG.indexOf(c.kind) >= 0 ? c.kind : "note";
-            return '<li><div class="meta">' + esc(jcT("pt_log_" + k) + " · " + hDate(c.at)) + '</div>' + (c.note ? '<div dir="auto">' + esc(c.note) + '</div>' : '') + '</li>';
+            return '<li><div class="meta">' + esc(jcT("pt_log_" + k) + " · " + hDate(c.at)) + '</div>' + jcCareLogBody(c) + '</li>';
           }).join("") + '</ul>';
     }
     html += pmSightHtml(live, busyOff) + pmArchiveHtml(f, stray, home, busyOff);
@@ -2144,7 +2144,7 @@ function pmLoad(){
   });
 }
 /* one write at a time; NOT_FOUND = archived or no longer a stray → the list; anything else stays on the form */
-function pmWrite(btn, call, done){
+function pmWrite(btn, call, done, pre){
   var me = pv;
   if (!me || me.busy) return;
   me.busy = true; busy(btn, true);
@@ -2159,7 +2159,8 @@ function pmWrite(btn, call, done){
     if (pv !== me || current !== "petadmin") return;
     if (code === "NOT_FOUND") return pmGone();
     show("petadmin");
-    jcShowErrFor("pm_err_", code);
+    /* an action's own message first (care v2: log adds have their own limits), else the shared one */
+    jcShowErrFor(pre && jcT(pre + code) !== pre + code ? pre : "pm_err_", code);
   });
 }
 function pmCareSet(status, btn){
@@ -2189,7 +2190,7 @@ function pmLogAdd(){
     me.detail = null; me.err = null; me.loading = false; /* the server returns no log: a fresh read (an older one is dropped) */
     show("petadmin");
     showOk(jcT("pm_log_added"));
-  });
+  }, "pm_log_err_");
 }
 
 /* ---------- R5d-3b: moderation on Manage — hide a sighting, archive with a reason (server S4) ---------- */
@@ -2260,7 +2261,7 @@ function pmArchive(f, home){
 
 /* ---------- R5d-2b: the stray editor (server jc_admin_stray_save, R5a) ---------- */
 var PE_SPECIES = ["cat", "dog", "bird", "rabbit", "other"];
-var PE_CARE = ["needs_help", "under_care", "known_fine", "rehomed"];
+var PE_CARE = JC_CARE_STATES;                           /* care v2: one list (assets/pet-photo.js) */
 function peMsg(code){ jcShowErrFor("pa_err_", code); }
 function petById(id){ return ((pa && pa.list) || []).filter(function(p){ return p.id === id; })[0] || null; }
 /* the form's values from a card; a new animal starts "Under care" (the server's default) */

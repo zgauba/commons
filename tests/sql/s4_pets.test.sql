@@ -149,7 +149,9 @@ begin
   perform jc_admin_sighting_hide(v_sighting);
   perform set_config('request.jwt.claims', json_build_object('sub', p1, 'role', 'authenticated')::text, true);
   v := jc_pet_get(v_stray);
-  if v ->> 'care_state' <> 'needs_help' or jsonb_array_length(v -> 'care_log') <> 1 or jsonb_array_length(v -> 'sightings') <> 1 then
+  -- care_log: the fed row + the care-v2 auto 'state' row for the change to needs_help
+  if v ->> 'care_state' <> 'needs_help' or jsonb_array_length(v -> 'care_log') <> 2 or jsonb_array_length(v -> 'sightings') <> 1
+     or not (v -> 'care_log') @> '[{"kind": "state", "state": "needs_help"}]'::jsonb then
     raise exception 'FAIL P07e stray card (hidden sighting should be gone): %', v; end if;
   v_err := null; begin perform jc_pet_save(v_stray, '{"name": "Mine"}'); exception when others then v_err := sqlerrm; end;
   if v_err is distinct from 'NOT_ADMIN' then raise exception 'FAIL P07f resident edited a stray: %', v_err; end if;

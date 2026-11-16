@@ -847,6 +847,21 @@ test("R5d-3b: Archive in Arabic keeps the reason being typed", async ({ page }) 
   await expect(page.locator("#pmWhy")).toHaveValue("Duplicate entry");
 });
 
+test("care v2: Manage shows an auto status row by its label; a log add over the limit says its own numbers", async ({ page }) => {
+  const b = backend({ petsOn: true });
+  b.st.logs[ID(3)] = [{ kind: "state", note: null, state: "rehomed", at: "2026-11-15T09:00:00Z" },
+                      { kind: "state", note: "Moved to the clinic garden", state: null, at: "2026-11-14T09:00:00Z" }];
+  b.rpc.jc_admin_pet_care_add = () => raise("RATE_LIMITED");
+  await manage(page, b, ID(3));
+  await expect(page.locator("#pmLog li")).toHaveCount(2);
+  await expect(page.locator("#pmLog li").first()).toContainText("Status change");
+  await expect(page.locator("#pmLog li").first()).toContainText("Rehomed");
+  await expect(page.locator("#pmLog li").nth(1)).toContainText("Moved to the clinic garden");
+  await page.locator('[data-pmlog="fed"]').click();
+  await page.locator("#pmLogAdd").click();
+  await expect(page.locator("#msg")).toHaveText("That's the limit for now: 60 log entries an hour for each organizer, 200 for the whole community. Try again in an hour.");
+});
+
 test("R5d rate limit: over the limit, archive and hide say so in words (the server's RATE_LIMITED)", async ({ page }) => {
   const b = backend({ petsOn: true });
   b.st.sights[ID(3)] = SIGHTS();

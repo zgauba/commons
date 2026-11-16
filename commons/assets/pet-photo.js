@@ -100,3 +100,12 @@ function jcPetPhotoUpload(id, dataUrl){
     });
   });
 }
+
+/* ---------- care log (care v2, 2026-11-15): one rule for both pages ----------
+   An auto-logged status change carries the state (no note) and shows its label in the reader's language;
+   any other row shows its note. Needs strings.js (jcT) and api.js (esc). */
+var JC_CARE_STATES = ["needs_help", "under_care", "known_fine", "rehomed"];
+function jcCareLogBody(c){
+  if (c.kind === "state" && JC_CARE_STATES.indexOf(c.state) >= 0) return '<div>' + esc(jcT("pt_care_" + c.state)) + '</div>';
+  return c.note ? '<div dir="auto">' + esc(c.note) + '</div>' : '';
+}

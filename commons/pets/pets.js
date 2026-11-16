@@ -532,7 +532,7 @@ function logHtml(p){
   if (!p.care_log.length) return '';
   return '<h2 class="group">' + esc(jcT("pt_log")) + '</h2><ul class="bklist" id="ptLog">' + p.care_log.filter(hObj).map(function(c){
     var k = ["fed", "vet", "note", "state"].indexOf(c.kind) >= 0 ? c.kind : "note";
-    return '<li><div class="meta">' + esc(jcT("pt_log_" + k) + " · " + when(c.at)) + '</div>' + (c.note ? '<div dir="auto">' + esc(c.note) + '</div>' : '') + '</li>';
+    return '<li><div class="meta">' + esc(jcT("pt_log_" + k) + " · " + when(c.at)) + '</div>' + jcCareLogBody(c) + '</li>';
   }).join("") + '</ul>';
 }
 
