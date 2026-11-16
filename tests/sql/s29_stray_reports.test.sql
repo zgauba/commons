@@ -185,7 +185,7 @@ begin
   if not exists (select 1 from jc_stray_reports where id = id1 and contact is null and closed_by = a1 and closed_at is not null) then
     raise exception 'FAIL SR12b row'; end if;
   if not exists (select 1 from jc_admin_log where community_id = 'testville29' and action = 'stray_report_close'
-                  and target = jsonb_build_object('report_id', id1, 'outcome', 'added', 'pet_id', v_cat)) then
+                  and target = jsonb_build_object('report_id', id1, 'outcome', 'added', 'pet_id', v_cat, 'photo_moved', false)) then
     raise exception 'FAIL SR12c admin log: %', (select jsonb_agg(target) from jc_admin_log where community_id = 'testville29' and action = 'stray_report_close'); end if;
   execute 'set local role authenticated';
   perform set_config('request.jwt.claims', json_build_object('sub', r1, 'role', 'authenticated')::text, true);
