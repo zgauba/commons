@@ -349,7 +349,9 @@ var VIEWS = {
         (!strays.length ? '<p class="help" id="ptStrays">' + esc(jcT("pt_strays_none")) + '</p>' :
         (typeof L === "undefined" ? '<p class="help" id="ptNoMap">' + esc(jcT("err_NETWORK")) + '</p>' :   /* no dead buttons */
          onMap.length ? jcMapHtml("ptmap", layer, { attrs: ' role="region" aria-label="' + esc(jcT("pt_strays_map")) + '"',
-           before: '<button type="button" class="lang" id="labelsBtn" aria-haspopup="dialog">' + esc(jcT("ev_labels")) + '</button>' }) +
+           before: '<button type="button" class="lang" id="namesBtn" aria-pressed="' + (namesOn() ? 'true' : 'false') + '">' +
+                     esc(jcT(namesOn() ? "pt_names_hide" : "pt_names_show")) + '</button>' +
+                   '<button type="button" class="lang" id="labelsBtn" aria-haspopup="dialog">' + esc(jcT("ev_labels")) + '</button>' }) +
            jcKeySheetHtml("ptKey") : '') +
         (unplaced ? '<p class="help" id="ptUnplaced">' + esc(jcFmt("pt_strays_unplaced", { n: unplaced })) + '</p>' : '') +
         '<div id="ptStraysBox">' + strayCardsHtml(strays) + '</div>') +
@@ -720,11 +722,24 @@ function drawStrays(list){
   });
   var box = el("ptmap");
   jcMapPopups(m, function(id){ full.set(false); openPet(id); });   /* the kit */
-  /* names on the pins from JC_LABEL_ZOOM in (many pins); a tap opens the card at any zoom */
-  function labels(){ if (box && map === m) box.classList.toggle("nolabels", m.getZoom() < JC_LABEL_ZOOM); }
-  m.on("zoomend", labels);
+  /* Zee 2026-11-17: names show at every zoom; Hide Names / Show Names turns them off and on (remembered on this phone) */
+  function labels(){ if (box && map === m) box.classList.toggle("nolabels", !namesOn()); }
+  on("namesBtn", function(){
+    var v = !namesOn();
+    try { localStorage.setItem("jc_pt_names", v ? "1" : "0"); } catch(e){}
+    NAMES = v;
+    var b = el("namesBtn");
+    if (b) { b.setAttribute("aria-pressed", v ? "true" : "false"); b.textContent = jcT(v ? "pt_names_hide" : "pt_names_show"); }
+    labels();
+  });
   jcFitPins(m, pts);
   labels();
+}
+/* the Strays map's names: on unless this viewer turned them off (a per-phone convenience; works without storage) */
+var NAMES = null;
+function namesOn(){
+  if (NAMES === null) { try { NAMES = localStorage.getItem("jc_pt_names") !== "0"; } catch(e){ NAMES = true; } }
+  return NAMES;
 }
 
 /* ---------- a pet's page: the amber "seen out" box, the Map tab, the small maps (R5b-2b-2b) ---------- */
