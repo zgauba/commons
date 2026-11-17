@@ -52,6 +52,7 @@ function inviteForget(){ try { sessionStorage.removeItem(INVITE_KEY); } catch(e)
 /* the levels on the Admins screen (pets since R5d-1: it has its own tab now) */
 var AD_SCOPES = ["community", "events", "bookings", "pets"];
 var ad = null;            /* R4b-1a: { <scope>: { admins, links } } from jc_module_admins_list | null */
+var adSent = {};          /* scope → true once its new link was copied or shared (Done asks only if not) */
 var adLinks = {};         /* scope → url: new invite links, shown until the person leaves the Admins screen
                              (code review M1: another level's Remove / Make never wipes one) */
 var adErr = null;         /* the lists couldn't be read (not NOT_ADMIN): shown with Try Again */
@@ -259,7 +260,7 @@ function show(name){
   current = name;
   newCode = null;         /* only rotate() draws the code, once (review PR #26) */
   newLink = null;         /* same for a grant link */
-  adLinks = {}; adErr = null;   /* and admin invite links (leaving the Admins screen) */
+  adLinks = {}; adSent = {}; adErr = null;   /* and admin invite links (leaving the Admins screen) */
   if (vmap) { jcMapRemove(vmap); vmap = null; }
   /* back, in the top bar: sign-ups → the events list; pin move → the sign-ups */
   jcBack(name === "signups" ? leaveSignups
@@ -1932,6 +1933,7 @@ function adminsPanel(e){
         '<b class="linkbox" id="newLink">' + esc(newLink.url) + '</b>' +
         '<button class="btn ghost small" type="button" id="copyLink">' + esc(jcT("adm_copy")) + '</button>' +
         (navigator.share ? '<button class="btn ghost small" type="button" id="shareLink">' + esc(jcT("mh_share")) + '</button>' : '') +
+        '<button class="btn small" type="button" id="doneLink">' + esc(jcT("adm_done")) + '</button>' +
         '</div>'
       : '<button class="btn small" type="button" id="makeLink">' + esc(jcT("adm_admins_link")) + '</button>') +
     '</div>';
@@ -1957,7 +1959,7 @@ function wireAdmins(){
     rpc("jc_event_admin_link_create", { p_event: id }).then(function(r){
       /* drawn once; the next show() drops it — and shown even if the list refresh fails,
          because the token can never be shown again */
-      var link = { event: id, url: location.origin + location.pathname + "?eventadmin=" + encodeURIComponent(r.token) };
+      var link = { event: id, url: location.origin + location.pathname + "?eventadmin=" + encodeURIComponent(r.token), sent: false };
       return rpc("jc_event_admins_list", { p_event: id }).then(function(d){
         if (admining === id) adminsData = d;
         draw(link);
@@ -1966,10 +1968,14 @@ function wireAdmins(){
   });
   on("copyLink", function(){
     (navigator.clipboard ? navigator.clipboard.writeText(keepLink.url) : Promise.reject())
-      .then(function(){ el("copyLink").textContent = jcT("adm_copied"); },
+      .then(function(){ el("copyLink").textContent = jcT("adm_copied"); keepLink.sent = true; },
             function(){ showErr("COPY_FAILED"); });
   });
-  on("shareLink", function(){ navigator.share({ url: keepLink.url }).catch(function(){}); });
+  on("shareLink", function(){ navigator.share({ url: keepLink.url }).then(function(){ keepLink.sent = true; }, function(){}); });
+  on("doneLink", function(){
+    if (!keepLink.sent && !window.confirm(jcT("adm_done_confirm"))) return;
+    draw(null);
+  });
   Array.prototype.forEach.call(document.querySelectorAll("[data-unadmin], [data-unlink]"), function(b){
     b.addEventListener("click", function(){
       if (b.dataset.unadmin && !window.confirm(jcFmt("adm_admins_remove_confirm", { n: b.dataset.name }))) return;
@@ -3233,6 +3239,8 @@ function adScopeHtml(s){
         '<b class="linkbox" data-adurl="' + s + '">' + esc(url) + '</b>' +
         '<button class="btn ghost small" type="button" data-adcopy="' + s + '">' + esc(jcT("adm_copy")) + '</button>' +
         (navigator.share ? '<button class="btn ghost small" type="button" data-adshare="' + s + '">' + esc(jcT("mh_share")) + '</button>' : '') +
+        /* Zee 2026-11-17: Done closes the link so another can be made */
+        '<button class="btn small" type="button" data-addone="' + s + '">' + esc(jcT("adm_done")) + '</button>' +
         '</div>'
       : '<button class="btn small" type="button" data-admake="' + s + '">' + esc(jcT("adm_ad_make")) + '</button>') +
     '</div>';
@@ -3261,7 +3269,7 @@ function wireAdminsView(){
       return rpc("jc_module_admin_link_create", { p_scope: s }).then(function(r){
         if (!r || typeof r.token !== "string" || !/^[A-Za-z0-9_-]{16,64}$/.test(r.token)) throw { code: "UNKNOWN" };
         /* shown even if the list refresh fails: the token can never be shown again */
-        adLinks[s] = location.origin + location.pathname + "#admininvite=" + r.token;
+        adLinks[s] = location.origin + location.pathname + "#admininvite=" + r.token; adSent[s] = false;
         return rpc("jc_module_admins_list", { p_scope: s }).then(function(d){ if (ad) ad[s] = adShape(d); }, function(){});
       });
     }, function(){ draw(); });
@@ -3269,11 +3277,17 @@ function wireAdminsView(){
   each("[data-adcopy]", function(b){
     var url = jcOwn(adLinks, b.dataset.adcopy);
     (navigator.clipboard && url ? navigator.clipboard.writeText(url) : Promise.reject())
-      .then(function(){ b.textContent = jcT("adm_copied"); }, function(){ showErr("COPY_FAILED"); });
+      .then(function(){ b.textContent = jcT("adm_copied"); adSent[b.dataset.adcopy] = true; }, function(){ showErr("COPY_FAILED"); });
   });
   each("[data-adshare]", function(b){
     var url = jcOwn(adLinks, b.dataset.adshare);
-    if (url) navigator.share({ url: url }).catch(function(){});
+    if (url) navigator.share({ url: url }).then(function(){ adSent[b.dataset.adshare] = true; }, function(){});
+  });
+  each("[data-addone]", function(b){
+    var s = b.dataset.addone;
+    if (!adSent[s] && !window.confirm(jcT("adm_done_confirm"))) return;
+    delete adLinks[s]; delete adSent[s];
+    draw();
   });
   each("[data-adrm]", function(b){
     var s = b.dataset.adrm;

@@ -408,3 +408,41 @@ test("security L3: a kept invite older than an hour is forgotten; signing out fo
   await expect(page.locator("#email")).toBeVisible();
   expect(await page.evaluate(() => sessionStorage.getItem("jc_admin_invite"))).toBeNull();
 });
+
+// Zee 2026-11-17: a Done button beside Copy / Share closes the shown link so another can be made. The link can't be
+// shown again, so Done asks first only if it was never copied or shared; the link itself stays pending in the list.
+test("Done closes an admin link: no question once copied, asks first if not; the pending link stays listed", async ({ page }) => {
+  await page.addInitScript(() => { Object.defineProperty(navigator, "clipboard", { configurable: true,
+    value: { writeText: () => Promise.resolve() } }); });
+  const b = backend();
+  const { calls } = await stubBackend(page, { rpc: b.rpc });
+  await signIn(page);
+  await openAdmins(page);
+  const box = page.locator('[data-scope="community"]');
+  await page.locator('[data-admake="community"]').click();
+  await expect(box.locator('[data-addone="community"]')).toHaveText("Done");
+  if (process.env.SHOT_DIR) {
+    await page.evaluate(() => window.scrollBy(0, 200));
+    await page.screenshot({ path: process.env.SHOT_DIR + "/admins-link-done.png" });
+  }
+  // not copied: asks; dismissing keeps the link on screen
+  let asked = null;
+  page.once("dialog", (d) => { asked = d.message(); d.dismiss(); });
+  await box.locator('[data-addone="community"]').click();
+  expect(asked).toContain("can't be shown again");
+  await expect(box.locator('[data-adurl="community"]')).toBeVisible();
+  // accepted: closed, the Make button is back, the unused link is still listed (cancel it there)
+  page.once("dialog", (d) => d.accept());
+  await box.locator('[data-addone="community"]').click();
+  await expect(box.locator("[data-adurl]")).toHaveCount(0);
+  await expect(box.locator('[data-admake="community"]')).toBeVisible();
+  await expect(box.locator(".adminlist li")).toHaveCount(2);
+  // a second link: copied first, so Done closes without asking
+  await page.locator('[data-admake="community"]').click();
+  await box.locator('[data-adcopy="community"]').click();
+  await expect(box.locator('[data-adcopy="community"]')).toHaveText("Copied");
+  page.once("dialog", () => { throw new Error("Done asked after the link was copied"); });
+  await box.locator('[data-addone="community"]').click();
+  await expect(box.locator("[data-adurl]")).toHaveCount(0);
+  expect(calls.filter((c) => c.name === "jc_module_admin_link_create").length).toBe(2);
+});

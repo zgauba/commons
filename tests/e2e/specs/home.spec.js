@@ -136,6 +136,37 @@ test("My Home: invite link, display name, tab bar (Commons + My Home only while 
   await expect(page.locator('#tabbar a[aria-current="page"]')).toHaveAttribute("data-tab", "home");
 });
 
+// Zee 2026-11-17: Done beside Copy / Share (same rule as admin links).
+test("household invite: Done asks only if the link was not copied, then clears it (Invite stays)", async ({ page }) => {
+  await page.addInitScript(() => { Object.defineProperty(navigator, "clipboard", { configurable: true,
+    value: { writeText: () => Promise.resolve() } }); });
+  const hb = homeBackend(MEMBER);
+  await stubBackend(page, { rpc: hb.rpc });
+  await signIn(page);
+  await page.goto("home/");
+  // sub-menu, not one long scroll: Home first (the house), then Household, Account
+  await expect(page.locator('.subtabs [role="tab"]')).toHaveText(["Home", "Household", "Account"]);
+  await expect(page.locator(".homehead b")).toHaveText("Villa 12");
+  await expect(page.locator("#invite")).toHaveCount(0);
+  await page.locator("#mh-household").click();
+  await expect(page).toHaveURL(/\/home\/\?tab=household$/);
+  await expect(page.locator(".members li")).toHaveCount(1);
+  await expect(page.locator(".members .tag")).toHaveText("you");
+  await page.locator("#invite").click();
+  await expect(page.locator("#doneInvite")).toHaveText("Done");
+  let asked = false;
+  page.once("dialog", (d) => { asked = true; d.dismiss(); });
+  await page.locator("#doneInvite").click();
+  expect(asked).toBe(true);
+  await expect(page.locator("#inviteLink")).toBeVisible();
+  await page.locator("#copyLink").click();
+  await expect(page.locator("#copyLink")).toHaveText("Copied");
+  page.once("dialog", () => { throw new Error("Done asked after the link was copied"); });
+  await page.locator("#doneInvite").click();
+  await expect(page.locator("#inviteLink")).toHaveCount(0);
+  await expect(page.locator("#invite")).toBeVisible();
+});
+
 test("tab bar shows a module only when its flag is on", async ({ page }) => {
   const hb = homeBackend(MEMBER);
   await stubBackend(page, { rpc: Object.assign(hb.rpc, { jc_config_get: () => ok(Object.assign({}, CONFIG, {
