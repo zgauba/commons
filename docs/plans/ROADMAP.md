@@ -31,6 +31,7 @@ The `e2e` test community stays the place to try everything; Jubail's modules sta
 | R3 | App shell: "Save as an app" (R3b), your bar + start page + Settings (R3a), accessibility pass with shared WAI-ARIA tabs (R3c). **R3 complete.** |
 | R4 | Courts: schema to spec + module / unified per-person admins (R4a–R4a-3), Admins screen + court editor (R4b-1), admin Day view (R4b-2), residents book (R4c), My Bookings → Past (R4d) — PRs #71–#85. **R4 complete** (Courts stays off for Jubail until R8). |
 | R5a | Pets DB to spec (known & fine, territory, care record, sightings rules + retention, missing-pet show-home opt-in, members-only WhatsApp group link) — DB `r5a_pets`, applied 2026-11-10. Clients next: R5b / R5c / R5d (`docs/plans/R5-pets.md`) |
+| B-1 | Courts → **Bookings** (section name, "Book a Court or Pitch", "place" wording EN/AR) + **Football** kind (never soccer; DB CHECK widened) — PR #145 (DB `b1_football_kind`, applied 2026-11-17) + PR #146 (app). Follow-ups F1 (server cancel reasons say "Court", English-only) and F2 (EN/AR key-parity test) in `docs/plans/B-1-bookings-football.md`. |
 
 Detail: `docs/architecture.md` (Stack Manifest) and the reviews in `docs/qa/`.
 
@@ -276,7 +277,7 @@ plus the unknown count.
 ### Bookings (long term, Zee 2026-11-14)
 - Courts grow into general **Bookings** for any community's shared spaces (rooms, BBQ areas, halls). The code is
   already "bookings" (module flag, folder) and a court is a facility with a `kind`, so it is mostly new kinds + labels.
-  Not scheduled.
+  First step done in B-1 (2026-11-17): Bookings name, "place" wording, Football kind. Rooms / BBQ / halls not scheduled.
 
 ### Commons home v2  ·  app (+ DB only if "For you" needs one read)  ·  LAST feature before launch planning (Zee 2026-11-15)
 The hub today is one column of big module cards and "Welcome, Villa 12" — nothing tells a resident what needs them,

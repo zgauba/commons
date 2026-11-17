@@ -74,7 +74,7 @@ test("community admin: Admins lists every level with chips (Pets too, R5d-1); tw
   const { calls } = await stubBackend(page, { rpc: b.rpc });
   await signIn(page);
   await openAdmins(page);
-  await expect(page.locator("h2.group")).toHaveText(["Community admins", "Event organizers", "Courts admins", "Pets admins"]);
+  await expect(page.locator("h2.group")).toHaveText(["Community admins", "Event organizers", "Bookings admins", "Pets admins"]);
   expect(calls.filter((c) => c.name === "jc_module_admins_list").map((c) => c.args.p_scope).sort())
     .toEqual(["bookings", "community", "events", "pets"]);
   const community = page.locator('[data-scope="community"]');
@@ -200,14 +200,14 @@ test("invite link: token dropped from the URL, asks first (names no level), acce
   await page.goto("admin/#admininvite=" + TOKEN);
   await expect(page.locator("h1")).toHaveText("Help Run Your Community");
   await expect(page.locator(".acclist")).toContainText("You'll see it named as soon as you accept");
-  await expect(page.locator(".acclist")).not.toContainText("Courts");
+  await expect(page.locator(".acclist")).not.toContainText("Bookings");
   await expect(page.locator(".acclist li")).toHaveCount(3);
   expect(new URL(page.url()).hash).toBe("");
   expect(calls.some((c) => c.name === "jc_module_admin_accept")).toBe(false);
   await page.locator("#invYes").click();
-  await expect(page.locator("#msg")).toHaveText("Done. You've joined the Courts admins.");
+  await expect(page.locator("#msg")).toHaveText("Done. You've joined the Bookings admins.");
   expect(calls.filter((c) => c.name === "jc_module_admin_accept").map((c) => c.args)).toEqual([{ p_token: TOKEN }]);
-  await expect(page.locator(".sub")).toContainText("Courts");
+  await expect(page.locator(".sub")).toContainText("Bookings");
   await expect(page.locator("#code")).toHaveCount(0);                       // not sent to the lock
   await expect(page.locator("#newEv")).toHaveCount(0);
   await expect(page.locator("#adOpen")).toHaveCount(0);                     // invites are for community admins

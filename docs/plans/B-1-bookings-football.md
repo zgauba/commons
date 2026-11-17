@@ -99,3 +99,16 @@ Zee approved the plan 2026-11-16 ("Agree"): Football, never soccer; the place no
    "court or pitch" (clunky ×45), "facility" (jargon).
 2. **The CTA** "Book a Court" → **"Book a Place"**? Or name the sports: **"Book a Court or Pitch"** (recommend this one —
    residents know exactly what's on offer).
+
+## Status (2026-11-17)
+
+- PR 2 (DB): applied live 2026-11-17, merged as #145.
+- PR 1 (app): built on `feat/b-1-bookings-app`; review `docs/qa/b1-bookings-app-review-2026-11-17.md`.
+
+## Follow-ups (not in B-1)
+
+- **F1 — server cancel reasons:** `jc_admin_facility_status` writes "Court no longer available" / "Court temporarily
+  unavailable" into `cancel_reason`; residents see it raw, English-only even in Arabic. Fix: a code (e.g.
+  `PLACE_RETIRED` / `PLACE_UNPUBLISHED`) mapped to EN/AR strings in the app. Needs a migration (`/db-rehearse`).
+- **F2 — EN/AR key-parity test:** one spec asserting every EN key in `strings.js` has an AR key (today only some
+  prefixes are checked in `shell.spec.js`).

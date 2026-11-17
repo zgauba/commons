@@ -358,7 +358,7 @@ test("Find Me failing late, after leaving the Map tab: no message on the List (k
 
 test("a deep link to a court that's gone says so and drops the link", async ({ page }) => {
   await open(page, backend(), { q: "?court=99999999-aaaa-4aaa-8aaa-000000000009" });
-  await expect(page.locator("#msg")).toHaveText("That court isn't available any more.");
+  await expect(page.locator("#msg")).toHaveText("That place isn't available any more.");
   expect(page.url()).not.toContain("court=");
 });
 
@@ -394,7 +394,7 @@ test("Map tab: like the event map — names on the pins, Streets / Full Screen /
 
 test("Map tab with no pinned court says so", async ({ page }) => {
   await open(page, backend({ courts: [COURT({ lat: null, lng: null })] }), { q: "?tab=map" });
-  await expect(page.locator("#bkNoPins")).toHaveText("No courts are on the map yet. The List tab has them all.");
+  await expect(page.locator("#bkNoPins")).toHaveText("No places are on the map yet. The List tab has them all.");
 });
 
 test("my own slot on the court's day has the Private switch too", async ({ page }) => {
@@ -446,7 +446,7 @@ test("a tab switch in the middle of a map zoom throws nothing", async ({ page })
 test("Help on the list and on a court; Admin (to Organizer Tools) only for courts admins", async ({ page }) => {
   await open(page, backend());
   await page.locator("#jcHelpBtn").click();
-  await expect(page.locator("#jcHelp h2")).toHaveText("Courts");
+  await expect(page.locator("#jcHelp h2")).toHaveText("Bookings");
   await expect(page.locator("#jcHelp li")).toHaveCount(6);
   await expect(page.locator("#jcHelp")).toContainText("your location stays on your phone");   // NF-2
   await page.locator("#jcHelpClose").click();
@@ -455,7 +455,7 @@ test("Help on the list and on a court; Admin (to Organizer Tools) only for court
   await expect(page.locator("#bkSlots")).toBeVisible();
   await expect(page.locator("#bkAdmin")).toHaveCount(0);
   await page.locator("#jcHelpBtn").click();
-  await expect(page.locator("#jcHelp h2")).toHaveText("This court");
+  await expect(page.locator("#jcHelp h2")).toHaveText("This place");
   await expect(page.locator("#jcHelp")).toContainText("Green is free, blue is yours");
 });
 
@@ -480,10 +480,10 @@ for (const scope of ["community", "bookings", "events"]) {
 test("no home: told to claim it first, no Book buttons, nothing asked of the day", async ({ page }) => {
   const b = backend({ me: MEMBER_NO_HOME });
   const { calls } = await open(page, b);
-  await expect(page.locator("#bkNoHome")).toHaveText("Claim your home first to book a court.");
+  await expect(page.locator("#bkNoHome")).toHaveText("Claim your home first to book.");
   await expect(page.locator('#view a[href="../home/"]')).toBeVisible();
   await page.locator(`[data-open="${C1}"]`).click();
-  await expect(page.locator("#msg")).toHaveText("Claim your home first to book a court.");     // the server's NO_HOME, back on the list
+  await expect(page.locator("#msg")).toHaveText("Claim your home first to book.");     // the server's NO_HOME, back on the list
   expect(calls.some((c) => c.name === "jc_booking_book")).toBe(false);
 });
 
@@ -701,4 +701,29 @@ test("NF-2 list: location refused → the message, the button back; a late fix a
 test("NF-2 list: two courts on the same spot keep the server's order (stable sort)", async ({ page }) => {
   await open(page, backend({ courts: [COURT({ id: C3, name_en: "Zed Court", name_ar: null }), COURT()] }));   // both at Court 1's pin
   await expect(names(page)).toHaveText(["Zed Court", "Court 1"]);
+});
+
+// B-1 (Zee 2026-11-16): Football is a kind of place (never "soccer"). The old label rule read every non-basketball
+// kind as "Tennis"; now each kind has its own label, and a kind this page doesn't know reads "Other", never a wrong sport.
+test("B-1: a football pitch reads Football (EN + AR), an unknown kind reads Other; Bookings, Book a Court or Pitch", async ({ page }) => {
+  const C3 = "11111111-aaaa-4aaa-8aaa-000000000003";
+  const C4 = "11111111-aaaa-4aaa-8aaa-000000000004";
+  const courts = [COURT(), COURT({ id: C3, name_en: "Pitch", name_ar: "ملعب كرة", kind: "football" }),
+                  COURT({ id: C4, name_en: "Mystery", name_ar: null, kind: "padel" })];
+  await open(page, backend({ courts }));
+  await expect(page.locator(`[data-court="${C1}"]`)).toContainText("Tennis · ⁦07:00–22:00⁩");
+  await expect(page.locator(`[data-court="${C3}"]`)).toContainText("Football · ⁦07:00–22:00⁩");
+  await expect(page.locator(`[data-court="${C4}"]`)).toContainText("Other · ⁦07:00–22:00⁩");
+  await expect(page.locator(`[data-court="${C4}"]`)).not.toContainText("Tennis");
+  await expect(page.locator('#tabbar a[data-tab="bookings"] span')).toHaveText("Bookings");
+  await expect(page).toHaveTitle(/^Bookings — /);
+  await page.locator(`[data-court="${C3}"] [data-open]`).click();
+  await expect(page.locator("#view")).toContainText("Football · ⁦07:00–22:00⁩");      // the place's day view
+});
+
+test("B-1: Arabic — football is كرة قدم, the section is الحجوزات", async ({ page }) => {
+  const C3 = "11111111-aaaa-4aaa-8aaa-000000000003";
+  await open(page, backend({ courts: [COURT({ id: C3, name_en: "Pitch", name_ar: "ملعب كرة", kind: "football" })] }), { lang: "ar" });
+  await expect(page.locator(`[data-court="${C3}"]`)).toContainText("كرة قدم");
+  await expect(page.locator('#tabbar a[data-tab="bookings"] span')).toHaveText("الحجوزات");
 });

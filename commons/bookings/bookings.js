@@ -30,7 +30,7 @@ var msgBox = jcMsgBox, showErr = jcShowErr, showOk = jcShowOk, on = jcOn, each =
 function bkMsg(code){ jcShowErrFor("bk_err_", code); }
 function hasHome(){ return !!(state && state.me && state.me.home); }
 function courtName(f){ return ar() && f.name_ar ? f.name_ar : (f.name_en || ""); }
-function kindText(f){ return jcT("ct_kind_" + (f.kind === "basketball" ? "basketball" : "tennis")); }
+function kindText(f){ return jcKindText(f.kind); }
 function moduleOn(){ return jcModuleOn(cfg, "bookings"); }
 /* the household limits as the server reads them (jc_booking_quota / jc_booking_active_cap) */
 function rule(k, dflt){

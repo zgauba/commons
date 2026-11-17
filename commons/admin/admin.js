@@ -1302,7 +1302,7 @@ var VIEWS = {
         '<label><span>' + esc(jcT("ct_name_en")) + REQ + '</span><input id="ct_name_en" type="text" maxlength="60" required aria-required="true" dir="ltr"></label>' +
         '<label>' + esc(jcT("ct_name_ar")) + '<input id="ct_name_ar" type="text" maxlength="60" dir="rtl"></label>' +
         '<fieldset id="ctKind"><legend>' + esc(jcT("ct_kind")) + REQ + '</legend>' +
-          ["tennis", "basketball"].map(function(k){
+          JC_FAC_KINDS.map(function(k){
             return '<label class="check"><input type="radio" name="ct_kind" value="' + k + '"> <span>' + esc(jcT("ct_kind_" + k)) + '</span></label>';
           }).join("") + '</fieldset>' +
         /* NF-1: where the court is — never who may book it */
@@ -1335,7 +1335,7 @@ var VIEWS = {
         '<button class="btn ghost" id="ctCancel" type="button">' + esc(jcT("ct_cancel")) + '</button></div>' +
       '</form>';
     el("ct_name_en").value = v.name_en; el("ct_name_ar").value = v.name_ar; el("ct_note").value = v.location_note;
-    var kr = v.kind === "tennis" || v.kind === "basketball" ? document.querySelector('input[name="ct_kind"][value="' + v.kind + '"]') : null;
+    var kr = JC_FAC_KINDS.indexOf(v.kind) >= 0 ? document.querySelector('input[name="ct_kind"][value="' + v.kind + '"]') : null;
     if (kr) kr.checked = true;
     el("ct_walk_on").checked = v.walk_on; el("ct_open").value = v.open_time; el("ct_close").value = v.close_time;
     el("ct_slot").value = String(v.slot_minutes); el("ct_window").value = v.window_days == null ? "" : String(v.window_days);
@@ -2749,7 +2749,7 @@ function courtStatus(f){ return f.status === "published" || f.status === "retire
 function courtRow(f){
   var st = courtStatus(f), n = f.upcoming || 0;
   var name = ar() && f.name_ar ? f.name_ar : f.name_en;
-  var meta = [jcT("ct_kind_" + (f.kind === "basketball" ? "basketball" : "tennis")),
+  var meta = [jcKindText(f.kind),
               f.village_key ? jcVillageName(cfg, f.village_key) : jcT("ct_village_all"),     /* NF-1 */
               "⁦" + hm(f.open_time) + "–" + hm(f.close_time) + "⁩",
               f.walk_on ? jcT("ct_walk_on_short") : jcFmt("ct_slot_n", { n: f.slot_minutes }) + " · " + jcFmt("ct_window_n", { n: f.window_days })];

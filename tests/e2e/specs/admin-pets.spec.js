@@ -148,7 +148,7 @@ test("who sees Pets: pets and community admins; courts-only and events-only don'
   const { calls } = await stubBackend(page, { rpc: b.rpc });
   await signIn(page);
   await page.goto("admin/?tab=pets");
-  await expect(page.locator('[role="tab"]')).toHaveText(["Courts", "Community"]);   // ?tab=pets falls back
+  await expect(page.locator('[role="tab"]')).toHaveText(["Bookings", "Community"]);   // ?tab=pets falls back
   await expect(page.locator("#paGroup")).toHaveCount(0);
   expect(calls.filter((c) => c.name === "jc_admin_pets_list" || c.name === "jc_pets_group_get")).toEqual([]);   // never asked
   b.ab.st.scopes = ["events"];
@@ -159,7 +159,7 @@ test("who sees Pets: pets and community admins; courts-only and events-only don'
   await expect(page.locator('[role="tab"]')).toHaveText(["Pets", "Community"]);
   b.ab.st.scopes = ["community"];
   await page.goto("admin/?tab=pets");
-  await expect(page.locator('[role="tab"]')).toHaveText(["Events", "Courts", "Pets", "Community", "Announcement"]);
+  await expect(page.locator('[role="tab"]')).toHaveText(["Events", "Bookings", "Pets", "Community", "Announcement"]);
   await expect(page.locator("#atab-pets")).toHaveAttribute("aria-selected", "true");
 });
 

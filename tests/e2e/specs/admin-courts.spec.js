@@ -63,12 +63,12 @@ test("who sees Courts: community + courts admins; an events organizer doesn't", 
   await expect(page.locator('[role="tab"]')).toHaveText(["Events", "Community", "Announcement"]);
   b.st.scopes = ["bookings"];
   await page.goto("admin/?tab=courts");
-  await expect(page.locator('[role="tab"]')).toHaveText(["Courts", "Community"]);
-  await expect(page.locator("#ctOff")).toContainText("Courts are switched off for residents");
+  await expect(page.locator('[role="tab"]')).toHaveText(["Bookings", "Community"]);
+  await expect(page.locator("#ctOff")).toContainText("Bookings are switched off for residents");
   await expect(page.locator("#ctRules")).toHaveText("Each home can book 1 slot a day and hold 2 upcoming bookings. Bookings are kept 90 days, then only hourly totals remain.");
   b.st.scopes = ["community"];
   await page.goto("admin/?tab=courts");
-  await expect(page.locator('[role="tab"]')).toHaveText(["Events", "Courts", "Pets", "Community", "Announcement"]);
+  await expect(page.locator('[role="tab"]')).toHaveText(["Events", "Bookings", "Pets", "Community", "Announcement"]);
 });
 
 test("list: status, pin, hours, upcoming; walk-on shows no grid; retired apart with no actions", async ({ page }) => {
@@ -90,7 +90,7 @@ test("list: status, pin, hours, upcoming; walk-on shows no grid; retired apart w
   await expect(c2).toContainText("No pin");
   await expect(c2).not.toContainText("Upcoming bookings");
   await expect(c2.locator("[data-ct]")).toHaveText(["Edit", "Publish", "Retire"]);
-  await expect(page.locator("h2.group")).toHaveText(["Courts", "Retired"]);
+  await expect(page.locator("h2.group")).toHaveText(["Bookings", "Retired"]);
   await expect(page.locator('[data-court="c3"] [data-ct]')).toHaveCount(0);
   if (process.env.SHOT_DIR) {                     // /shot-style look (no courts stubs in the shot harness yet)
     await page.screenshot({ path: process.env.SHOT_DIR + "/courts-list.png", fullPage: true });
@@ -106,13 +106,13 @@ test("new court: checks first (nothing sent), then the exact fields incl. the pi
   await signIn(page);
   await openCourts(page);
   await page.locator("#ctNew").click();
-  await expect(page.locator("h1")).toHaveText("New Court");
+  await expect(page.locator("h1")).toHaveText("New Place");
   await expect(page.locator("#ctPinState")).toHaveText("Not pinned yet — residents won't see it on the map.");
   await page.locator("#ctSave").click();
-  await expect(page.locator("#msg")).toHaveText("Give the court an English name.");
+  await expect(page.locator("#msg")).toHaveText("Give the place an English name.");
   await page.locator("#ct_name_en").fill("  Court 2 ");
   await page.locator("#ctSave").click();
-  await expect(page.locator("#msg")).toHaveText("Choose the kind of court.");
+  await expect(page.locator("#msg")).toHaveText("Choose the kind of place.");
   await page.locator('input[name="ct_kind"][value="basketball"]').check();
   await page.locator("#ct_open").fill("21:30");
   await page.locator("#ct_close").fill("22:00");
@@ -127,7 +127,7 @@ test("new court: checks first (nothing sent), then the exact fields incl. the pi
   await page.locator("#ct_window").fill("14");
   await page.locator("#ct_note").fill("Behind the clubhouse");
   await page.locator("#ctPinHere").click();
-  await expect(page.locator("#ctPinState")).toHaveText("Court pinned.");
+  await expect(page.locator("#ctPinState")).toHaveText("Place pinned.");
   await page.locator("#ctSave").click();
   await expect(page.locator("#msg")).toContainText("Saved as a draft. Residents can't see it until you publish.");
   const sent = lastCall(calls, "jc_admin_facility_save").args;
@@ -149,7 +149,7 @@ test("edit sends only what changed; saving untouched sends nothing", async ({ pa
   await page.locator('[data-ct="edit"][data-id="c1"]').click();
   await expect(page.locator("#ct_name_en")).toHaveValue("Court 1");
   await expect(page.locator("#ct_open")).toHaveValue("07:00");
-  await expect(page.locator("#ctPinState")).toHaveText("Court pinned.");
+  await expect(page.locator("#ctPinState")).toHaveText("Place pinned.");
   await page.locator("#ctSave").click();
   await expect(page.locator("#msg")).toContainText("Saved as a draft. Residents can't see it until you publish.");
   expect(calls.some((c) => c.name === "jc_admin_facility_save")).toBe(false);
@@ -197,7 +197,7 @@ test("upcoming bookings lock the grid and walk-on (server RULES_LOCKED explained
   for (const id of ["#ct_open", "#ct_close", "#ct_slot", "#ct_walk_on"]) await expect(page.locator(id)).toBeDisabled();
   await page.locator("#ct_name_en").fill("Court One");
   await page.locator("#ctSave").click();
-  await expect(page.locator("#msg")).toHaveText("This court has upcoming bookings, so its hours, slot length and walk-on can't change yet.");
+  await expect(page.locator("#msg")).toHaveText("This place has upcoming bookings, so its hours, slot length and walk-on can't change yet.");
 });
 
 test("walk-on hides the slot length and days ahead", async ({ page }) => {
@@ -244,7 +244,7 @@ test("a stale status change (BAD_STATE) re-reads the list and says so", async ({
   b.st.courts[0].status = "published";                                    // changed elsewhere
   page.once("dialog", (d) => d.accept());
   await page.locator('[data-ct="published"][data-id="c1"]').click();
-  await expect(page.locator("#msg")).toHaveText("That court changed in the meantime. The list is up to date.");
+  await expect(page.locator("#msg")).toHaveText("That place changed in the meantime. The list is up to date.");
   await expect(page.locator('[data-court="c1"]')).toContainText("Published");
   expect(calls.filter((c) => c.name === "jc_admin_facilities_list").length).toBe(2);
 });
@@ -374,7 +374,7 @@ test("publish state: new court note, Save and Publish publishes the new court in
   await signIn(page);
   await openCourts(page);
   await page.locator("#ctNew").click();
-  await expect(page.locator("#ctStateNote")).toHaveText("New courts start as drafts — residents see a court only once it's published.");
+  await expect(page.locator("#ctStateNote")).toHaveText("New places start as drafts — residents see a place only once it's published.");
   await expect(page.locator("#coords, #coordsGo")).toHaveCount(0);           // Zee 2026-11-12: pins on the map only
   if (process.env.SHOT_DIR) await page.screenshot({ path: process.env.SHOT_DIR + "/courts-new-editor.png", fullPage: true });
   await expect(page.locator("#ctForm .row button.btn").last()).toHaveText("Cancel");
@@ -435,7 +435,7 @@ test("publish state: a published court's editor says so and only saves; an untou
   await signIn(page);
   await openCourts(page);
   await page.locator('[data-ct="edit"][data-id="c1"]').click();
-  await expect(page.locator("#ctStateNote")).toHaveText("Published — residents can see this court.");
+  await expect(page.locator("#ctStateNote")).toHaveText("Published — residents can see this place.");
   await expect(page.locator("#ctSavePub")).toHaveCount(0);
   await expect(page.locator("#ctSave")).toHaveText("Save");
   await page.locator("#ct_note").fill("By the gate");
@@ -443,7 +443,7 @@ test("publish state: a published court's editor says so and only saves; an untou
   await expect(page.locator("#msg")).toHaveText("Saved.");
   await expect(page.locator("#ctMsgPub")).toHaveCount(0);
   await page.locator('[data-ct="edit"][data-id="c2"]').click();
-  await expect(page.locator("#ctStateNote")).toHaveText("Draft — residents can't see this court yet.");
+  await expect(page.locator("#ctStateNote")).toHaveText("Draft — residents can't see this place yet.");
   await expect(page.locator("#ctStateNote")).toHaveClass(/draftnote/);
   const saves = calls.filter((c) => c.name === "jc_admin_facility_save").length;
   await page.locator("#ctSavePub").click();
@@ -561,4 +561,31 @@ test("NF-3 in Arabic: names compared in Arabic order (Arabic script before Latin
   await openCourts(page);
   const ids = await page.locator("[data-court]").evaluateAll((ls) => ls.map((l) => l.dataset.court));
   expect(ids).toEqual(["arb", "lat"]);      // in English order (or by name_en) it would be Alpha first
+});
+
+// B-1 (Zee 2026-11-16): the picker offers Tennis · Basketball · Football (never "soccer") from the one shared list;
+// a football place is saved as kind "football", reads Football in the list, and is pre-selected when edited.
+// A kind this page doesn't know reads "Other" in the list (the old rule called it "Tennis") and pre-selects nothing.
+test("B-1: Football in the picker, saved as football, labelled and pre-selected; an unknown kind reads Other", async ({ page }) => {
+  const b = backend({ courts: [COURT({ id: "c9", name_en: "Mystery", kind: "padel" })] });
+  const { calls } = await stubBackend(page, { rpc: b.rpc });
+  await signIn(page);
+  await openCourts(page);
+  await expect(page.locator('[data-court="c9"]')).toContainText("Other · Whole community");
+  await expect(page.locator('[data-court="c9"]')).not.toContainText("Tennis");
+  await page.locator("#ctNew").click();
+  await expect(page.locator("#ctKind label")).toHaveText(["Tennis", "Basketball", "Football"]);
+  await expect(page.locator("#ctKind")).not.toContainText(/soccer/i);
+  await page.locator("#ct_name_en").fill("Pitch");
+  await page.locator('input[name="ct_kind"][value="football"]').check();
+  await page.locator("#ctSave").click();
+  await expect(page.locator("#msg")).toContainText("Saved as a draft. Residents can't see it until you publish.");
+  expect(lastCall(calls, "jc_admin_facility_save").args.p_fields.kind).toBe("football");
+  const pitch = page.locator("[data-court^='new-']");
+  await expect(pitch).toContainText("Football · Whole community");
+  await pitch.locator('[data-ct="edit"]').click();
+  await expect(page.locator('input[name="ct_kind"][value="football"]')).toBeChecked();
+  await page.locator("#ctCancel").click();
+  await page.locator('[data-ct="edit"][data-id="c9"]').click();
+  await expect(page.locator('input[name="ct_kind"]:checked')).toHaveCount(0);
 });
