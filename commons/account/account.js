@@ -245,6 +245,7 @@ function doRecover(){
 }
 
 function doSignOut(){
+  joinName = "";      /* a shared phone: never carry one person's typed name into the next account */
   jcDb.auth.signOut().then(function(){ state = { status: "signed_out" }; show("signin"); });
 }
 

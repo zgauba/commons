@@ -109,11 +109,12 @@ test("a failed display-name save never blocks joining", async ({ page }) => {
 // success would route a non-member into the app — this test fails if rpc() does.
 test("BAD_CODE (200 + error body) is a failure; retry with the same account works", async ({ page }) => {
   let attempt = 0;
-  const { calls } = await stubBackend(page, { rpc: joinFlowRpc(() =>
-    (++attempt === 1 ? ok({ error: "BAD_CODE" }) : ok(MEMBER_NO_HOME))) });
+  const { calls } = await stubBackend(page, { rpc: Object.assign(joinFlowRpc(() =>
+    (++attempt === 1 ? ok({ error: "BAD_CODE" }) : ok(MEMBER_NO_HOME))), { jc_display_name_set: () => ok(MEMBER_NO_HOME) }) });
   await page.goto("account/?view=join");
   await page.locator("#code").fill("WRONG");
   await page.locator("#go").click();
+  await page.locator("#dname").fill("Sam");
   await page.locator("#email").fill("a@example.com");
   await page.locator("#password").fill("long-enough-pw");
   await page.locator("#go").click();
@@ -125,6 +126,8 @@ test("BAD_CODE (200 + error body) is a failure; retry with the same account work
   await expect(page).toHaveURL(/\/commons\/home\/$/)  // new member → claim your home;
   expect(calls.filter((c) => c.name === "signup").length).toBe(1);
   expect(calls.filter((c) => c.name === "jc_join").length).toBe(2);
+  // the name typed before the wrong code is saved once, after the retry joins — never on the failed attempt
+  expect(calls.filter((c) => c.name === "jc_display_name_set").map((c) => c.args)).toEqual([{ p_name: "Sam" }]);
 });
 
 test("RATE_LIMITED (raised) shows try-later copy", async ({ page }) => {
