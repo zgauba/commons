@@ -161,12 +161,89 @@ Schema exists (S4: pets, photos, care log, sightings, missing). Concept: canvas 
   reporter, note, location).
 - Carer-group access: "one shared link" in the ideas → in Commons terms a per-group admin grant (like
   per-event admins). Confirm.
+- **Split decided 2026-11-17:** Pets stays the residents' module (owned pets, missing / found, Report a stray). Strays
+  and the volunteer feeding work move to a new module: **Community Cats** below.
+
+### Community Cats  ·  new module  ·  DB + app  ·  needs `/plan-change` (Zee 2026-11-17)
+**Why:** feedback from the person who runs Jubail's stray-cat feeding and TNVR (trap, neuter, vaccinate, return)
+programme. Her sources (private, not in this repo): the working Google Doc "Jubail Cat Community Information" (about 40
+cats, about 20 stations, ID cards), the "Locations & volunteer coverage" slide and "Programme Software Data
+Requirements (draft)". She needs **colony and case management**, not a directory. Today's Pets module can't hold it:
+- sightings are deleted after 30 days and the reporter is removed after 24 h, but she needs full dated history per cat;
+- one photo per pet, but she needs several ID photos per cat (before and after summer, both sides);
+- no permanent cat ID: her doc already has two different "Caramel"s (Souk, Maha) and "Gwen" filed twice;
+- no stations, areas or volunteers; care states are too coarse (status, ear tip, sterilisation and TNVR stage are
+  separate facts).
+
+**Decisions (Zee 2026-11-17):**
+- A separate module from Pets (name open: see "Naming" below; the display name is renamable per community via RM).
+- **Areas are created by coordinators** inside the module, not fixed in config. Jubail starts with Souk, Seef, Nad Al
+  Dhabi (East / West as she chooses), Maha, Ain Al Maha. Not the same thing as villages.
+- **PII is OK here, where the programme needs it:** volunteer names and contacts, microchip numbers, clinic and
+  patient IDs, vet documents, private feeding locations. It's still **restricted to coordinators** (her own rule:
+  "restrict private contacts, chip numbers, clinic documents and sensitive locations to authorised users") and
+  disclosed on the screen that collects it. Exception to the "PII only when necessary" default, recorded here.
+- **Desktop matters:** the coordinator works on a computer (see "Desktop layout" below).
+
+**Roles (new):** *volunteer* (log feeding visits, sightings, incidents) and *coordinator* (create areas and stations,
+verify or merge cats, edit, see private fields). Same invite-link → named grant → listed → removable model as every
+other admin level (R4a-3). Maybe scoped to an area later.
+
+**Phase 1: replaces her Google Doc**
+- Cat register: permanent Cat ID, several photos, name, sex, age or life stage, coat and markings, usual area and
+  station, provisional / confirmed ID, **merge duplicates while keeping their history**.
+- Status (community, clinic or recovery, foster, adopted, transferred, missing, deceased, unknown) with date and source.
+- Ear tip (present / absent / unclear, side) kept separate from **confirmed sterilisation** (with its source).
+- TNVR stage: needs it, booked, captured, at clinic, returned (date and place).
+- Areas (coordinator-created) and **feeding stations**: Station ID, area, pin, landmark, access notes, private
+  location flag (for example Upper Terraces, a homeowner's villa: never a public pin), lead, regular feeders and
+  backups. Keep old locations when a station moves.
+- **Feeding visit form:** checkboxes for routine checks (food, water, cleaned), a headcount, photo thumbnails to tag
+  recognised cats, unfamiliar cats or kittens, "flag a problem" opens the issue fields.
+- Sightings kept as dated history (no 30-day purge for programme cats); a sighting allowed before a cat is
+  identified.
+- One-time **import** of her doc's cats, stations and volunteers.
+- Today's strays (`jc_pets` kind `stray`, care log, stray reports) move into the programme. Report a stray keeps
+  feeding it.
+
+**Phase 2:** vet visits (clinic, findings, vaccines and next doses, follow-ups), welfare cases with urgency, owner
+and due date, mother and kitten links, **incidents from anywhere** (road strikes, near misses, complaints, feeding
+outside stations; station link optional), volunteer shifts (scheduled / done / missed), area dashboards (filter by
+area, date and station; resident figures use the usual area, activity figures use the sighting location).
+
+**Phase 3 (push back, decide later):** invoices, payments, stock, partners and contributions, printable monthly
+management report. Start with **CSV export** of the figures; a spreadsheet may do the finance part better than an
+in-app module.
+
+**Counting rules from her doc** (Phase 2 reports must follow them): count a recognised cat once community-wide;
+unidentified headcounts stay visit observations; clinic visits counted apart from cats treated; road deaths once in
+total deaths; visit coverage measured against scheduled visits; sterilised residents shown against known residents
+plus the unknown count.
+
+**Name (Zee 2026-11-17): Community Cats.** Bar label "Cats"; module key `cats`; Arabic «قطط المجتمع» pending native review. Display name renamable per community (RM).
+
+### Desktop layout (shared, every module)  ·  app only  (Zee 2026-11-17)
+- Today every page is a phone-width strip on a computer (`main{max-width:480px}` in `app.css`, no breakpoints
+  anywhere). The coordinator uses a computer.
+- One shared layout change: organizer / coordinator screens go wide on desktop (tables, map beside list, filters);
+  resident screens stay a centred column, a little wider. Built once in `assets/`, used by every module.
+- Before the Community Cats UI, so it's built wide from the start.
+
+### Photo viewer (shared)  ·  app only  (Zee 2026-11-17)
+- Tap any pet / cat / stray-report photo → it opens large in a modal (close button, Escape, swipe or tap outside;
+  next / previous when there are several photos). One shared component in `assets/`, reused by Events and Bookings
+  wherever they show photos (cross-module consistency rule).
 
 ### Events: village-only events + sign-up limits  ·  DB + app  (idea, Zee 2026-11-11 — needs `/plan-change`)
 - An event open to selected villages only. Default: **only those villages see it**; optional "everyone sees it, only
   these villages can sign up" (the page says why you can't join). Enforced on the server in `jc_event_signup` (body
   only — frozen signature); new refusal code.
 - Sign-up limit for every event kind (today only one-place events have a capacity).
+
+### Events: per-event organizers draft, admin approves  ·  idea (2026-11-17)
+- Per-event organizers already exist (T5.2b: invite link, then they run that one event). They can't **create** or
+  publish. Idea: an organizer drafts an event → it waits in Organizer Tools → a community admin publishes it.
+  Not decided; needs `/plan-change` if wanted.
 
 ### R6 — The Community: map + directory  ·  app (+ DB if needed)
 - Find any villa on the island and get directions (`jc_directory_list` exists; hidden homes stay hidden).
@@ -215,6 +292,8 @@ so the Commons button feels wasted. Needs `/plan-change`, and a clickable mockup
 - **News** (organizer posts) stays its own track ("News on the Commons home" above) — DB + posting rules.
 
 ### R7 — Launch prep (not features)
+- **Organizer guide** (Zee 2026-11-17): what organizers can do at each level (community, module, per-event,
+  programme coordinator / volunteer) and what to do in specific scenarios. Written after development is finished.
 - **Retire the shared `events` organizer code** (Step C, parked until testing is done) → per-event admins only.
 - **Retire the Halloween site** into Commons (Zee 2026-11-14: a pre-launch step, not before). Inventory 2026-11-14:
   - **The page:** `jubail-halloween/` stays at its URL forever as a pointer page ("Halloween 2026 is over, events live on
@@ -328,6 +407,17 @@ of its wording + design (R8) and the event itself need to be ready by early Janu
 - **Vendor consent** to be listed is a requirement of the Edit; its mechanics are planned later.
 - Pets: sightings stored only for missing pets / strays (reporter erased within 48 h, rows gone after 30 days);
   map secondary; My Pets inside Pets **and** in My Home; WhatsApp button = copy message + open the group.
+
+## Decisions (2026-11-17)
+
+- **Split Pets:** residents' Pets stays; strays and volunteer feeding / TNVR work move to a new module named
+  **Community Cats** (key `cats`). Supersedes the 2026-11-10 30-day sighting purge **for programme cats**.
+- **Areas are coordinator-created** in the programme, not fixed config.
+- **PII is allowed in the programme where it needs it** (volunteer contacts, chip numbers, clinic IDs and documents,
+  private locations), restricted to coordinators and disclosed where collected.
+- **Desktop layout** is a shared change for every module; **photo viewer** is one shared component.
+- **Organizer guide** (what organizers can do, what to do in specific scenarios): written once development is
+  finished, before launch (R7).
 
 ## Superseded ideas (from the Oct–Nov planning conversations)
 
