@@ -465,7 +465,7 @@ function evParts(){
   return {
     chips: jcChipsHtml({ id: "evChips", prefix: "evShow-", label: jcT("adm_ev_filter"), current: show,
                          items: EV_SHOWS.map(function(k){ return { key: k, text: jcT("adm_ev_" + k), n: groups[k].length }; }) }),
-    list: list.length ? '<ul class="aevents">' + list.map(eventRow).join("") + '</ul>'
+    list: list.length ? '<ul class="aevents jcgrid">' + list.map(eventRow).join("") + '</ul>'
         : '<p class="help" id="evNone" role="status">' + esc(evQ.trim() ? jcFmt("adm_ev_no_match", { q: evQ.trim() }) : jcT("adm_ev_none_" + show)) + '</p>'
   };
 }
@@ -624,7 +624,7 @@ var VIEWS = {
       ? '<div class="row"><button class="btn ghost" type="button" id="prClosedRetry">' + esc(jcT("adm_ad_retry")) + '</button></div>'
       : '<p class="help">' + esc(jcT("working")) + '</p>';
     else if (!list.length) body = '<p class="help" id="prNone" role="status">' + esc(jcT(pr.show === "open" ? "pr_none" : "pr_none_closed")) + '</p>';
-    else body = '<ul class="sulist" id="prList">' + list.map(prCard).join("") + '</ul>' +
+    else body = '<ul class="sulist jcgrid" id="prList">' + list.map(prCard).join("") + '</ul>' +
       (pr.show === "closed" ? '<p class="help">' + esc(jcT("pr_closed_kept")) + '</p>' : '');
     el("view").innerHTML = html + '<div class="evtools">' + chips + '</div>' + body;
     if (pr.note) { jcShowErrFor("pr_err_", pr.note); pr.note = null; }   /* said once the queue was read again */
@@ -1118,7 +1118,7 @@ var VIEWS = {
         esc(jcT("adm_csv")) + '</button><p class="help">' + esc(jcT("adm_csv_help")) + '</p></div>' +
       (ins.length ? villages.map(function(v){
         return '<h2 class="group">' + esc(jcVillageName(cfg, v)) + ' · ' + esc(groups[v].length) + '</h2>' +
-          '<ul class="sulist">' + groups[v].map(function(x){ return entryCard(x, ro); }).join("") + '</ul>';
+          '<ul class="sulist jcgrid">' + groups[v].map(function(x){ return entryCard(x, ro); }).join("") + '</ul>';
       }).join("") : '<p class="help">' + esc(jcT("adm_su_none")) + '</p>');
     on("csv", downloadCsv);
     wireEntries();
@@ -1598,7 +1598,7 @@ function hhListHtml(){
     var people = hs.reduce(function(n, h){ return n + h.members.length; }, 0);
     return '<h2 class="group">' + esc(jcVillageName(cfg, k)) + '</h2>' +
       '<p class="help">' + esc(jcFmt("adm_hh_counts", { h: hs.length, p: pinned, m: people })) + '</p>' +
-      '<ul class="sulist">' + hs.map(homeCard).join("") + '</ul>';
+      '<ul class="sulist jcgrid">' + hs.map(homeCard).join("") + '</ul>';
   }).join("") || '<p class="help" id="hhNone" role="status">' +
     esc(q && d.homes.length ? jcFmt("adm_hh_no_match", { q: q }) : jcT("adm_hh_none")) + '</p>';
 }
@@ -2111,11 +2111,11 @@ function paParts(){
   if (!list.length) html = '<p class="help" id="paNone" role="status">' +
     esc(q ? jcFmt("pa_no_match", { q: q }) : jcT(paShow === "all" ? "pa_none" : "pa_none_" + paShow)) + '</p>';
   /* archived: names; Restore for 30 days (soft archive), names only after. The reason is in the admin log. */
-  else if (paShow === "archived") html = '<ul class="sulist" id="paArchived">' + list.slice().sort(function(a, b){
+  else if (paShow === "archived") html = '<ul class="sulist jcgrid" id="paArchived">' + list.slice().sort(function(a, b){
       return petName(a).localeCompare(petName(b), jcLang()); }).map(paArchRow).join("") + '</ul>';
   else html = petGroups(list).map(function(g){
       return '<h2 class="group">' + esc(g.key ? jcVillageName(cfg, g.key) : jcT("pa_strays")) + ' · ' + esc(g.list.length) + '</h2>' +
-        '<ul class="sulist" id="paList-' + esc(g.key || "strays") + '">' + g.list.map(petRow).join("") + '</ul>';
+        '<ul class="sulist jcgrid" id="paList-' + esc(g.key || "strays") + '">' + g.list.map(petRow).join("") + '</ul>';
     }).join("");
   return {
     chips: jcChipsHtml({ id: "paChips", prefix: "paShow-", label: jcT("pa_filter"), current: paShow,

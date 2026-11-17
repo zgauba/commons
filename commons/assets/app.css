@@ -177,3 +177,16 @@ a.badge:visited{color:var(--jc-accent)}
 .btn.ghost.danger{color:var(--jc-danger); border-color:var(--jc-danger)}
 .danger-zone{margin-top:12px; border-color:var(--jc-danger); display:flex; flex-direction:column; gap:10px}
 .danger-zone .btn{align-self:flex-start}
+
+/* Desktop layout (DL-1, docs/plans/DL-desktop-layout.md; Zee 2026-11-17). Everything sits inside this one block, so
+   phones and iPad portrait (< 900 px) are unchanged. Resident pages: a wider column. <body class="wide"> (Organizer
+   Tools, later Community Cats): up to 1200 px; forms and text stay readable at 600 px; card lists opt in to columns
+   with .jcgrid (doubled in the rule so a page's own list display can't win; never on timelines: care log, sightings, day view); .jcsplit puts a list beside its map. */
+@media (min-width:900px){
+  main{max-width:600px}
+  body.wide main{max-width:1200px}
+  body.wide main :where(.panel, form, fieldset, .setrows, .row, .notice, .evtools, .codebox, .adminsbox, .pinmap, .filters, .jcsearch, p){max-width:600px}
+  .jcgrid.jcgrid{display:grid; grid-template-columns:repeat(auto-fill, minmax(320px, 1fr)); align-items:start}
+  .jcsplit{display:grid; grid-template-columns:minmax(0, 1fr) minmax(0, 1fr); gap:16px; align-items:start}
+  .jcsplit > .jcsplit-map{position:sticky; top:16px}
+}

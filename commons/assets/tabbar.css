@@ -26,3 +26,5 @@ footer.jcfoot a{color:var(--jc-muted)}
 footer.jcfoot .fb{margin-bottom:6px}
 /* a full map (Events, Courts, Pets: assets/map.js jcMapHtml) fills the screen above the tab bar: no footer under it */
 body:has(.evmapwrap) footer.jcfoot{display:none}
+/* desktop (DL-1): the tabs sit together in the middle instead of spreading edge to edge */
+@media (min-width:900px){ .tabbar{justify-content:center; gap:12px} }
