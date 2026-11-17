@@ -166,6 +166,10 @@ Schema exists (S4: pets, photos, care log, sightings, missing). Concept: canvas 
   and the volunteer feeding work move to a new module: **Community Cats** below.
 
 ### Community Cats  ·  new module  ·  DB + app  ·  needs `/plan-change` (Zee 2026-11-17)
+**Purpose (Zee 2026-11-17): visibility for residents, working records for volunteers.** Residents see which cats live
+here and how they're cared for; volunteers and coordinators get the detailed records. Test every later request
+against this.
+
 **Why:** feedback from the person who runs Jubail's stray-cat feeding and TNVR (trap, neuter, vaccinate, return)
 programme. Her sources (private, not in this repo): the working Google Doc "Jubail Cat Community Information" (about 40
 cats, about 20 stations, ID cards), the "Locations & volunteer coverage" slide and "Programme Software Data
@@ -177,7 +181,7 @@ Requirements (draft)". She needs **colony and case management**, not a directory
   separate facts).
 
 **Decisions (Zee 2026-11-17):**
-- A separate module from Pets (name open: see "Naming" below; the display name is renamable per community via RM).
+- A separate module from Pets (named Community Cats: see "Name" below; the display name is renamable per community via RM).
 - **Areas are created by coordinators** inside the module, not fixed in config. Jubail starts with Souk, Seef, Nad Al
   Dhabi (East / West as she chooses), Maha, Ain Al Maha. Not the same thing as villages.
 - **PII is OK here, where the programme needs it:** volunteer names and contacts, microchip numbers, clinic and
@@ -185,6 +189,28 @@ Requirements (draft)". She needs **colony and case management**, not a directory
   "restrict private contacts, chip numbers, clinic documents and sensitive locations to authorised users") and
   disclosed on the screen that collects it. Exception to the "PII only when necessary" default, recorded here.
 - **Desktop matters:** the coordinator works on a computer (see "Desktop layout" below).
+- **No money in the app.** No appeals, contributions, invoice amounts, payments or reconciliation. Bill appeals stay
+  in WhatsApp, as today, and people pay the vet directly. The programme does this on purpose: "we don't collect money
+  exactly because of the UAE laws" (programme lead, 2026-11-17). Commons must not become the soliciting channel. Revisit
+  only after a legal check on UAE donation rules, and then with contributors anonymous by default (most announce
+  their contribution publicly, some don't).
+  **Giving through the app is not at this stage at all** (Zee 2026-11-17: "baby steps"). A volunteer proposed per-cat
+  vet bills, an "I want to help!" button, uploaded payment screenshots and a countdown of what's still owed: declined.
+  It would be public solicitation from Zee's app, store bank screenshots, and show unverified amounts. Exploring it
+  later needs, first: legal advice on UAE donation rules, Jubail management's approval, and possibly a licensed
+  charity to handle it. Told to the volunteers' group the same day.
+- **Invoices and vet documents live in the programme's own Google Drive folder**, not in Commons. Commons stores a
+  link to the file on the vet visit. Proposed to the programme: a programme-owned Google account (not a volunteer's
+  personal one), sharing restricted to specific people (never "anyone with the link"), and a file-naming rule (cat
+  ID, date, clinic, what was done). Not a storage-cost decision: about 50 MB a year would fit the free tier; the
+  reasons are liability for financial and medical paperwork, their control, and zero build.
+- **Two views of a cat.** Residents: name, photos, area, ear-tipped / sterilised, "vaccinated ✓" (no dates), current
+  status. Volunteers and coordinators: everything else (vet detail, dates, private locations, document links,
+  contacts).
+
+**Open: Jubail management.** The programme runs with Jubail management's approval (they review its plans and meet
+with the programme). Community Cats puts that programme into a resident app, so management should see it before it is
+turned on for Jubail. Not yet decided how or when; at the latest, part of R8.
 
 **Roles (new):** *volunteer* (log feeding visits, sightings, incidents) and *coordinator* (create areas and stations,
 verify or merge cats, edit, see private fields). Same invite-link → named grant → listed → removable model as every
@@ -193,6 +219,8 @@ other admin level (R4a-3). Maybe scoped to an area later.
 **Phase 1: replaces her Google Doc**
 - Cat register: permanent Cat ID, several photos, name, sex, age or life stage, coat and markings, usual area and
   station, provisional / confirmed ID, **merge duplicates while keeping their history**.
+- **Story / personality** per cat (for example "very gentle, loves cuddles, bullied by the other males"), shown to
+  residents: cats as individuals, not statistics (volunteer feedback 2026-11-17; promised in the group reply).
 - Status (community, clinic or recovery, foster, adopted, transferred, missing, deceased, unknown) with date and source.
 - Ear tip (present / absent / unclear, side) kept separate from **confirmed sterilisation** (with its source).
 - TNVR stage: needs it, booked, captured, at clinic, returned (date and place).
@@ -203,18 +231,22 @@ other admin level (R4a-3). Maybe scoped to an area later.
   recognised cats, unfamiliar cats or kittens, "flag a problem" opens the issue fields.
 - Sightings kept as dated history (no 30-day purge for programme cats); a sighting allowed before a cat is
   identified.
+- **Vet log** (moved up from Phase 2, 2026-11-17): per visit, date, clinic, what was done, vaccine, date given, next
+  dose due, invoice number, link to the document in the programme's Drive. Medical facts only, no amounts. Use case:
+  after a scratch or bite, check the cat's vaccine status in seconds (only as good as the cat's identification; a
+  record never replaces seeing a doctor).
 - One-time **import** of her doc's cats, stations and volunteers.
 - Today's strays (`jc_pets` kind `stray`, care log, stray reports) move into the programme. Report a stray keeps
   feeding it.
 
-**Phase 2:** vet visits (clinic, findings, vaccines and next doses, follow-ups), welfare cases with urgency, owner
+**Phase 2:** vet follow-ups and next-dose reminders, welfare cases with urgency, owner
 and due date, mother and kitten links, **incidents from anywhere** (road strikes, near misses, complaints, feeding
 outside stations; station link optional), volunteer shifts (scheduled / done / missed), area dashboards (filter by
 area, date and station; resident figures use the usual area, activity figures use the sighting location).
 
-**Phase 3 (push back, decide later):** invoices, payments, stock, partners and contributions, printable monthly
-management report. Start with **CSV export** of the figures; a spreadsheet may do the finance part better than an
-in-app module.
+**Phase 3 (decide later):** printable monthly report for Jubail management (care figures only), stock, partners.
+Start with **CSV export** of the figures. **Invoices, payments and contributions are out** (see "No money in the
+app" above), not merely deferred.
 
 **Counting rules from her doc** (Phase 2 reports must follow them): count a recognised cat once community-wide;
 unidentified headcounts stay visit observations; clinic visits counted apart from cats treated; road deaths once in
@@ -417,6 +449,9 @@ of its wording + design (R8) and the event itself need to be ready by early Janu
 - **PII is allowed in the programme where it needs it** (volunteer contacts, chip numbers, clinic IDs and documents,
   private locations), restricted to coordinators and disclosed where collected.
 - **Desktop layout** is a shared change for every module; **photo viewer** is one shared component.
+- **Community Cats: no money in the app** (appeals and contributions stay in WhatsApp; people pay the vet directly).
+  Invoices live in the programme's Google Drive; Commons links to them from the vet log, which moves into Phase 1.
+  Purpose: visibility for residents, working records for volunteers. Jubail management to see it before it's on.
 - **Organizer guide** (what organizers can do, what to do in specific scenarios): written once development is
   finished, before launch (R7).
 
@@ -430,6 +465,7 @@ of its wording + design (R8) and the event itself need to be ready by early Janu
 | An "Organizer" tab inside the event | Event **Admin** button → Organizer Tools (Sign-ups tab) |
 | Courts: padel first | Tennis + basketball only |
 | Haq al Laila lantern / bag icon, teal bag | 🌙 mark; nut-free = 🧡 tinted teal |
+| Per-cat vet bills + "I want to help!" + payment screenshots in Community Cats (volunteer, 2026-11-17) | No giving in the app at this stage; appeals stay in WhatsApp, people pay the vet directly; legal advice + management approval first if ever explored |
 | Pets behind a viewing passcode | Members only (accounts) |
 | Recovery PIN | Dropped |
 | Organizer copies a home's control link | Obsolete — accounts replaced edit links |
