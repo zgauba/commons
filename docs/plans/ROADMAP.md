@@ -257,6 +257,16 @@ plus the unknown count.
 
 **Name (Zee 2026-11-17): Community Cats.** Bar label "Cats"; module key `cats`; Arabic «قطط المجتمع» pending native review. Display name renamable per community (RM).
 
+**Build plan: `docs/plans/CC-community-cats.md`** (`/plan-change` 2026-11-17, approved): Desktop layout → Photo viewer →
+CC-1 foundation (module key + coordinator / volunteer roles) → CC-2 areas + stations → CC-3 cat register → CC-4
+visits + sightings → CC-5 vet log → CC-6 move strays out of Pets → CC-7 import. Decisions recorded there (Zee
+2026-11-17): volunteers are an invite-link role on the Cats page only (no Organizer Tools); **no non-cat strays are
+cared for, so strays leave Pets entirely** (Report a stray stays in Pets and feeds the Cats queue); volunteers see
+each other's names, coordinators see contacts, a removed volunteer's contacts are deleted; Cat IDs are Commons-issued
+C-001… (old programme IDs kept as a searchable field). **Tester feedback 2026-11-17** (in the plan): up to 4 photos per
+cat (look-alike orange cats); no per-cat "fed" button (one log per station visit); the organizer's optional
+"Pin here" step was missed while Report a stray's "Where" was intuitive → every Cats editor reuses the Where flow.
+
 ### Desktop layout (shared, every module)  ·  app only  (Zee 2026-11-17)
 - Today every page is a phone-width strip on a computer (`main{max-width:480px}` in `app.css`, no breakpoints
   anywhere). The coordinator uses a computer.
@@ -378,16 +388,15 @@ No switch.
   Revisit only if people complain of repeats. Nothing extra to disclose.
 - **Daily only for the first version** (rule 6's weekly option later).
 
-### Join: wrong-community help  ·  app (+ maybe one RPC)  ·  incident-driven (2026-11-17)
-From `docs/incidents/2026-11-17-join-code-wrong-community.md`: a tester entered the test community's code on Jubail
-(the only community listed) and got "That code didn't work". Needs a short `/plan-change`:
-- BAD_CODE that is a valid join code elsewhere → "This code is for a different community — open the exact link you
-  were sent" (never name it; keep the 10 / hour join limit).
-- Remember the chosen community beyond one tab (localStorage), so new tabs and the saved app keep it.
-- While Jubail has no join code (until R8), its Join button says the community opens soon.
-- Workaround now: send testers the join link with `?community=e2e`, opened in the tab they sign up in.
-
 ### R7 — Launch prep (not features)
+- **Join: wrong-community help**  ·  app (+ maybe one RPC)  ·  incident-driven 2026-11-17; **pre-launch item, not
+  now** (Zee 2026-11-17). From `docs/incidents/2026-11-17-join-code-wrong-community.md`: a tester entered the test
+  community's code on Jubail (the only community listed) and got "That code didn't work". Needs a short `/plan-change`:
+  - BAD_CODE that is a valid join code elsewhere → "This code is for a different community — open the exact link you
+    were sent" (never name it; keep the 10 / hour join limit).
+  - Remember the chosen community beyond one tab (localStorage), so new tabs and the saved app keep it.
+  - While Jubail has no join code (until R8), its Join button says the community opens soon.
+  - Until then: send testers the join link with `?community=e2e`, opened in the tab they sign up in.
 - **Organizer guide** (Zee 2026-11-17): what organizers can do at each level (community, module, per-event,
   programme coordinator / volunteer) and what to do in specific scenarios. Written after development is finished.
 - **Retire the shared `events` organizer code** (Step C, parked until testing is done) → per-event admins only.
