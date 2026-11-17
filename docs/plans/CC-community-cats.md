@@ -1,7 +1,7 @@
 # CC — Community Cats (Phase 1) — `/plan-change` 2026-11-17
 
 > Status: **approved 2026-11-17** (Zee answered the four questions — see Decisions). Build order: Desktop layout →
-> Photo viewer → CC-1 … CC-7, each with its own `/ship-pr` (and `/db-rehearse` for DB).
+> Photo viewer → CC-1 … CC-7 (CC-6 import before CC-7 Pets just for pets; re-ordered 2026-11-17, see "Overlap" below), each with its own `/ship-pr` (and `/db-rehearse` for DB).
 > Source of requirements: ROADMAP → "Community Cats" (decisions 2026-11-17). This file is the build plan;
 > ROADMAP stays the plan of record for *what*, this file for *how and in what order*.
 
@@ -47,7 +47,7 @@
 | Photo viewer (tap → large) | **none** — grep `lightbox`, `showModal`, `<dialog`: only the map key sheet and page help | **NEW shared** — the planned "Photo viewer" phase, on the native `<dialog>` pattern of `jcKeySheet` |
 | Desktop layout | **none** — `app.css:12` `main{max-width:480px}`, no `@media` anywhere | **NEW shared** — the planned "Desktop layout" phase |
 | Care states | `JC_CARE_STATES` (4 states, `pet-photo.js:109`) + `jc_pet_care_log` free notes | **DEPART** — the programme needs separate facts (status ×8, ear tip, confirmed sterilisation + source, TNVR stage) and a structured vet log. The 4 states map 1:1 on the move (CC-6). Same timeline look on screen |
-| Stray report queue | `jc_stray_reports` + Organizer Tools queue | **REUSE** — cat reports route to Cats coordinators (CC-6) |
+| Stray report queue | `jc_stray_reports` + Organizer Tools queue | **REUSE** — cat reports route to Cats coordinators (CC-7) |
 | Soft archive / restore 30 days | `jc_pet_retire` + restore RPCs | **REUSE pattern** for cats (never a hard delete; merge keeps history) |
 | Rate limits, admin log, error codes | `jc_rate` buckets, `jc_admin_log`, `jcErrText` | **REUSE** |
 | Search + filter chips | `jcSearchHtml`, `jcChipsHtml` | **REUSE** |
@@ -66,7 +66,8 @@
    (d) assume volunteer work happens on the Cats page only — verify with tests that `cats_vol` passes no other gate.
 3. **Cat sightings kept forever.** (a) no 30-day purge for cats; (b) `jc_pets_retention`; (c) the purge deleting cat
    history (mode #1, silent); (d) separate table `jc_cat_sightings` so the Pets purge can't reach it — verify by test.
-4. **Strays move (CC-6).** (a) cat strays leave Pets; (b) Pets Strays tab, Organizer Tools Pets, stray reports,
+4. **Strays leave Pets (CC-7) — no data move** (Zee 2026-11-17: build Cats beside Pets, then make Pets just for pets).
+   (a) strays stop being created / shown in Pets; (b) Pets Strays tab, Organizer Tools Pets, stray reports,
    photos ledger, sightings, care log; read **and** write paths; (c) orphaned photos, reports pointing at a moved
    pet, residents' bookmarked `?pet=` links; (d) only 7 test rows today — verify counts before and after.
 5. **PII in a resident app.** (a) volunteer contacts, chip numbers, clinic IDs, private station pins, Drive links;
@@ -97,28 +98,28 @@
 | CC-3 | **Cat register** (DB → app) | DB, storage, app | permanent Cat ID, several photos, name, sex, life stage, coat, usual area + station, provisional / confirmed, story, status + date + source, ear tip, sterilisation + source, TNVR stage; resident view vs programme view; **merge keeps history** (the merged cat becomes a pointer, reversible) |
 | CC-4 | **Visits + sightings** (DB → app) | DB, app | feeding visit form (checks, headcount, tap register thumbnails, "flag a problem"); sightings as dated history, allowed before a cat is identified |
 | CC-5 | **Vet log** (DB → app) | DB, app | per visit: date, clinic, what was done, vaccine, given, next due, invoice number, Drive link (allow-listed `drive.google.com` / `docs.google.com` only). No amounts |
-| CC-6 | **Move strays out of Pets** (DB → app) | DB, app | every stray + its photos / sightings / care log becomes a cat (live: 7 test strays); Pets' Strays tab, stray editor and per-cat "fed" quick log removed; every stray report routes to Cats (decision 2) |
-| CC-7 | **Import her doc** | data only | one-time load of ~40 cats, ~20 stations, volunteers, run by Zee in the SQL editor from a local file; **never committed** (PII) |
+| CC-6 | **Import her doc** | data only | one-time load of ~40 cats, ~20 stations, volunteers, run by Zee in the SQL editor from a local file; **never committed** (PII). Comes **before** strays leave Pets so the real records are in Cats first |
+| CC-7 | **Pets just for pets** (app → DB) | app, DB | Pets' Strays tab, stray editor and per-cat "fed" quick log removed; every stray report routes to Cats (decision 2); the stray-only Pets functions switched off. **No data move:** the 7 strays in Pets are test data and are archived, not converted (Zee 2026-11-17); the real cats come from the import |
 
 - **Cost impact: $0.** No paid layer. Storage: Phase 1 photos are cat ID photos only (~40 cats × ~4 photos ×
   ~300 KB ≈ **48 MB**) against the 1 GB free tier; visit forms tag existing thumbnails and upload nothing.
 - **Diff budget:** app PRs ≤ ~250 lines each; DB PRs exceed 200 lines (SQL + test slice) as every DB PR here has —
   each goes through `/db-rehearse` with database + security reviews.
-- **Migrations:** CC-1…CC-6 each have one; CC-6 is the only data move. Nothing re-seeded, no cache invalidation; the
+- **Migrations:** CC-1…CC-5 and CC-7 each have one; CC-6 (import) is the only data load and there is **no data move** out of Pets. Nothing re-seeded, no cache invalidation; the
   service worker auto-update covers the new page.
 
 ## Step 5 — Premortem (§0.5)
 
 | # | Mode | Exposed? | Mitigation |
 |---|---|---|---|
-| 1 | Silent data corruption | **Yes**: merge of two cats; CC-6 move | merge = pointer row + history re-pointed in one transaction, undo RPC; CC-6 dry-run counts before/after in the test slice, live counts compared after apply |
-| 2 | Silent zero-output | **Yes**: import (CC-7) loads nothing; resident view empty because every cat is "provisional" | import ends with a count check that raises if rows ≠ file; resident view shows provisional cats too (marked), so an empty list means no data |
+| 1 | Silent data corruption | **Yes**: merge of two cats; CC-6 import | merge = pointer row + history re-pointed in one transaction, undo RPC; CC-6 import counts before/after in the test slice, live counts compared after apply |
+| 2 | Silent zero-output | **Yes**: import (CC-6) loads nothing; resident view empty because every cat is "provisional" | import ends with a count check that raises if rows ≠ file; resident view shows provisional cats too (marked), so an empty list means no data |
 | 2b | Out-of-band config drift | **Yes**: her Google Doc keeps being edited after import; module flag set by hand | a **cutover date** agreed with her: after import the doc is read-only and Commons is the record; flag change recorded in the manifest like `pets` |
 | 3 | Cost blowout | Low | 48 MB estimate above; the existing storage ≥ 80 % alert in App Health |
 | 4 | Contract drift | Low | Drive links are links only; allow-listed hosts |
 | 5 | Race / ordering | **Yes**: two volunteers log the same station visit; two coordinators merge at once | visits are append-only (duplicates harmless, coordinator can hide); merge takes a per-cat advisory lock |
 | 6 | Auth / RLS regression | **Yes, highest**: PII to residents; volunteer gaining Organizer Tools | separate resident / programme RPC families; SQL tests on resident JSON keys + private station pins; test that `cats_vol` passes no other gate and `jcIsAdmin` ignores it; security review on every DB PR |
-| 7 | Rollback | Covered | module flag off = kill switch (every Cats RPC → `MODULE_OFF`); migrations additive until CC-6; CC-6 keeps the old `jc_pets` rows archived (not deleted) for 30 days |
+| 7 | Rollback | Covered | module flag off = kill switch (every Cats RPC → `MODULE_OFF`); migrations additive until CC-7; CC-7 archives the old test strays in `jc_pets` (not deleted) for 30 days |
 | UX | "Behaves differently from Pets" | **Yes** | cat page reuses the pet page's header, tabs, map tab and photo look; deliberate differences (status vs care state) explained in the page help "?" |
 
 ## Decisions (Zee 2026-11-17, answering this plan)
@@ -126,13 +127,13 @@
 1. **Volunteers = a role by invite link** (named, listed, removable, like admins), working on the Cats page only, no
    Organizer Tools. **Yes.**
 2. **Non-cat strays:** "There are no stray dogs and birds in the neighborhood that are being taken care of."
-   ⇒ **Strays leave Pets entirely in CC-6** (the Pets Strays tab and the Organizer Tools stray editor go; Pets = owned
+   ⇒ **Strays leave Pets entirely in CC-7** (the Pets Strays tab and the Organizer Tools stray editor go; Pets = owned
    pets, missing / found, Report a stray). Report a stray keeps its species choice; every report lands in the Cats
    coordinators' queue, and a non-cat report is closed there ("not a programme cat"). No non-cat stray register.
 3. **Volunteer data:** coordinators see contacts; volunteers see each other's names only; a removed volunteer's
    contact details are deleted, their logged visits keep their name. **Agreed.**
 4. **Cat ID format:** Zee unsure → recommendation taken: **Commons issues short per-community numbers (C-001, C-002 …),
-   never reused, kept through merges.** If the programme's ID cards already carry IDs, CC-7 imports them as a
+   never reused, kept through merges.** If the programme's ID cards already carry IDs, CC-6 imports them as a
    searchable "old ID" on the cat.
 5. **Jubail management** (still open on the ROADMAP): unchanged by this plan; Cats stays off for Jubail until then.
 
@@ -145,11 +146,19 @@
 - **The per-cat "fed" button won't be used:** "Spinneys have so many cats it's going to take a long time to add it in
   each individual cat … you'll use in the beginning and later end up not using." ⇒ confirms CC-4: feeding is logged
   **once per station visit** (checks, headcount, tap the cats recognised). Cats get **no per-cat "fed" log**; the
-  Pets quick-log "fed" goes with the strays in CC-6.
+  Pets quick-log "fed" goes with the strays in CC-7.
 - **Map location when an organizer adds a stray:** the stray didn't show on the map. Confirmed by her follow-up: she
   missed the "pin here" step ("the 'report stray' option was more intuitive than the organisers when it comes to map
   location"). Today's organizer editor saves a spot only after **Pin here**; Report a stray asks **Where** as a
   required step with its own pin flow. ⇒ Cats editors (stations CC-2, cats CC-3, sightings CC-4) **reuse Report a
   stray's Where flow** (required where the record needs a place; the pin is saved when confirmed, no separate button).
-  Today's Pets organizer editor is **not** fixed: it is removed in CC-6, so a fix would be thrown away (organizers
+  Today's Pets organizer editor is **not** fixed: it is removed in CC-7, so a fix would be thrown away (organizers
   meanwhile: press Pin here, or Zee says if testers need it sooner).
+
+## Overlap: Cats and Pets side by side (Zee 2026-11-17)
+
+Pets is left as is while Cats is built (CC-1…CC-5). From CC-4, strays can be logged in two places.
+- **Tell testers when Cats is usable on the test community (CC-4):** Cats is now the place for strays; strays logged
+  in Pets are test entries and **will not carry over**. Draft the message at CC-4.
+- **Keep the overlap short:** CC-6 import, then CC-7 straight after.
+- Until CC-7, organizers adding a stray in Pets must press **Pin here** for it to show on the map.
