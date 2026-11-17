@@ -2,8 +2,9 @@
 // 1. every EN key has an AR key and the reverse (a missing AR key silently shows English to Arabic readers);
 // 2. no empty string in either language;
 // 3. each EN/AR pair uses the same {placeholders} (a missing {n} in Arabic drops the number from the screen);
-// 4. every literal key the app asks for — jcT("x") / jcFmt("x", …) / jcShowErr("x") — exists. Keys built as
-//    "prefix_" + value can't be checked statically; the literal ends in "_" and is skipped.
+// 4. every key the app asks for exists: jcT(...) / jcFmt(...) with a literal key — also each branch of a ternary
+//    (jcT(a ? "x" : "y")). An argument built with "+" ("prefix_" + value) can't be checked statically and is skipped.
+//    (jcShowErr takes an error CODE and jcShowOk final text — neither is a key, so neither is scanned.)
 const { test, expect } = require("@playwright/test");
 const fs = require("fs");
 const path = require("path");
@@ -27,6 +28,31 @@ function appFiles(dir, out = []) {
     else if (/\.(js|html)$/.test(f) && f !== "strings.js") out.push(p);
   }
   return out;
+}
+
+// the first argument of every jcT( / jcFmt( call, up to its top-level "," or ")"
+function firstArgs(src) {
+  const out = [];
+  for (const m of src.matchAll(/\bjc(?:T|Fmt)\(/g)) {
+    let i = m.index + m[0].length, depth = 0, quote = null, arg = "";
+    for (; i < src.length; i++) {
+      const ch = src[i];
+      if (quote) { arg += ch; if (ch === "\\") { arg += src[++i]; continue; } if (ch === quote) quote = null; continue; }
+      if (ch === '"' || ch === "'") { quote = ch; arg += ch; continue; }
+      if ("([{".includes(ch)) depth++;
+      if (")]}".includes(ch)) { if (depth === 0) break; depth--; }
+      if (ch === "," && depth === 0) break;
+      arg += ch;
+    }
+    out.push(arg);
+  }
+  return out;
+}
+// the keys an argument names: a literal at its start or a ternary result (after ? or :) — not a compared value
+function keysIn(arg) {
+  const bare = arg.replace(/"(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'/g, '""');
+  if (bare.includes("+")) return null;                                   // built at run time
+  return [...arg.matchAll(/(?:^|[?:])\s*"([a-z][a-z0-9_]*)"/g)].map((k) => k[1]);
 }
 
 test.describe("strings dictionary (EN/AR)", () => {
@@ -55,21 +81,27 @@ test.describe("strings dictionary (EN/AR)", () => {
     expect(bad).toEqual([]);
   });
 
-  test("every literal key the app asks for exists", () => {
+  test("every key the app asks for exists (literal keys and both sides of a ternary)", () => {
     const missing = [];
+    let checked = 0;
     for (const f of appFiles(ROOT)) {
-      const src = fs.readFileSync(f, "utf8");
-      for (const m of src.matchAll(/\bjc(?:T|Fmt|ShowErr|ShowOk)\(\s*"([a-z][a-z0-9_]*)"/gi)) {
-        if (m[1].endsWith("_")) continue;                       // "prefix_" + value
-        if (!(m[1] in S.en)) missing.push(`${m[1]} (${path.relative(ROOT, f)})`);
+      for (const arg of firstArgs(fs.readFileSync(f, "utf8"))) {
+        for (const k of keysIn(arg) || []) {
+          checked++;
+          if (!(k in S.en)) missing.push(`${k} (${path.relative(ROOT, f)})`);
+        }
       }
     }
     expect(missing).toEqual([]);
+    expect(checked, "the scan found the app's keys at all").toBeGreaterThan(1000);
   });
 
-  test("the checks bite: a broken dictionary fails them", () => {
+  test("the checks bite: a broken dictionary and the call-site scan", () => {
     const broken = loadStrings("var JC_STRINGS = { en: { a: 'x {n}', b: 'y' }, ar: { a: 'س' } };");
     expect(Object.keys(broken.en).filter((k) => !(k in broken.ar))).toEqual(["b"]);
     expect(placeholders(broken.en.a)).not.toEqual(placeholders(broken.ar.a));
+    const src = 'jcT("one"); jcFmt("two", { n: 1 }); jcT(a ? "three" : b === "sat" ? "four" : "five"); ' +
+                'jcT("pre_" + x); jcT(k); jcT(f("x"), y);';
+    expect(firstArgs(src).map(keysIn)).toEqual([["one"], ["two"], ["three", "four", "five"], null, [], []]);
   });
 });

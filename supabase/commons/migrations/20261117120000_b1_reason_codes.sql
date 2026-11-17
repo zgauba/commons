@@ -12,8 +12,19 @@
 --    the old Courts / الملاعب stay reserved too, so no OTHER section can take either (two equal names in the bar).
 -- Bodies are the live ones (pg_get_functiondef, 2026-11-17) with only the marked literals changed.
 -- CREATE OR REPLACE keeps owners, grants and SECURITY DEFINER; signatures unchanged.
--- Rollback: re-create the three functions from their previous migration bodies (git history of this repo);
---   the UPDATE is reversible by the same mapping.
+-- DEPLOY ORDER (db review M1): the app that words these codes (jcCancelText, same PR) must be LIVE on Pages before
+--   this is applied — an older cached page would show PLACE_RETIRED / BLOCKED: raw. The new app reads both forms.
+-- Rollback: CREATE OR REPLACE the three functions from their previous bodies — jc_admin_facility_status
+--   (20261108090000_r4a_courts.sql), jc_admin_block_create (20261108150000_r4a2_module_admins.sql),
+--   jc_admin_module_label_set (20261110120000_rm_module_labels.sql) — then put old-format text back (fits the 200 cap:
+--   194 + 6):
+--     update jc_bookings set cancel_reason = case when cancel_reason = 'PLACE_RETIRED' then 'Court no longer available'
+--       when cancel_reason = 'PLACE_UNPUBLISHED' then 'Court temporarily unavailable'
+--       else 'Court blocked: ' || substr(cancel_reason, 10) end
+--      where cancel_reason in ('PLACE_RETIRED', 'PLACE_UNPUBLISHED') or cancel_reason like 'BLOCKED: %';
+--   The new app reads old text too, so a SQL-only rollback is safe for it.
+
+set local lock_timeout = '3s';   -- fail fast rather than queue behind a long transaction
 
 CREATE OR REPLACE FUNCTION public.jc_admin_facility_status(p_facility uuid, p_status text)
  RETURNS jsonb

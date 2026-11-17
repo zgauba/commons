@@ -737,7 +737,7 @@ const F1_WANT = {
           r3: "Cancelled by the organizers. Time blocked: Tournament", r4: "Cancelled: your household left the home.",
           r5: "Cancelled: this place is no longer available.", r6: "Cancelled by the organizers: Lights broken" },
     ar: { r1: "أُلغي: هذا الملعب لم يعد متاحاً.", r2: "أُلغي: هذا الملعب غير متاح مؤقتاً.",
-          r3: "ألغاه المنظمون. وقت محجوب: Tournament", r4: "أُلغي: غادرت أسرتك المنزل.",
+          r3: "ألغاه المنظمون. الوقت غير متاح: Tournament", r4: "أُلغي: غادرت أسرتك المنزل.",
           r5: "أُلغي: هذا الملعب لم يعد متاحاً.", r6: "ألغاه المنظمون: Lights broken" },
 };
 for (const lang of ["en", "ar"]) {

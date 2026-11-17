@@ -103,7 +103,9 @@ Zee approved the plan 2026-11-16 ("Agree"): Football, never soccer; the place no
 ## Status (2026-11-17)
 
 - PR 2 (DB): applied live 2026-11-17, merged as #145.
-- PR 1 (app): built on `feat/b-1-bookings-app`; review `docs/qa/b1-bookings-app-review-2026-11-17.md`.
+- PR 1 (app): merged as #146; review `docs/qa/b1-bookings-app-review-2026-11-17.md`.
+- F1 + F2: branch `feat/b-1-followups` (migration `20261117120000_b1_reason_codes` + `jcCancelText` + `strings-parity.spec.js`);
+  review `docs/qa/b1-followups-review-2026-11-17.md`. F1 also fixes Section Names' built-in list (still said Courts).
 
 ## Follow-ups (not in B-1)
 
