@@ -3,7 +3,7 @@
 > Status: **approved 2026-11-14.** Zee's answers:
 > - **D1:** "let's see how filter chips look". After seeing them: "look great", plus an **All** chip.
 > - **D2:** search where proposed.
-> - **D3:** Courts → **Bookings** now; the new kind is called **"Soccer"**.
+> - **D3:** Courts → **Bookings** now; the new kind is **"Football"** — never "soccer" (Zee 2026-11-16, correcting the 2026-11-14 note).
 > - **D4:** **"Announcement"**.
 > - **D5:** agreed, but the build order shifted. OT-1 = Events chips + search + Announcement (#114). OT-2 = Community rows, Codes screen, Households search (#117). OT-3 = Pets. Then R5d-2/3, then B-1.
 > - **D6:** residents' Pets search goes in OT-3.
