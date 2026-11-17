@@ -70,6 +70,12 @@ function jcLabel(key, part){
   return typeof v === "string" && v.trim() && v.length <= 40 ? v : null;
 }
 function jcModName(key){ return jcLabel(key, "name") || jcT(JC_MOD_NAME[key] || key); }
+
+/* B-1 — the kinds of bookable place: ONE list for the organizer picker and every label. Must match the DB's
+   jc_facilities_kind_check (20261117100000_b1_football_kind). Football, never soccer. An unknown kind (a newer
+   server) reads "Other", never a wrong sport. */
+var JC_FAC_KINDS = ["tennis", "basketball", "football"];
+function jcKindText(kind){ return jcT(JC_FAC_KINDS.indexOf(kind) >= 0 ? "ct_kind_" + kind : "ct_kind_other"); }
 function jcModTitle(key){ return jcLabel(key, "title") || jcLabel(key, "name") || jcT(JC_MOD_TITLE[key] || key); }
 
 /* Captured BEFORE createClient: the client consumes and clears auth parameters

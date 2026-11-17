@@ -243,7 +243,7 @@ test("block several days: ends at that day's closing time as the server lays it 
   await expect(page.locator("#msg")).toHaveText("Pick a last day after this one, up to 30 days ahead.");
   await page.locator("#cdLast").fill("2026-11-20");                                 // a day with no slots
   await page.locator("#cdBlockGo").click();
-  await expect(page.locator("#msg")).toHaveText("The court has no slots on that last day. Pick another day.");
+  await expect(page.locator("#msg")).toHaveText("The place has no slots on that last day. Pick another day.");
   await expect(page.locator("#cdBlockGo")).toBeEnabled();
   await page.locator("#cdLast").fill("2026-11-12");
   let asked = "";
@@ -327,7 +327,7 @@ test("a court gone in the meantime goes back to the list and says so; a day that
   b.st.courts = b.st.courts.filter((c) => c.id !== "c1");
   await page.locator("#cdPrev").click();
   await expect(page.locator("#ctNew")).toBeVisible();
-  await expect(page.locator("#msg")).toHaveText("That court is no longer listed.");
+  await expect(page.locator("#msg")).toHaveText("That place is no longer listed.");
 });
 
 test("code review M1: while another day loads, the old forms are gone (nothing to submit against no slots)", async ({ page }) => {
@@ -433,6 +433,6 @@ test("?tab=courts&court= opens that court's day view once; Back is the courts li
   await page.locator("#jcBackBtn").click();
   await expect(page.locator('[data-ct="day"][data-id="c1"]')).toBeVisible();
   await page.goto("admin/?tab=courts&court=gone");
-  await expect(page.locator("#msg")).toHaveText("That court is no longer listed.");
+  await expect(page.locator("#msg")).toHaveText("That place is no longer listed.");
   await expect(page.locator('[data-ct="day"][data-id="c1"]')).toBeVisible();
 });

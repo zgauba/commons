@@ -50,8 +50,8 @@ test("nothing renamed: today's labels everywhere; Pets is generic", async ({ pag
   const b = residentBackend({ modules: Object.assign({}, ON, { pets: { enabled: true } }) });
   await stubBackend(page, { rpc: b.rpc });
   await signIn(page);
-  await expect.poll(() => barLabels(page)).toEqual(["Commons", "Events", "Courts", "Pets", "My Home"]);   // Pets has a page since R5b-1
-  await expect(page.locator("#cards h2")).toHaveText(["Events", "Courts", "Pets", "The Community"]);
+  await expect.poll(() => barLabels(page)).toEqual(["Commons", "Events", "Bookings", "Pets", "My Home"]);   // Pets has a page since R5b-1
+  await expect(page.locator("#cards h2")).toHaveText(["Events", "Bookings", "Pets", "The Community"]);
 });
 
 test("renamed: bar, hub card, page heading, browser title — EN and AR, title falls back to the name", async ({ page }) => {
@@ -116,7 +116,7 @@ test("a renamed community, then names cleared: the built-in labels come back", a
   await expect.poll(() => barLabels(page)).toContain("Sports");
   b.st.labels = {};
   await page.reload();
-  await expect.poll(() => barLabels(page)).toEqual(["Commons", "Events", "Courts", "My Home"]);
+  await expect.poll(() => barLabels(page)).toEqual(["Commons", "Events", "Bookings", "My Home"]);
 });
 
 // The caps (EN 14 / AR 18) must fit a full 5-button bar on a 360 px phone: no label cut off or spilling out of
@@ -219,7 +219,7 @@ test("community admin renames Courts: exact RPC, bar + tab follow at once, count
   await signIn(page);
   await openNames(page);
   // first the list of sections (one long scroll was hard to use — Zee 2026-11-11); no boxes until one is picked
-  await expect(page.locator("[data-mnpick] .nm")).toHaveText(["Events", "Courts", "Pets", "The Community"]);
+  await expect(page.locator("[data-mnpick] .nm")).toHaveText(["Events", "Bookings", "Pets", "The Community"]);
   await expect(page.locator("[data-mnpick] .cur")).toHaveText(["Usual name", "Usual name", "Usual name", "Usual name"]);
   await expect(page.locator("form[data-mn]")).toHaveCount(0);
   await page.locator('[data-mnpick="bookings"]').click();
@@ -242,7 +242,7 @@ test("community admin renames Courts: exact RPC, bar + tab follow at once, count
   await page.locator('[data-mnpick="bookings"]').click();
 
   await page.locator('form[data-mn="bookings"] [data-mnreset]').click();
-  await expect(page.locator("#tabbar a[data-tab=bookings] span")).toHaveText("Courts");
+  await expect(page.locator("#tabbar a[data-tab=bookings] span")).toHaveText("Bookings");
   expect(lastCall(calls, "jc_admin_module_label_set").args).toEqual(
     { p_module: "bookings", p_name_en: "", p_name_ar: "", p_title_en: "", p_title_ar: "" });
   await expect(page.locator('form[data-mn="bookings"] [data-mnreset]')).toHaveCount(0);
@@ -306,7 +306,7 @@ test("another community's cached names never show; built-in labels while the con
   await stubBackend(page, { rpc: b.rpc });
   await signIn(page);
   await page.goto("bookings/");
-  await expect(page).toHaveTitle(/^Courts — /);
+  await expect(page).toHaveTitle(/^Bookings — /);
 });
 
 test("losing community admin mid-save: no stale editor, back to what this person can still do", async ({ page }) => {

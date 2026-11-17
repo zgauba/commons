@@ -935,7 +935,7 @@ test("Organizer Tools sub-menu: Events · Courts · Pets · Community · Banner 
   await stubBackend(page, { rpc: ab.rpc });
   await signIn(page);
   await page.goto("admin/");
-  await expect(page.locator(".subtabs [role=tab]")).toHaveText(["Events", "Courts", "Pets", "Community", "Announcement"]);
+  await expect(page.locator(".subtabs [role=tab]")).toHaveText(["Events", "Bookings", "Pets", "Community", "Announcement"]);
   await expect(page.locator("#newEv")).toBeVisible();
   await expect(page.locator("#bannerForm, [data-rotate], #healthOpen")).toHaveCount(0);
   await page.locator("#atab-banner").click();
