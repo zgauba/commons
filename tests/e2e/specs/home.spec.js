@@ -161,8 +161,12 @@ test("household invite: Done asks only if the link was not copied, then clears i
   await expect(page.locator("#inviteLink")).toBeVisible();
   await page.locator("#copyLink").click();
   await expect(page.locator("#copyLink")).toHaveText("Copied");
-  page.once("dialog", () => { throw new Error("Done asked after the link was copied"); });
+  let asks = 0;
+  const count = (d) => { asks++; d.dismiss(); };
+  page.on("dialog", count);
   await page.locator("#doneInvite").click();
+  page.off("dialog", count);
+  expect(asks, "Done asked after the link was copied").toBe(0);
   await expect(page.locator("#inviteLink")).toHaveCount(0);
   await expect(page.locator("#invite")).toBeVisible();
 });

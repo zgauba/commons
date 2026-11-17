@@ -441,8 +441,33 @@ test("Done closes an admin link: no question once copied, asks first if not; the
   await page.locator('[data-admake="community"]').click();
   await box.locator('[data-adcopy="community"]').click();
   await expect(box.locator('[data-adcopy="community"]')).toHaveText("Copied");
-  page.once("dialog", () => { throw new Error("Done asked after the link was copied"); });
+  let asks = 0;
+  const count = (d) => { asks++; d.dismiss(); };
+  page.on("dialog", count);
   await box.locator('[data-addone="community"]').click();
+  page.off("dialog", count);
+  expect(asks, "Done asked after the link was copied").toBe(0);
   await expect(box.locator("[data-adurl]")).toHaveCount(0);
   expect(calls.filter((c) => c.name === "jc_module_admin_link_create").length).toBe(2);
+});
+
+test("Done on one link keeps another scope's open link; cancelling Share counts as not sent", async ({ page }) => {
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, "share", { configurable: true,
+      value: () => Promise.reject(new DOMException("cancelled", "AbortError")) });
+  });
+  const b = backend();
+  await stubBackend(page, { rpc: b.rpc });
+  await signIn(page);
+  await openAdmins(page);
+  await page.locator('[data-admake="community"]').click();
+  await page.locator('[data-admake="events"]').click();
+  await expect(page.locator("[data-adurl]")).toHaveCount(2);
+  await page.locator('[data-adshare="events"]').click();                  // the share sheet was cancelled
+  let asked = 0;
+  page.once("dialog", (d) => { asked++; d.accept(); });
+  await page.locator('[data-addone="events"]').click();
+  expect(asked, "a cancelled Share is not 'sent': Done still asks").toBe(1);
+  await expect(page.locator('[data-adurl="events"]')).toHaveCount(0);
+  await expect(page.locator('[data-adurl="community"]')).toBeVisible();     // the other scope's link stays
 });

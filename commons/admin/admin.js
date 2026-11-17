@@ -3204,7 +3204,7 @@ function loadAdmins(then, keep){
     if (current !== "admins") return;
     ad = {};
     AD_SCOPES.forEach(function(s, i){ ad[s] = adShape(r[i]); });
-    adLinks = keep || {}; VIEWS.admins();
+    adLinks = keep || {}; if (!keep) adSent = {}; VIEWS.admins();
     if (then) then();
   }, function(e){
     if (current !== "admins") return;

@@ -1039,8 +1039,12 @@ test("per-event admin link: Done asks only if not copied, then shows Make a link
   await expect(page.locator("#newLink")).toBeVisible();
   await page.locator("#copyLink").click();
   await expect(page.locator("#copyLink")).toHaveText("Copied");
-  page.once("dialog", () => { throw new Error("Done asked after the link was copied"); });
+  let asks = 0;
+  const count = (d) => { asks++; d.dismiss(); };
+  page.on("dialog", count);
   await page.locator("#doneLink").click();
+  page.off("dialog", count);
+  expect(asks, "Done asked after the link was copied").toBe(0);
   await expect(page.locator("#newLink")).toHaveCount(0);
   await expect(row.locator("#makeLink")).toBeVisible();
 });
