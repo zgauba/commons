@@ -174,7 +174,7 @@ function mineHtml(){
     if (b.status !== "booked") {
       return '<li class="cancelled" data-bk="' + esc(b.id) + '"><b dir="auto">' + esc(name) + '</b>' +
         '<div class="meta">' + esc(when(b)) + '</div>' +
-        '<div class="meta" dir="auto">' + esc(jcFmt("bk_cancelled_by_org", { r: b.cancel_reason || "" })) + '</div></li>';
+        '<div class="meta" dir="auto">' + esc(jcCancelText(b.cancel_reason)) + '</div></li>';
     }
     var started = Date.parse(b.starts_at) <= Date.now();
     return '<li class="slot slot-mine s-mine" data-bk="' + esc(b.id) + '"><div class="head"><b dir="auto">' + esc(name) + '</b>' +
@@ -225,7 +225,7 @@ function pastHtml(){
     return '<li class="slot slot-past" data-past="' + esc(b.id) + '"><div class="head"><b dir="auto">' + esc(name) + '</b>' +
       '<span class="chip slotchip">' + esc(jcT(done ? "bk_done" : "bk_cancelled")) + '</span></div>' +
       '<div class="meta">' + esc(when(b)) + '</div>' +
-      (done ? '' : '<div class="meta" dir="auto">' + esc(jcFmt("bk_cancelled_by_org", { r: b.cancel_reason || "" })) + '</div>') + '</li>';
+      (done ? '' : '<div class="meta" dir="auto">' + esc(jcCancelText(b.cancel_reason)) + '</div>') + '</li>';
   }).join("") + '</ul><p class="help">' + esc(jcT("bk_past_kept")) + '</p>';
 }
 /* courts admins (community / bookings scope): an Admin way into Organizer Tools, as on event cards */

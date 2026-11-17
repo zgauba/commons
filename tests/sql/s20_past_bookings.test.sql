@@ -62,7 +62,7 @@ begin
   insert into jc_bookings (id, community_id, facility_id, home_id, booked_by, starts_at, ends_at, status, cancel_reason, cancelled_by, cancelled_at, is_private) values
     -- home A, all after a1 joined (30 d ago)
     (x_done,  'testville20', fac,   ha, a1, d - interval '5 days',  d - interval '5 days' + interval '1 hour', 'booked', null, null, null, true),
-    (x_org,   'testville20', fac,   ha, a1, d - interval '4 days',  d - interval '4 days' + interval '1 hour', 'cancelled', 'Court blocked: Maintenance', b1, d - interval '6 days', false),
+    (x_org,   'testville20', fac,   ha, a1, d - interval '4 days',  d - interval '4 days' + interval '1 hour', 'cancelled', 'BLOCKED: Maintenance', b1, d - interval '6 days', false),
     (x_self,  'testville20', fac,   ha, a1, d - interval '3 days',  d - interval '3 days' + interval '1 hour', 'cancelled', null, a1, d - interval '4 days', false),
     (x_old,   'testville20', fac_b, ha, a1, d - interval '20 days', d - interval '20 days' + interval '1 hour', 'booked', null, null, null, false),
     -- being played now (not ended) and upcoming: never in Past
@@ -86,7 +86,7 @@ begin
   if (select array_agg((x ->> 'id')::uuid order by o) from jsonb_array_elements(v) with ordinality t(x, o))
      is distinct from array[x_org, x_done, x_old] then
     raise exception 'FAIL P01a rows/order: %', v; end if;
-  if (select x ->> 'cancel_reason' from jsonb_array_elements(v) x where (x ->> 'id')::uuid = x_org) is distinct from 'Court blocked: Maintenance' then
+  if (select x ->> 'cancel_reason' from jsonb_array_elements(v) x where (x ->> 'id')::uuid = x_org) is distinct from 'BLOCKED: Maintenance' then
     raise exception 'FAIL P01b organizer reason'; end if;
   if (select x ->> 'status' from jsonb_array_elements(v) x where (x ->> 'id')::uuid = x_done) is distinct from 'booked' then
     raise exception 'FAIL P01c done status'; end if;

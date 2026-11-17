@@ -76,6 +76,18 @@ function jcModName(key){ return jcLabel(key, "name") || jcT(JC_MOD_NAME[key] || 
    server) reads "Other", never a wrong sport. */
 var JC_FAC_KINDS = ["tennis", "basketball", "football"];
 function jcKindText(kind){ return jcT(JC_FAC_KINDS.indexOf(kind) >= 0 ? "ct_kind_" + kind : "ct_kind_other"); }
+/* B-1 F1 — why a booking was cancelled, as one line in the reader's language. The server writes codes
+   (20261117120000_b1_reason_codes): PLACE_RETIRED, PLACE_UNPUBLISHED, "BLOCKED: " + the organizer's reason.
+   Older rows carry English sentences, worded the same way. Anything else is an organizer's own text, shown as typed. */
+function jcCancelText(r){
+  r = r == null ? "" : String(r);
+  if (r === "PLACE_RETIRED" || r === "Court no longer available") return jcT("bk_cx_retired");
+  if (r === "PLACE_UNPUBLISHED" || r === "Court temporarily unavailable") return jcT("bk_cx_unpublished");
+  if (r === "Household left") return jcT("bk_cx_home_left");
+  var m = /^(?:BLOCKED: |Court blocked: )([\s\S]*)$/.exec(r);
+  if (m) return jcFmt("bk_cx_blocked", { r: m[1] });
+  return jcFmt("bk_cancelled_by_org", { r: r });
+}
 function jcModTitle(key){ return jcLabel(key, "title") || jcLabel(key, "name") || jcT(JC_MOD_TITLE[key] || key); }
 
 /* Captured BEFORE createClient: the client consumes and clears auth parameters

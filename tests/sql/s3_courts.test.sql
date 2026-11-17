@@ -222,7 +222,7 @@ begin
     raise exception 'FAIL C11d cancelled ids not logged'; end if;
   execute 'set local role authenticated';
   perform set_config('request.jwt.claims', json_build_object('sub', w4, 'role', 'authenticated')::text, true);
-  if (select x ->> 'cancel_reason' from jsonb_array_elements(jc_my_bookings()) x where (x ->> 'id')::uuid = v_b4) is distinct from 'Court blocked: Tournament' then
+  if (select x ->> 'cancel_reason' from jsonb_array_elements(jc_my_bookings()) x where (x ->> 'id')::uuid = v_b4) is distinct from 'BLOCKED: Tournament' then
     raise exception 'FAIL C11e'; end if;
   perform set_config('request.jwt.claims', json_build_object('sub', w6, 'role', 'authenticated')::text, true);
   v_err := null; begin perform jc_booking_create(v_fac, (v_d1 + time '13:00') at time zone tz, null); exception when others then v_err := sqlerrm; end;
@@ -283,10 +283,17 @@ begin
   perform jc_admin_facility_status(v_fac, 'retired');
   execute 'reset role';
   if exists (select 1 from jc_bookings where facility_id = v_fac and status = 'booked') then raise exception 'FAIL C15a'; end if;
+  -- B-1 F1: the server writes a code (the app words it in EN/AR), never the old English sentence
+  if exists (select 1 from jc_bookings where facility_id = v_fac          -- organizer-typed text ('Court repair') is fine
+               and (cancel_reason in ('Court no longer available', 'Court temporarily unavailable')
+                    or cancel_reason like 'Court blocked: %')) then
+    raise exception 'FAIL C15c an old English server reason was written'; end if;
+  if not exists (select 1 from jc_bookings where facility_id = v_fac and cancel_reason = 'PLACE_RETIRED') then
+    raise exception 'FAIL C15d retiring wrote no PLACE_RETIRED reason'; end if;
   execute 'set local role authenticated';
   perform set_config('request.jwt.claims', json_build_object('sub', w1, 'role', 'authenticated')::text, true);
   if jsonb_array_length(jc_facilities_list()) <> 0 then raise exception 'FAIL C15b retired court listed'; end if;
-  k := k + 2;
+  k := k + 4;
 
   -- ---------- C16 account deletion anonymizes bookings ----------
   perform jc_account_delete('DELETE');
