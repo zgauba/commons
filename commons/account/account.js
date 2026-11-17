@@ -14,6 +14,7 @@ var params = new URLSearchParams(location.search);
 var NEXT = jcSafeNext(params.get("next"));
 
 var joinCode = "";      /* code step → account step; memory only */
+var joinName = "";      /* optional display name, account step → after jc_join; memory only */
 var state = null;       /* last jcState() */
 
 /* Supabase Auth errors → our codes (err_* strings). Codes first, messages as a
@@ -96,12 +97,18 @@ var VIEWS = {
       '<form class="panel" id="form" novalidate>' +
         field("email", "acct_email", "email", "email") +
         field("password", "acct_password_new", "password", "new-password") +
+        /* Zee 2026-11-17: ask for the optional display name HERE — buried in My Home → Account nobody fills it.
+           Optional, never required; who sees it is said right under it (PII only when necessary, disclosed). */
+        '<label>' + esc(jcT("mh_name")) +
+          '<input id="dname" type="text" maxlength="40" autocomplete="nickname" dir="auto"></label>' +
+        '<p class="help" id="dnameHelp">' + esc(jcT("join_name_help")) + '</p>' +
         '<p class="help" id="privacy">' + esc(jcT("join_privacy")) + '</p>' +
         msgBox() +
         '<button class="btn" id="go" type="submit">' + esc(jcT("join_create_btn")) + '</button>' +
       '</form>' +
       '<div class="links">' + linkBtn("back", "acct_back") + '</div>';
-    on("back", function(){ show("code"); });
+    el("dname").value = joinName;
+    on("back", function(){ joinName = el("dname").value; show("code"); });
     onSubmit(doSignUp);
   },
 
@@ -174,6 +181,7 @@ function doSignIn(){
 
 function doSignUp(){
   var pw = el("password").value;
+  joinName = el("dname").value.trim();
   if (pw.length < 8) return showErr("WEAK_PASSWORD");
   busy("go", true);
   jcDb.auth.signUp({ email: val("email"), password: pw })
@@ -187,11 +195,20 @@ function doSignUp(){
     .catch(function(e){ busy("go", false); showErr(e.code || "UNKNOWN"); });
 }
 
+/* The optional display name typed at sign-up, saved once the account is a member (jc_display_name_set needs one).
+   Never blocks joining: if the save fails the person is still in, and My Home → Account says the name is empty. */
+function saveJoinName(){
+  var n = joinName; joinName = "";
+  if (!n) return Promise.resolve();
+  return rpc("jc_display_name_set", { p_name: n }).catch(function(){});
+}
+
 /* jc_join: BAD_CODE comes back as HTTP 200 + {"error"} — rpc() rejects it. */
 function doJoin(btnId){
   busy(btnId, true);
   return rpc("jc_join", { p_community: jcCommunity(), p_code: joinCode })
-    .then(function(){ joinCode = ""; return afterAuth(); })
+    .then(function(){ joinCode = ""; return saveJoinName(); })
+    .then(function(){ return afterAuth(); })
     .catch(function(e){
       return jcState().catch(function(){ return state; }).then(function(s){
         state = s || state;
