@@ -289,6 +289,9 @@ plus the unknown count.
   how to join, e.g. a WhatsApp group link). No sign-ups, no capacity. Residents **suggest** a meetup (or an event) →
   it lands in Organizer Tools → an admin approves with one tap → published. Direct resident posting later, once
   moderation and the contact-person (PII) question are settled. Needs its own `/plan-change`.
+- **Parcel notice** (resident suggestion, 2026-11-16): a resident tells a household a parcel is at Villa X — one-way,
+  in-app, no contact details shared; joins the digest only if that household opted in. Needs its own `/plan-change`
+  (abuse limits, who can send to whom).
 - **"Hidden homes stay hidden" above is void** — home hiding was removed 2026-11-12 (`docs/plans/HH-remove-home-hiding.md`).
 
 ### Light mode  ·  fast follower (Zee 2026-11-11)
@@ -325,6 +328,55 @@ so the Commons button feels wasted. Needs `/plan-change`, and a clickable mockup
   Apple's guidance is 3–5; Arabic / renamed labels get tight; Commons icon vs My Home icon confusion).
 - **News** (organizer posts) stays its own track ("News on the Commons home" above) — DB + posting rules.
 
+### Email — provider + minimization rules  ·  decision of record (Zee 2026-11-17)  ·  nothing built yet
+**Provider: stay on Resend, Free plan** (3,000 / month, 100 / day). Already integrated (the feedback job; key in Vault).
+No switch.
+- Rejected, for the record:
+  - **Brevo Free** (300 / day): its branding on resident emails can't be removed on Free; marketing-first product.
+  - **Resend Pro** ($20 / month) / **Amazon SES** (~$0.10 per 1,000): only if all-resident email is ever wanted. Pro = no
+    new work; SES = cheapest, but AWS setup and a sandbox-to-production approval.
+  - **WhatsApp Business API**: needs every resident's phone number (PII that isn't necessary for this purpose), Meta
+    business verification, pre-approved templates, per-message fees. Not for Commons.
+- **Trigger to revisit:** only if all-resident email is ever wanted; then choose between Resend Pro and Amazon SES.
+- Prices and Free-plan limits are time-sensitive: re-check them at the R8 setup.
+
+**Email is the last resort, by design:**
+1. **In-app first, always.** Every notice lands in the app (notice → home, Commons home "For you", banner). Email only
+   ever repeats an in-app notice.
+2. **Only two emails are immediate:** password reset and household invite. Everything else is digest-only.
+3. **One digest per person per day, max** (e.g. 07:00 Dubai), bundling everything for that person in sections:
+   organizer to-dos (stray reports waiting, moderation), household notices, booking changes. Empty digest = nothing sent.
+4. **Skip if already seen:** if the person opened the app after the item appeared, drop it; if all items were seen,
+   no email. Needs a per-person "last seen" time (small, first-party behavioural data, disclosed in the privacy
+   policy). If this rule is dropped instead, the digest plan says so.
+5. **Coalesce:** several changes to one thing collapse to one line (book then cancel the same slot = nothing; three
+   new stray reports = "3 new stray reports").
+6. **Opt-in per kind, default OFF**, except account email (rule 2). Residents choose digest sections in Settings;
+   organizers' to-do section defaults ON for organizers only. Weekly instead of daily is a per-person choice.
+7. **No email for what the app already shows:** booking confirmations (My Bookings), event sign-up confirmations
+   (event page), "your home was marked out" (My Sign-Up). Offer **Add to calendar** (.ics download) instead.
+8. **Community-wide = never email.** In-app (banner, Commons home / News) + an organizer **Share to WhatsApp** button
+   that pre-fills the announcement (EN + AR) for the community group. Free, no phone numbers, no daily-cap risk.
+9. **Daily budget guard:** a send counter keeps total email under 80 / day (Free cap 100, leaving room for resets).
+   Over budget → digests roll to the next day; password resets and invites are never held.
+10. **Measure it:** App Health shows emails sent per day by kind, plus any roll-over.
+
+**Built from these rules (each its own `/plan-change`):**
+- **Daily digest email** (rules 3, 5, 6, 9, 10): with Commons home v2's organizer to-dos, or its own PR. Needs
+  `/db-rehearse` (digest queue, budget counter, per-person email preferences + confirmed address).
+- **Organizer "Share to WhatsApp"** on event and news screens (rule 8). Prior art: Pets' WhatsApp button (copy the
+  message + open the group link, `jcWaGroupOk`).
+- **Add to calendar (.ics)** on bookings and event sign-ups (rule 7).
+
+**Answers (Zee 2026-11-17, on Claude's review) — these amend the rules above:**
+- **Invites stay links, not emails.** A member copies a one-time link and sends it themselves (`mh_invite_help`).
+  So rule 2's only immediate email is the **password reset**; rule 9's "never held" applies to resets alone.
+- **Confirm the address when someone opts in** to any digest (not at sign-up, which stays friction-free with email
+  confirmation OFF). No digest goes to an unconfirmed address.
+- **Rule 4 dropped for the first version:** no "last seen" time; the digest is opt-in, so its readers asked for it.
+  Revisit only if people complain of repeats. Nothing extra to disclose.
+- **Daily only for the first version** (rule 6's weekly option later).
+
 ### R7 — Launch prep (not features)
 - **Organizer guide** (Zee 2026-11-17): what organizers can do at each level (community, module, per-event,
   programme coordinator / volunteer) and what to do in specific scenarios. Written after development is finished.
@@ -343,6 +395,15 @@ so the Commons button feels wasted. Needs `/plan-change`, and a clickable mockup
   what the screens actually do at launch. Help was written feature by feature, so expect stale steps and drift.
   After the last feature (Commons home v2) so it's reviewed once, against the final app.
 - Per-community split of App Health's platform numbers (needed before a second community admin exists).
+- **Display names, before any real resident joins** (Zee 2026-11-17: not now, while testing). One small migration
+  (`/db-rehearse`) + Households screen:
+  - **Clean names on the server:** `jc_display_name_set` cleans like other text (`jc_clean_line(left(p_name, 200))`
+    + strip bidi overrides; BAD_NAME if nothing is left). Security review M1, `docs/qa/signup-display-name-review-2026-11-17.md`.
+  - **Block reserved names:** the same reserved list Section Names uses (Admin, Organizer, Commons, Settings, …, EN + AR).
+  - **Community admins can clear a name** (clear only, never edit, so an admin can't put words in a resident's
+    mouth): a button beside Remove on Households, written to the admin log; the resident sees their name is blank
+    again. Today only the resident can change their own name; an admin's only lever is removing the member.
+  - Show the masked email beside the name in organizer rows (lookalike names: "Zee G.").
 - Teardown of `e2e` test data when Zee says testing is done.
 - **Commons into its own private repo** (Zee 2026-11-14), done with the commons.ae move (a custom domain means its own
   repo anyway); Cloudflare Pages deploys from private repos. Why: this repo is public, and `docs/qa/` reviews plus the
@@ -364,6 +425,18 @@ From `docs/qa/SYNTHESIS-2026-11-03.md` T6, plus items found since:
 - Native Arabic review (strings; **Haq al Laila wording + design by an Emirati speaker**).
 - Fresh Jubail codes (join, community admin) — never the Halloween code; rotate at invite time.
 - Password-reset email tested end to end.
+- **Email (decision 2026-11-17, see "Email" above):**
+  - Verify **commons.ae in Resend** (SPF + DKIM records at the registrar). Replace the test sender
+    `onboarding@resend.dev`, which only delivers to the account owner.
+  - **Supabase Auth → custom SMTP pointed at Resend** (the built-in sender is test-only).
+  - **Raise Supabase Auth's email rate limit** above the invite-burst peak (custom SMTP defaults to roughly
+    30 / hour — confirm in the dashboard and write the chosen number here).
+  - **Reconcile with "email confirmation OFF"** (below): if it stays off, joining sends no email and launch-day
+    volume is mostly password resets. State which.
+  - **Privacy policy:** residents' email addresses are processed by Resend (and Supabase), so the "first-party only,
+    no third parties" wording is amended per the PII-only-when-necessary rule: per purpose, minimal, never silent.
+    Account email only; every other email kind is opt-in (address confirmed at opt-in). Name each processor and where
+    it is (cross-border: check the UAE data protection law). No "last seen" (rule 4 dropped for v1).
 - Free-tier auto-pause resolved.
 - **Map tile provider** chosen for event-night load (OSM's volunteer tiles have no SLA; Esri imagery date
   over Jubail unverified).
@@ -455,6 +528,12 @@ of its wording + design (R8) and the event itself need to be ready by early Janu
   Purpose: visibility for residents, working records for volunteers. Jubail management to see it before it's on.
 - **Organizer guide** (what organizers can do, what to do in specific scenarios): written once development is
   finished, before launch (R7).
+- **Email:** stay on Resend Free; email is the last resort (in-app first, one digest per person per day at most,
+  opt-in per kind, community-wide never by email, under 80 / day). Brevo, Resend Pro / SES and the WhatsApp Business
+  API rejected for now. Invites stay links; addresses confirmed at digest opt-in; no "last seen"; daily only at
+  first. Full rules: "Email" above; launch setup in R8.
+- **Display names:** clean + reserved-name block + admin "clear name" before any real resident joins (R7), not during
+  testing.
 
 ## Superseded ideas (from the Oct–Nov planning conversations)
 
