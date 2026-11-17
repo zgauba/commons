@@ -34,6 +34,7 @@ The `e2e` test community stays the place to try everything; Jubail's modules sta
 | B-1 | Courts → **Bookings** (section name, "Book a Court or Pitch", "place" wording EN/AR) + **Football** kind (never soccer; DB CHECK widened) — PR #145 (DB `b1_football_kind`, applied 2026-11-17) + PR #146 (app). Follow-ups F1 (server cancel reasons say "Court", English-only) and F2 (EN/AR key-parity test) in `docs/plans/B-1-bookings-football.md`. |
 | Sign-up name | Sign-up asks for an optional **display name** (Zee 2026-11-17: buried in My Home → Account, nobody filled it — 1 of 5 live accounts), who-sees-it text under the field; saved after joining, never blocks it; disclosure copy fixed (organizers see it too; Account help no longer says "never your name"). Backlog: someone already signed in who then enters a join code skips the account step, so is not asked (My Home only). **Backlog (security review M1, DB):** harden `jc_display_name_set` — `jc_clean_line(left(p_name, 200))` + strip bidi overrides, BAD_NAME if nothing is left; show the masked email beside names in organizer rows (impersonation). |
 | Link Done | A **Done** button beside Copy / Share on every one-time link box (Admins screen, per-event admins, household invite) closes it so another can be made; asks first only if the link was never copied or shared (it can't be shown again) — Zee 2026-11-17. |
+| DL-1 | **Desktop layout** (Zee 2026-11-17): at ≥ 900 px resident pages are a 600 px column; Organizer Tools (`<body class="wide">`) goes up to 1200 px with forms kept at 600 px and card lists (events, sign-ups, households, pets, stray reports) in columns (`.jcgrid`); timelines stay one column; tab bar centred; `.jcsplit` (list beside map) ready for Community Cats. Phones unchanged. Tables deferred to the Cats register. |
 
 Detail: `docs/architecture.md` (Stack Manifest) and the reviews in `docs/qa/`.
 
@@ -269,7 +270,7 @@ C-001… (old programme IDs kept as a searchable field). **Tester feedback 2026-
 cat (look-alike orange cats); no per-cat "fed" button (one log per station visit); the organizer's optional
 "Pin here" step was missed while Report a stray's "Where" was intuitive → every Cats editor reuses the Where flow.
 
-### Desktop layout (shared, every module)  ·  app only  (Zee 2026-11-17)
+### Desktop layout (shared, every module)  ·  app only  (Zee 2026-11-17)  ·  ✓ DL-1 done (`docs/plans/DL-desktop-layout.md`)
 - Today every page is a phone-width strip on a computer (`main{max-width:480px}` in `app.css`, no breakpoints
   anywhere). The coordinator uses a computer.
 - One shared layout change: organizer / coordinator screens go wide on desktop (tables, map beside list, filters);
