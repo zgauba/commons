@@ -36,7 +36,7 @@ test("My Home help covers the account too (no sign-out line); Arabic when the pa
   await page.goto("home/");
   let h = await openHelp(page);
   await expect(h.locator("h2")).toHaveText("My Home");
-  await expect(h).toContainText("never your name or phone");
+  await expect(h).toContainText("only if you add one, your display name — never your phone");
   await expect(h).not.toContainText("Signing out");
   await h.locator("#jcHelpClose").click();
   await page.locator("#langBtn").click();

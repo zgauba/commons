@@ -54,15 +54,67 @@ test("join: code first → account → jc_join with community + code → in", as
   expect(join.signedIn).toBe(true);
 });
 
+// Zee 2026-11-17: the optional display name is asked at sign-up (buried in My Home nobody fills it), with who sees it
+// said under it. Saved after jc_join (the RPC needs a member); empty → no call; a failed save never blocks joining.
+test("sign-up asks for an optional display name, says who sees it, saves it after joining", async ({ page }) => {
+  const { calls } = await stubBackend(page, { rpc: Object.assign(joinFlowRpc(() => ok(MEMBER_NO_HOME)),
+    { jc_display_name_set: () => ok(MEMBER_NO_HOME) }) });
+  await page.goto("account/?view=join");
+  await page.locator("#code").fill("ABCD-EFGH-JK");
+  await page.locator("#go").click();
+  await expect(page.locator("#dname")).toBeVisible();
+  await expect(page.locator("#dname")).not.toHaveAttribute("required", "");
+  await expect(page.locator("#dnameHelp")).toHaveText("A first name or nickname. Your household and the community's organizers see it instead of your email. You can change or remove it later in My Home.");
+  await page.locator("#dname").fill("  Sam  ");
+  await page.locator("#back").click();                                   // Back keeps what was typed
+  await page.locator("#go").click();
+  await expect(page.locator("#dname")).toHaveValue("  Sam  ");
+  await page.locator("#email").fill("a@example.com");
+  await page.locator("#password").fill("long-enough-pw");
+  await page.locator("#go").click();
+  await expect(page).toHaveURL(/\/commons\/home\/$/);
+  const names = calls.filter((c) => c.name === "jc_display_name_set");
+  expect(names.map((c) => c.args)).toEqual([{ p_name: "Sam" }]);
+  const order = calls.map((c) => c.name).filter((n) => n === "jc_join" || n === "jc_display_name_set");
+  expect(order).toEqual(["jc_join", "jc_display_name_set"]);             // after joining, never before
+});
+
+test("sign-up without a display name sends no name call", async ({ page }) => {
+  let st = await stubBackend(page, { rpc: joinFlowRpc(() => ok(MEMBER_NO_HOME)) });
+  await page.goto("account/?view=join");
+  await page.locator("#code").fill("ABCD-EFGH-JK");
+  await page.locator("#go").click();
+  await page.locator("#email").fill("a@example.com");
+  await page.locator("#password").fill("long-enough-pw");
+  await page.locator("#go").click();
+  await expect(page).toHaveURL(/\/commons\/home\/$/);
+  expect(st.calls.some((c) => c.name === "jc_display_name_set")).toBe(false);
+});
+
+test("a failed display-name save never blocks joining", async ({ page }) => {
+  const { calls } = await stubBackend(page, { rpc: Object.assign(joinFlowRpc(() => ok(MEMBER_NO_HOME)),
+    { jc_display_name_set: () => raise("BAD_NAME") }) });
+  await page.goto("account/?view=join");
+  await page.locator("#code").fill("ABCD-EFGH-JK");
+  await page.locator("#go").click();
+  await page.locator("#dname").fill("Sam");
+  await page.locator("#email").fill("a@example.com");
+  await page.locator("#password").fill("long-enough-pw");
+  await page.locator("#go").click();
+  await expect(page).toHaveURL(/\/commons\/home\/$/);
+  expect(calls.some((c) => c.name === "jc_display_name_set")).toBe(true);
+});
+
 // T3 contract: a wrong code is HTTP 200 + {"error":"BAD_CODE"}. Treating it as
 // success would route a non-member into the app — this test fails if rpc() does.
 test("BAD_CODE (200 + error body) is a failure; retry with the same account works", async ({ page }) => {
   let attempt = 0;
-  const { calls } = await stubBackend(page, { rpc: joinFlowRpc(() =>
-    (++attempt === 1 ? ok({ error: "BAD_CODE" }) : ok(MEMBER_NO_HOME))) });
+  const { calls } = await stubBackend(page, { rpc: Object.assign(joinFlowRpc(() =>
+    (++attempt === 1 ? ok({ error: "BAD_CODE" }) : ok(MEMBER_NO_HOME))), { jc_display_name_set: () => ok(MEMBER_NO_HOME) }) });
   await page.goto("account/?view=join");
   await page.locator("#code").fill("WRONG");
   await page.locator("#go").click();
+  await page.locator("#dname").fill("Sam");
   await page.locator("#email").fill("a@example.com");
   await page.locator("#password").fill("long-enough-pw");
   await page.locator("#go").click();
@@ -74,6 +126,8 @@ test("BAD_CODE (200 + error body) is a failure; retry with the same account work
   await expect(page).toHaveURL(/\/commons\/home\/$/)  // new member → claim your home;
   expect(calls.filter((c) => c.name === "signup").length).toBe(1);
   expect(calls.filter((c) => c.name === "jc_join").length).toBe(2);
+  // the name typed before the wrong code is saved once, after the retry joins — never on the failed attempt
+  expect(calls.filter((c) => c.name === "jc_display_name_set").map((c) => c.args)).toEqual([{ p_name: "Sam" }]);
 });
 
 test("RATE_LIMITED (raised) shows try-later copy", async ({ page }) => {
