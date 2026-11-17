@@ -194,6 +194,11 @@ Requirements (draft)". She needs **colony and case management**, not a directory
   exactly because of the UAE laws" (programme lead, 2026-11-17). Commons must not become the soliciting channel. Revisit
   only after a legal check on UAE donation rules, and then with contributors anonymous by default (most announce
   their contribution publicly, some don't).
+  **Giving through the app is not at this stage at all** (Zee 2026-11-17: "baby steps"). A volunteer proposed per-cat
+  vet bills, an "I want to help!" button, uploaded payment screenshots and a countdown of what's still owed: declined.
+  It would be public solicitation from Zee's app, store bank screenshots, and show unverified amounts. Exploring it
+  later needs, first: legal advice on UAE donation rules, Jubail management's approval, and possibly a licensed
+  charity to handle it. Told to the volunteers' group the same day.
 - **Invoices and vet documents live in the programme's own Google Drive folder**, not in Commons. Commons stores a
   link to the file on the vet visit. Proposed to the programme: a programme-owned Google account (not a volunteer's
   personal one), sharing restricted to specific people (never "anyone with the link"), and a file-naming rule (cat
@@ -214,6 +219,8 @@ other admin level (R4a-3). Maybe scoped to an area later.
 **Phase 1: replaces her Google Doc**
 - Cat register: permanent Cat ID, several photos, name, sex, age or life stage, coat and markings, usual area and
   station, provisional / confirmed ID, **merge duplicates while keeping their history**.
+- **Story / personality** per cat (for example "very gentle, loves cuddles, bullied by the other males"), shown to
+  residents: cats as individuals, not statistics (volunteer feedback 2026-11-17; promised in the group reply).
 - Status (community, clinic or recovery, foster, adopted, transferred, missing, deceased, unknown) with date and source.
 - Ear tip (present / absent / unclear, side) kept separate from **confirmed sterilisation** (with its source).
 - TNVR stage: needs it, booked, captured, at clinic, returned (date and place).
@@ -458,6 +465,7 @@ of its wording + design (R8) and the event itself need to be ready by early Janu
 | An "Organizer" tab inside the event | Event **Admin** button → Organizer Tools (Sign-ups tab) |
 | Courts: padel first | Tennis + basketball only |
 | Haq al Laila lantern / bag icon, teal bag | 🌙 mark; nut-free = 🧡 tinted teal |
+| Per-cat vet bills + "I want to help!" + payment screenshots in Community Cats (volunteer, 2026-11-17) | No giving in the app at this stage; appeals stay in WhatsApp, people pay the vet directly; legal advice + management approval first if ever explored |
 | Pets behind a viewing passcode | Members only (accounts) |
 | Recovery PIN | Dropped |
 | Organizer copies a home's control link | Obsolete — accounts replaced edit links |
