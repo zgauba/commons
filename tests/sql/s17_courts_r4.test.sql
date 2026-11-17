@@ -293,7 +293,7 @@ begin
   perform jc_admin_facility_status(ct, 'draft');
   execute 'reset role';
   if exists (select 1 from jc_bookings where facility_id = ct and status = 'booked')
-     or (select cancel_reason from jc_bookings where id = bk1) is distinct from 'Court temporarily unavailable' then
+     or (select cancel_reason from jc_bookings where id = bk1) is distinct from 'PLACE_UNPUBLISHED' then
     raise exception 'FAIL U01b unpublish left bookings or no reason'; end if;
   if not exists (select 1 from jc_admin_log where action = 'facility_status' and target ->> 'status' = 'draft'
                   and target -> 'bookings_cancelled' ? bk1::text) then
@@ -301,7 +301,7 @@ begin
   execute 'set local role authenticated';
   perform pg_temp.s17_as(r1);
   if (select x ->> 'cancel_reason' from jsonb_array_elements(jc_my_bookings()) x where (x ->> 'id')::uuid = bk1)
-     is distinct from 'Court temporarily unavailable' then raise exception 'FAIL U01d the home was not told'; end if;
+     is distinct from 'PLACE_UNPUBLISHED' then raise exception 'FAIL U01d the home was not told'; end if;
   if jsonb_array_length(jc_facilities_list()) <> 1
      or pg_temp.s17_err(format('select jc_facility_day(%L, %L)', ct, d1)) is distinct from 'NOT_FOUND'
      or pg_temp.s17_err(format('select jc_booking_book(%L, %L, false)', ct, pg_temp.s17_at(d1 + 5, '09:00'))) is distinct from 'NOT_FOUND' then

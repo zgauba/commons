@@ -185,6 +185,28 @@ begin
   v := jc_admin_module_label_set('pets', 'Pets', 'الحيوانات الأليفة', null, null);
   if v #>> '{pets,name,en}' <> 'Pets' then raise exception 'FAIL L13f own built-in: %', v; end if;
   k := k + 6;
+  -- B-1 F1: Bookings' built-in names are Bookings / الحجوزات now; the old Courts / الملاعب stay reserved for others
+  msg := pg_temp.s22_err($q$select jc_admin_module_label_set('pets', 'Bookings', 'الحيوانات', null, null)$q$);
+  if msg is distinct from 'RESERVED_NAME' then raise exception 'FAIL L13g new built-in EN: %', msg; end if;
+  msg := pg_temp.s22_err($q$select jc_admin_module_label_set('pets', 'Animals', 'الحجوزات', null, null)$q$);
+  if msg is distinct from 'RESERVED_NAME' then raise exception 'FAIL L13h new built-in AR: %', msg; end if;
+  msg := pg_temp.s22_err($q$select jc_admin_module_label_set('events', 'Courts', 'الفعاليات', null, null)$q$);
+  if msg is distinct from 'RESERVED_NAME' then raise exception 'FAIL L13i old built-in still reserved: %', msg; end if;
+  -- Bookings itself may go back to Courts (its own built-in); then its previous names are put back
+  execute 'reset role';
+  perform set_config('s22.prev_bookings', coalesce((select module_labels -> 'bookings' from jc_communities where id = 'testville22'), 'null'::jsonb)::text, true);
+  execute 'set local role authenticated';
+  perform pg_temp.s22_as(ca);
+  v := jc_admin_module_label_set('bookings', 'Courts', 'الملاعب', null, null);
+  if v #>> '{bookings,name,en}' <> 'Courts' or v #>> '{bookings,name,ar}' <> 'الملاعب' then
+    raise exception 'FAIL L13j Bookings back to Courts: %', v; end if;
+  execute 'reset role';
+  update jc_communities set module_labels = case when current_setting('s22.prev_bookings')::jsonb = 'null'::jsonb
+      then module_labels - 'bookings' else jsonb_set(module_labels, '{bookings}', current_setting('s22.prev_bookings')::jsonb) end
+   where id = 'testville22';
+  execute 'set local role authenticated';
+  perform pg_temp.s22_as(ca);
+  k := k + 4;
 
   -- ---------- L14 a refusal changes nothing; reset of an unset module is a no-op ----------
   v := jc_config_get('testville22') -> 'labels';

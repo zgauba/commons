@@ -1,5 +1,5 @@
 -- R4a-2 — per-person module admins by invite link (Zee decision 10) + two R4a deferred fixes (bidi controls in
--- jc_clean_line callers; block reasons capped at 185 so 'Court blocked: ' || reason fits cancel_reason whole).
+-- jc_clean_line callers; block reasons capped at 185 so 'BLOCKED: ' || reason (B-1 F1; was 'Court blocked: ') fits cancel_reason whole).
 -- Each module-admin check fails on the code live before R4a-2 (no jc_module_admin_* functions; the gates only read
 -- codes). Own communities (testville18 / testville18b) — never jubail. Run via tests/sql/build_dryrun.sh (rolls back).
 
@@ -422,8 +422,8 @@ begin
   v := jc_admin_block_create(ct, (d1 + time '08:00') at time zone tz, (d1 + time '10:00') at time zone tz, r185);
   if (v ->> 'bookings_cancelled')::int <> 1 then raise exception 'FAIL RC01c the 185-char block cancelled %', v; end if;
   execute 'reset role';
-  if (select cancel_reason from jc_bookings where id = bk1) is distinct from 'Court blocked: ' || r185
-     or char_length('Court blocked: ' || r185) <> 200 then
+  if (select cancel_reason from jc_bookings where id = bk1) is distinct from 'BLOCKED: ' || r185
+     or char_length('BLOCKED: ' || r185) <> 194 then
     raise exception 'FAIL RC01d cancel reason not whole: %', (select cancel_reason from jc_bookings where id = bk1); end if;
   execute 'set local role authenticated';
   -- a direct admin cancel has no prefix and keeps 3–200

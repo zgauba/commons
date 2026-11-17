@@ -230,7 +230,7 @@ test("the Private switch on My bookings sends the choice; an organizer cancel sh
   const b = backend({ mine: [{ id: "m1", starts: at(D, 18) },
     { id: "m3", starts: at("2026-11-12", 9), status: "cancelled", cancel_reason: "Court blocked: Resurfacing" }] });
   const { calls } = await open(page, b, { q: "?tab=mine" });
-  await expect(page.locator('#bkMine li[data-bk="m3"]')).toContainText("Cancelled by the organizers: Court blocked: Resurfacing");
+  await expect(page.locator('#bkMine li[data-bk="m3"]')).toContainText("Cancelled by the organizers. Time blocked: Resurfacing")   // an old-format row, worded the new way;
   await expect(page.locator('#bkMine li[data-bk="m3"] button, #bkMine li[data-bk="m3"] input')).toHaveCount(0);
   await page.locator('[data-bkpriv="m1"]').check();
   await expect(page.locator("#msg")).toHaveText("Now private: others see just \"Booked\".");
@@ -543,7 +543,7 @@ for (const lang of ["en", "ar"]) {
 
 // ---------- R4d: My Bookings → Past (jc_my_bookings_past; the server decides which rows — own home, since joining, 90 days) ----------
 const PAST = [
-  { id: "p2", facility_id: C1, facility: "Court 1", facility_ar: "ملعب ١", starts_at: at("2026-11-08", 18), ends_at: at("2026-11-08", 19), status: "cancelled", cancel_reason: "Court blocked: Maintenance" },
+  { id: "p2", facility_id: C1, facility: "Court 1", facility_ar: "ملعب ١", starts_at: at("2026-11-08", 18), ends_at: at("2026-11-08", 19), status: "cancelled", cancel_reason: "BLOCKED: Maintenance" },
   { id: "p1", facility_id: C1, facility: "Court 1", facility_ar: "ملعب ١", starts_at: at("2026-11-05", 9), ends_at: at("2026-11-05", 10), status: "booked", cancel_reason: null },
 ];
 
@@ -555,7 +555,7 @@ test("Past under Upcoming: Done / Cancelled with the organizers' reason, in the 
   const rows = page.locator("#bkPast li");
   await expect(rows).toHaveCount(2);
   await expect(rows.nth(0)).toContainText("Cancelled");
-  await expect(rows.nth(0)).toContainText("Cancelled by the organizers: Court blocked: Maintenance");
+  await expect(rows.nth(0)).toContainText("Cancelled by the organizers. Time blocked: Maintenance");
   await expect(rows.nth(0)).toContainText("Sun 8 Nov · ⁦18:00–19:00⁩");                   // community time, phone in London
   await expect(rows.nth(1).locator(".chip")).toHaveText("Done");
   await expect(page.locator("#bkPastBox")).toContainText("Bookings are kept for 90 days.");
@@ -727,3 +727,27 @@ test("B-1: Arabic — football is كرة قدم, the section is الحجوزات
   await expect(page.locator(`[data-court="${C3}"]`)).toContainText("كرة قدم");
   await expect(page.locator('#tabbar a[data-tab="bookings"] span')).toHaveText("الحجوزات");
 });
+
+// B-1 F1 (2026-11-17): the server writes cancel CODES (20261117120000_b1_reason_codes); the page words them in the
+// reader's language. Old English rows read the same way; an organizer's own text is shown as typed.
+const F1_R = { r1: "PLACE_RETIRED", r2: "PLACE_UNPUBLISHED", r3: "BLOCKED: Tournament", r4: "Household left",
+              r5: "Court no longer available", r6: "Lights broken" };
+const F1_WANT = {
+    en: { r1: "Cancelled: this place is no longer available.", r2: "Cancelled: this place is temporarily unavailable.",
+          r3: "Cancelled by the organizers. Time blocked: Tournament", r4: "Cancelled: your household left the home.",
+          r5: "Cancelled: this place is no longer available.", r6: "Cancelled by the organizers: Lights broken" },
+    ar: { r1: "أُلغي: هذا الملعب لم يعد متاحاً.", r2: "أُلغي: هذا الملعب غير متاح مؤقتاً.",
+          r3: "ألغاه المنظمون. وقت محجوب: Tournament", r4: "أُلغي: غادرت أسرتك المنزل.",
+          r5: "أُلغي: هذا الملعب لم يعد متاحاً.", r6: "ألغاه المنظمون: Lights broken" },
+};
+for (const lang of ["en", "ar"]) {
+  test(`B-1 F1 (${lang}): cancel codes are worded; old rows too; an organizer's own reason as typed`, async ({ page }) => {
+    const mine = Object.keys(F1_R).map((id, i) => ({ id, starts: at("2026-11-12", 8 + i), status: "cancelled", cancel_reason: F1_R[id] }));
+    await open(page, backend({ mine }), { q: "?tab=mine", lang });
+    for (const id of Object.keys(F1_R)) {
+      const li = page.locator(`#bkMine li[data-bk="${id}"]`);
+      await expect(li).toContainText(F1_WANT[lang][id]);
+      await expect(li).not.toContainText(/PLACE_|BLOCKED|Court no longer/);
+    }
+  });
+}

@@ -226,7 +226,7 @@ test("publish / unpublish / retire ask first and say what bookings they cancel",
   page.once("dialog", (d) => { asked = d.message(); d.accept(); });
   await page.locator('[data-ct="draft"][data-id="c2"]').click();
   await expect(page.locator("#msg")).toHaveText("Back to draft.");
-  expect(asked).toBe("Unpublish Court 2? It goes back to draft and residents stop seeing it. Its 4 upcoming bookings, and any slot being played right now, will be cancelled; those homes will see \"Court temporarily unavailable\".");
+  expect(asked).toBe("Unpublish Court 2? It goes back to draft and residents stop seeing it. Its 4 upcoming bookings, and any slot being played right now, will be cancelled; those homes will see \"This place is temporarily unavailable\".");
   expect(lastCall(calls, "jc_admin_facility_status").args).toEqual({ p_facility: "c2", p_status: "draft" });
 
   page.once("dialog", (d) => { asked = d.message(); d.accept(); });
