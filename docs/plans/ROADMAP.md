@@ -378,6 +378,15 @@ No switch.
   Revisit only if people complain of repeats. Nothing extra to disclose.
 - **Daily only for the first version** (rule 6's weekly option later).
 
+### Join: wrong-community help  ·  app (+ maybe one RPC)  ·  incident-driven (2026-11-17)
+From `docs/incidents/2026-11-17-join-code-wrong-community.md`: a tester entered the test community's code on Jubail
+(the only community listed) and got "That code didn't work". Needs a short `/plan-change`:
+- BAD_CODE that is a valid join code elsewhere → "This code is for a different community — open the exact link you
+  were sent" (never name it; keep the 10 / hour join limit).
+- Remember the chosen community beyond one tab (localStorage), so new tabs and the saved app keep it.
+- While Jubail has no join code (until R8), its Join button says the community opens soon.
+- Workaround now: send testers the join link with `?community=e2e`, opened in the tab they sign up in.
+
 ### R7 — Launch prep (not features)
 - **Organizer guide** (Zee 2026-11-17): what organizers can do at each level (community, module, per-event,
   programme coordinator / volunteer) and what to do in specific scenarios. Written after development is finished.
