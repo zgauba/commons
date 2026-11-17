@@ -118,7 +118,7 @@ function jcMapPopups(m, onOpen, hooks){
 }
 
 /* ---------- the full map (SA-2): one copy of what Events, Courts and Pets each set up ---------- */
-var JC_LABEL_ZOOM = 17;                    /* Find Me zooms in to here; pin names show from here in (the Strays map); one pin sits here */
+var JC_LABEL_ZOOM = 17;                    /* Find Me zooms in to here; one pin sits here */
 var JC_MAP_HOME = { lat: 24.53, lng: 54.43, zoom: 14 };   /* when the community has no map centre set */
 
 /* The map in jcMapHtml's box: community centre, Street / Satellite, the Full Screen button.

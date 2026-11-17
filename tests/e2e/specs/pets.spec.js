@@ -106,12 +106,18 @@ test("Strays tab: one coloured pin per stray (latest sighting, else territory), 
   await expect(page.locator(`#ptStrays [data-pet="${ID(8)}"] .chip.warn`)).toHaveText("Needs help");
   await expect(page.locator(`#ptStrays [data-pet="${ID(3)}"]`)).toContainText("Last seen 2 h ago");
   await expect(page.locator("#view")).not.toContainText("Rex");
-  // names only when zoomed in
-  await expect(page.locator("#ptmap")).toHaveClass(/nolabels/);
-  await page.clock.runFor(2000);                                             // the fake clock: let the fit-to-pins animation end
-  await page.evaluate(() => map.setView([24.531, 54.432], 18, { animate: false }));
+  // names at every zoom (Zee 2026-11-17); Hide Names / Show Names toggles them and is remembered
   await expect(page.locator("#ptmap")).not.toHaveClass(/nolabels/);
   await expect(page.locator("#ptmap .bklabel")).toHaveText(["Ginger", "Sandy"]);
+  await expect(page.locator("#namesBtn")).toHaveText("Hide Names");
+  await page.locator("#namesBtn").click();
+  await expect(page.locator("#ptmap")).toHaveClass(/nolabels/);
+  await expect(page.locator("#namesBtn")).toHaveText("Show Names");
+  await expect(page.locator("#namesBtn")).toHaveAttribute("aria-pressed", "false");
+  await page.reload();
+  await expect(page.locator("#ptmap")).toHaveClass(/nolabels/);              // remembered on this phone
+  await page.locator("#namesBtn").click();
+  await expect(page.locator("#ptmap")).not.toHaveClass(/nolabels/);
   // the key
   await page.locator("#labelsBtn").click();
   await expect(page.locator("#ptKey .legend .chip")).toHaveText(["Needs help", "Under care", "Known and fine"]);
