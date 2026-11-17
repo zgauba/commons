@@ -1019,3 +1019,32 @@ test("a new code shows once on the Codes screen and is gone after leaving it", a
   await page.locator("#codesOpen").click();
   await expect(page.locator("#newCode")).toHaveCount(0);
 });
+
+// Zee 2026-11-17: Done beside Copy / Share on a per-event admin link (same rule as the Admins screen).
+test("per-event admin link: Done asks only if not copied, then shows Make a link again", async ({ page }) => {
+  await page.addInitScript(() => { Object.defineProperty(navigator, "clipboard", { configurable: true,
+    value: { writeText: () => Promise.resolve() } }); });
+  const ab = adminBackend({ scopes: ["community"], admins: [] });
+  await stubBackend(page, { rpc: ab.rpc });
+  await signIn(page);
+  await page.goto("admin/");
+  const row = page.locator('[data-event="test-event"]');
+  await row.locator('[data-act="admins"]').click();
+  await row.locator("#makeLink").click();
+  await expect(page.locator("#doneLink")).toHaveText("Done");
+  let asked = false;
+  page.once("dialog", (d) => { asked = true; d.dismiss(); });
+  await page.locator("#doneLink").click();
+  expect(asked).toBe(true);
+  await expect(page.locator("#newLink")).toBeVisible();
+  await page.locator("#copyLink").click();
+  await expect(page.locator("#copyLink")).toHaveText("Copied");
+  let asks = 0;
+  const count = (d) => { asks++; d.dismiss(); };
+  page.on("dialog", count);
+  await page.locator("#doneLink").click();
+  page.off("dialog", count);
+  expect(asks, "Done asked after the link was copied").toBe(0);
+  await expect(page.locator("#newLink")).toHaveCount(0);
+  await expect(row.locator("#makeLink")).toBeVisible();
+});

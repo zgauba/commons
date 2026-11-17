@@ -465,12 +465,18 @@ function doInvite(){
       '<p class="invitebox" id="inviteLink">' + esc(link) + '</p>' +
       '<div class="row"><button class="btn ghost" type="button" id="copyLink">' + esc(jcT("mh_copy")) + '</button>' +
         (navigator.share ? '<button class="btn ghost" type="button" id="shareLink">' + esc(jcT("mh_share")) + '</button>' : '') +
+        '<button class="btn" type="button" id="doneInvite">' + esc(jcT("adm_done")) + '</button>' +
       '</div>';
+    var sent = false;
     on("copyLink", function(){
       (navigator.clipboard ? navigator.clipboard.writeText(link) : Promise.reject())
-        .then(function(){ el("copyLink").textContent = jcT("mh_copied"); }, function(){});
+        .then(function(){ el("copyLink").textContent = jcT("mh_copied"); sent = true; }, function(){});
     });
-    on("shareLink", function(){ navigator.share({ title: homeTitle(), url: link }).catch(function(){}); });
+    on("shareLink", function(){ navigator.share({ title: homeTitle(), url: link }).then(function(){ sent = true; }, function(){}); });
+    on("doneInvite", function(){
+      if (!sent && !window.confirm(jcT("adm_done_confirm"))) return;
+      el("inviteOut").innerHTML = "";
+    });
   }, function(e){ busy("invite", false); showErr(e.code); });
 }
 
