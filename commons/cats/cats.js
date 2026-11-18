@@ -11,12 +11,13 @@
      sources, history, merged duplicates);
    - the programme: jc_cat_register — the full record + status history; coordinators also see merged duplicates (undo)
      and get the editor (jc_cat_save), photos (jc_cat_photo_begin / _commit / _remove, up to 4) and merge / undo.
-   Roles come from jc_me_get.admin_scopes (display only). Visits (CC-4) and the vet log (CC-5) follow. */
+   Roles come from jc_me_get.admin_scopes (display only). CC-4 visits + sightings live in log.js (Activity tab, a station's
+   history, a cat's history, the two forms). The vet log (CC-5) follows. */
 
 var state = null, cfg = null, current = null;
 var msgBox = jcMsgBox, ar = jcIsAr, on = jcOn, each = jcEach, hObj = jcObj, finite = jcFinite;
 var places = null, prog = null, loadErr = null, busy = false, map = null;
-var tab = "cats";                     /* the programme's tabs: cats · stations · areas (coordinators) */
+var tab = "cats";                     /* the programme's tabs: cats · log (CC-4 Activity) · stations · areas (coordinators) */
 var reg = null, pubCats = null;       /* CC-3: the register (programme) · the residents' cat list */
 var catQ = "", catId = null;          /* the cats search · the open cat */
 var ced = null;                       /* the cat editor's draft: { id | null, f: {field: value}, merge_into, shrinking } */
@@ -39,7 +40,7 @@ function areasOf(d){ return (d && Array.isArray(d.areas) ? d.areas : []).filter(
 function stationsOf(d){ return (d && Array.isArray(d.stations) ? d.stations : []).filter(isStation); }
 function areaName(d, id){ var a = areasOf(d).filter(function(x){ return x.id === id; })[0]; return a ? a.name : ""; }
 function dayOf(iso){ return jcDayText(jcDateOf(iso, cfg), { weekday: undefined, year: "numeric" }); }
-function takeMap(){ if (map) { jcMapRemove(map); map = null; } if (ed && ed.w) ed.w.map = null; }
+function takeMap(){ if (map) { jcMapRemove(map); map = null; } if (ed && ed.w) ed.w.map = null; if (sd && sd.w) sd.w.map = null; }
 function draw(){ show(current); }
 
 /* ---------- data ---------- */
@@ -90,6 +91,8 @@ function stationCard(d, s, programme){
     (programme ? (peopleLine(s) ? '<p class="help">' + peopleLine(s) + '</p>' : '') +
       (typeof s.access_notes === "string" && s.access_notes ? '<p class="help caNotes" dir="auto">' + esc(s.access_notes) + '</p>' : '') : '') +
     '<div class="row">' + jcDirLink(s.lat, s.lng) +
+    (programme && s.archived !== true ? ' <button class="mini" type="button" data-visit="' + esc(s.id) + '">' + esc(jcT("ca_l_add_visit")) + '</button>' : '') +   /* CC-4 */
+    (programme ? ' <button class="mini" type="button" data-stlog="' + esc(s.id) + '">' + esc(jcT("ca_l_history")) + '</button>' : '') +
     (programme && canEdit() ? ' <button class="mini" type="button" data-edit="' + esc(s.id) + '">' + esc(jcT("ca_edit")) + '</button>' : '') + '</div></div>';
 }
 /* stations grouped under their areas, in the server's area order */
@@ -121,13 +124,13 @@ var VIEWS = {
       wireCats(pubCats);
       return;
     }
-    var keys = canEdit() ? ["cats", "stations", "areas"] : ["cats", "stations"];
+    var keys = canEdit() ? ["cats", "log", "stations", "areas"] : ["cats", "log", "stations"];
     if (keys.indexOf(tab) < 0) tab = "cats";
-    var body = tab === "areas" ? areasHtml() : tab === "cats" ? catsHtml(reg, true) : stationsHtml();
+    var body = tab === "areas" ? areasHtml() : tab === "cats" ? catsHtml(reg, true) : tab === "log" ? logTabHtml() : stationsHtml();
     el("view").innerHTML = head + jcTabsHtml("caTab_", keys, tab, function(k){ return jcT("ca_tab_" + k); }, jcModTitle("cats"), "caPanel") +
       '<div ' + jcTabPanel("caTab_", tab, "caPanel") + '>' + body + '</div>';
     jcTabsWire("caTab_", keys, function(k){ tab = k; renaming = null; draw(); });
-    if (tab === "areas") wireAreas(); else if (tab === "cats") wireCats(reg); else wireStations();
+    if (tab === "areas") wireAreas(); else if (tab === "cats") wireCats(reg); else if (tab === "log") wireLogTab(); else wireStations();
   },
   cat: function(){ catView(); },
   catedit: function(){ catEditView(); },
@@ -211,6 +214,8 @@ function wireStations(){
     openEditor(null);
   });
   each("[data-edit]", function(b){ openEditor(b.dataset.edit); });
+  each("[data-visit]", function(b){ openVisit(b.dataset.visit, "home"); });                       /* CC-4 */
+  each("[data-stlog]", function(b){ stLogId = b.dataset.stlog; show("stlog"); try { window.scrollTo(0, 0); } catch(e){} });
 }
 function openEditor(id){
   var st = id ? stationsOf(prog).filter(function(x){ return x.id === id; })[0] : null;
@@ -395,10 +400,12 @@ function catView(){
       return '<li>' + esc(jcFmt("ca_hist_line", { s: lab("ca_st_", CA_STATUS, h.status), d: dateText(h.on) || dayOf(h.at) })) +
         (h.source ? ' · <span dir="auto">' + esc(h.source) + '</span>' : '') + (h.code && h.code !== c.code ? ' · ' + esc(h.code) : '') + '</li>';
     }).join("") + '</ul>' : '') +
+    (programme ? catLogHtml(c) : '') +                                                              /* CC-4 */
     (canEditCats() ? '<div class="row">' + (merged(c)
        ? '<button class="btn ghost" type="button" id="caUnmerge"' + off + '>' + esc(jcT("ca_unmerge")) + '</button>'
        : '<button class="btn" type="button" id="caEditCat"' + off + '>' + esc(jcT("ca_edit")) + '</button>') + '</div>' : '');
   on("caEditCat", function(){ openCatEditor(c.id); });
+  if (programme) wireCatLog(c);
   on("caUnmerge", function(){
     if (window.confirm(jcFmt("ca_unmerge_q", { c: c.code }))) save("jc_cat_unmerge", { p_cat: c.id }, "ca_unmerged");
   });

@@ -154,6 +154,58 @@
   - The desktop register **table** (DL-1 deferred it to CC-3) is deferred again: ~40 cats fit the card list + search on the
     600 px column; build it when the coordinator asks for columns (sort by status / area).
 
+- **CC-4 done 2026-11-18**: `20261118220000_cc4_cat_visits_sightings` applied (live suite 1761); Cats page Activity tab (chips All ·
+  Visits · Sightings · Problems · Not identified), station History + Log a visit, cat page history + Seen this cat, Log a sighting
+  (a register cat or a described one; station, pin or area). Review: `docs/qa/cc-4-cat-visits-sightings-review-2026-11-18.md`.
+  - Decisions taken in CC-4: an author sees their own hidden entries and shows again only what they hid; only a sighting logged with
+    a description can be linked / relinked / unlinked; visits backdate up to 14 days; residents see nothing of visits or sightings yet.
+  - Accepted for later (db M2): every Activity page scans the community's history (computed "at"); add a stored `at` + index past a
+    few thousand rows. Per-row JSON (N+1) accepted at 50 a page.
+  - Sample data on `e2e` (Zee 2026-11-18): old_id `SAMPLE-n` cats, `(sample)` stations; remove before any real import there.
+  - **Tester message (draft, plan "Overlap"):** "Community Cats is now the place for strays on the test community: log feeding
+    visits at a station (tap the cats you recognise) and sightings, even of a cat you can't name yet. Strays logged in Pets are test
+    entries and won't carry over."
+
+## CC-4 plan — visits + sightings (2026-11-18; Zee pre-authorised apply + merge for CC-4 only)
+
+**Ships:** a volunteer at a station logs one **feeding visit** (date, food / water / cleaned, headcount, taps the cats they
+recognised, counts of unfamiliar cats and kittens, "flag a problem" + what's wrong); anyone in the programme logs a
+**sighting** of a known cat *or* of a cat not yet in the register (described), with where (station, or a pin via the shared
+Where flow) and when. Both are kept **forever** as dated history. Coordinators link an unidentified sighting to a cat and
+hide duplicates. Programme-only: residents see none of it in CC-4.
+
+**DB (CC-4a, one migration, `/db-rehearse`):**
+- `jc_cat_visits` (station required, `visited_on` not future and ≤ 14 days back, 3 checks, headcount 0–200, unfamiliar
+  0–50, kittens 0–50, `problem` text ≤ 500 = the flag, note ≤ 500, `logged_by` + **`logged_name` snapshot** (decision 3:
+  a removed volunteer's visits keep their name), `hidden_at` / `hidden_by`) + `jc_cat_visit_cats` (the cats tapped).
+- `jc_cat_sightings` (`cat_id` **nullable** = not identified yet → then `description` required; place = station *or*
+  lat/lng (in the community's map box) *or* neither + area; `seen_at` not future; note; `logged_name`; hidden; `linked_by`).
+- RPCs (authenticated): `jc_cat_visit_add`, `jc_cat_sighting_add` (gate: `cats` OR `cats_vol` OR community — the CC-1 L4
+  carry-over, tested for a coordinator without `cats_vol`), `jc_cat_activity(p_station, p_cat, p_before)` (programme
+  read, newest first, 50 a page; a cat's history includes the records merged into it), `jc_cat_log_hide(p_kind, p_id,
+  p_hidden)` (coordinators; an author may hide their own within 24 h), `jc_cat_sighting_link(p_sighting, p_cat)`
+  (coordinators; null unlinks). Rate limit: new bucket `cat_log`, 60 / h per person across visits + sightings.
+- Merge: nothing re-pointed — reads gather the survivor + its merged records (same as status history in CC-3).
+- Kill switch: module off → `MODULE_OFF` from all five. `jc_pets_retention` untouched (separate tables, test proves it).
+- Snapshots: `cats` row gains `visits_7d`, `sightings_7d`, `problems_7d`.
+- Residents: `jc_cats_public` unchanged (test: its JSON has no visit / sighting keys).
+
+**App (CC-4b, then CC-4c if over ~250 lines):** station card → **Log a visit** (form above; recognised cats = thumbnails
+of cats whose usual station / area is this one, then search); cat page → **Seen today** (sighting, Where flow) +
+**History** (sightings + visits that recognised it); a new **Activity** tab (programme): chips All · Visits · Sightings
+· Problems, Hide / Show again, "Not identified" sightings with **Link to a cat** (coordinators). Shared pieces only:
+`jcTabsHtml`, `jcChipsHtml`, `where.js`, `pet-photo.js` thumbnails, `.row` / `.mini` building blocks.
+
+**Done when:**
+| # | Check | Proof |
+|---|---|---|
+| 1 | Volunteer logs a visit with 2 recognised cats + a problem; it shows in Activity and on both cats' History | e2e `cats.spec.js` + SQL slice s35 |
+| 2 | Sighting of an unknown cat saved with a description, later linked by a coordinator, then appears on that cat | SQL s35 + e2e |
+| 3 | Residents get nothing new; `cats_vol` passes no other gate; coordinator without `cats_vol` can log | SQL s35 + 00_grants |
+| 4 | Module off → every new RPC `MODULE_OFF`; pets retention never touches cat rows | SQL s35 |
+| 5 | Migration applied live with history row, live suite green, advisors no new kinds | live run output in review doc |
+| 6 | PRs merged after Chromium CI green; Pages deploy success | `gh` run ids |
+
 ## Decisions (Zee 2026-11-17, answering this plan)
 
 1. **Volunteers = a role by invite link** (named, listed, removable, like admins), working on the Cats page only, no
