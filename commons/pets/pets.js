@@ -337,7 +337,7 @@ var VIEWS = {
       body = !hasHome() ? noHomeHtml() :
         (mine.length ? '<ul class="ptgrid" id="ptMine">' + mine.map(card).join("") + '</ul>'
                      : '<p class="help" id="ptMine">' + esc(jcT("pt_mine_none")) + '</p>') +
-        (mine.length < 10 ? '<div class="row"><button class="btn" type="button" id="ptAdd">' + esc(jcT("cta_pets")) + '</button></div>'
+        (mine.length < 10 ? '<div class="row"><button class="btn" type="button" id="ptAdd">' + esc(jcT("pt_add")) + '</button></div>'
                           : '<p class="help" id="ptCap">' + esc(jcT("pt_err_TOO_MANY_PETS")) + '</p>');
     } else if (tab === "strays") {
       var strays = pets.filter(function(p){ return p.kind === "stray"; });
@@ -802,7 +802,7 @@ function drawMinis(){
 VIEWS.edit = function(){
   if (!form) return show("list");
   var f = form;
-  el("view").innerHTML = '<h1 dir="auto">' + esc(f.id ? jcFmt("pt_edit_title", { n: f.name || "" }) : jcT("cta_pets")) + '</h1>' + msgBox() +
+  el("view").innerHTML = '<h1 dir="auto">' + esc(f.id ? jcFmt("pt_edit_title", { n: f.name || "" }) : jcT("pt_add")) + '</h1>' + msgBox() +
     '<form class="panel" id="ptForm" novalidate>' +
     '<label>' + esc(jcT("pt_name")) + '<input type="text" id="ptName" maxlength="40" dir="auto" autocomplete="off" required></label>' +
     '<fieldset id="ptPhotoBox"><legend>' + esc(jcT("pt_photo")) + '</legend><div class="ptphotoedit">' +
