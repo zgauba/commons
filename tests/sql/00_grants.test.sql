@@ -61,7 +61,9 @@ declare
     -- report a new stray (PR 1b: photos)
     'jc_stray_report_photo_begin', 'jc_stray_report_photo_commit', 'jc_stray_report_photo_remove',
     -- soft archive (PR 1)
-    'jc_admin_pet_restore', 'jc_admin_pet_hidden_sightings', 'jc_admin_sighting_unhide'];
+    'jc_admin_pet_restore', 'jc_admin_pet_hidden_sightings', 'jc_admin_sighting_unhide',
+    -- CC-2 (Cats areas + stations)
+    'jc_cat_places', 'jc_cat_programme', 'jc_cat_area_save', 'jc_cat_station_save'];
 begin
   -- Pre-launch suite: fixtures are written into 'jubail' and rolled back. Refuse to run
   -- once real residents exist — post-launch tests must move to a test community.

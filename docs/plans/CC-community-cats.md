@@ -133,6 +133,14 @@
   - **Carry into CC-4 (security review L4):** a coordinator doesn't hold `cats_vol`; every volunteer gate must accept
     `cats` OR `cats_vol` (OR community), with a test.
   - Carry into CC-3: add `cats` to `jc_snapshots_module_check` + `jc_snapshot_run` once there is cat data.
+- **CC-2 done 2026-11-18**: `20261118140000_cc2_cat_areas_stations` applied; Cats page Stations + Areas tabs; Cats **on for `e2e`**.
+  Review: `docs/qa/cc-2-cat-areas-stations-review-2026-11-18.md`.
+  - Decisions taken in CC-2: residents see public stations as a list (no map yet, no Station ID: number gaps would hint at private
+    ones); a new station must choose public / private (no default); lead / feeders / backups are Cats role holders only
+    (CC-6 import: volunteers must accept an invite before they can be put on a station).
+  - Shared `assets/where.js` = Report a stray's Where flow, used by the station editor. **Carry into CC-7 (or sooner):** move
+    Pets' Report a stray onto it (pets.js `repWhereHtml` is still its own copy).
+  - Carry into CC-3/CC-4: a resident map of public stations if the list proves hard to use.
 
 ## Decisions (Zee 2026-11-17, answering this plan)
 

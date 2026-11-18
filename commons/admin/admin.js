@@ -1585,7 +1585,9 @@ var LOG_KEYS = { home_edit: "y", home_pin_set: "y", home_suppress: "y" /* old ro
   /* R5d-1: Pets (S4 + R5a) */
   stray_save: "y", pet_care_set: "y", pet_care_add: "y", pet_archive: "y", sighting_hide: "y", pets_group_set: "y",
   /* soft archive */
-  pet_restore: "y", sighting_unhide: "y" };
+  pet_restore: "y", sighting_unhide: "y",
+  /* CC-2: Cats areas + stations (content never logged) */
+  cat_area_save: "y", cat_station_save: "y" };
 /* the homes list, well-formed rows only (a null row would throw while drawing) */
 function hhShape(d){
   if (!hObj(d) || !Array.isArray(d.homes) || !Array.isArray(d.pending)) return null;
