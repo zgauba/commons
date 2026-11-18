@@ -690,7 +690,7 @@ var VIEWS = {
           '<p class="help" id="pePinState" role="status"></p></fieldset>' +
         '<fieldset id="pePhotoBox"><legend>' + esc(jcT("pt_photo")) + '</legend><div class="ptphotoedit">' +
           (pe.photo ? '<span class="ptph big has"><img id="pePhotoNew" alt="" src="' + esc(pe.photo) + '"></span>'
-           : had ? jcPetPhotoHtml({ photo_path: f.photo_path }, 44, "big") : '') +
+           : had ? jcPetPhotoHtml({ photo_path: f.photo_path }, 44, "big", { view: true }) : '') +
           '<input type="file" id="pePhotoIn" class="sr-only" accept="image/*"' + off + '>' +
           '<div class="row"><label class="btn ghost" id="pePhotoPick" for="pePhotoIn">' + esc(jcT(pe.photo || had ? "pt_photo_change" : "pt_photo_add")) + '</label>' +
           (pe.photo ? '<button class="btn ghost" type="button" id="pePhotoDrop"' + off + '>' + esc(jcT("pt_photo_drop")) + '</button>'
@@ -2268,7 +2268,7 @@ function prStrays(){
 function prCard(r){
   var pos = jcFinite(r.lat) && jcFinite(r.lng), off = pr.busy ? ' disabled' : '', wa = prDigits(r.contact);
   var h = '<li data-report="' + esc(r.id) + '"><div class="meta">' + esc(hDate(r.created_at) + " · " + prSpecies(r)) + '</div>' +
-    (r.photo_path ? jcPetPhotoHtml(r, 44, "big") : '') +
+    (r.photo_path ? jcPetPhotoHtml(r, 44, "big", { view: true }) : '') +
     (r.note ? '<div dir="auto">' + esc(r.note) + '</div>' : '') +
     (r.place ? '<div class="meta" dir="auto">' + esc(jcFmt("pr_place", { p: r.place })) + '</div>' : '') +
     '<div class="meta">' + esc(prWho(r)) + '</div>';

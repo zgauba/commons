@@ -35,6 +35,7 @@ The `e2e` test community stays the place to try everything; Jubail's modules sta
 | Sign-up name | Sign-up asks for an optional **display name** (Zee 2026-11-17: buried in My Home → Account, nobody filled it — 1 of 5 live accounts), who-sees-it text under the field; saved after joining, never blocks it; disclosure copy fixed (organizers see it too; Account help no longer says "never your name"). Backlog: someone already signed in who then enters a join code skips the account step, so is not asked (My Home only). **Backlog (security review M1, DB):** harden `jc_display_name_set` — `jc_clean_line(left(p_name, 200))` + strip bidi overrides, BAD_NAME if nothing is left; show the masked email beside names in organizer rows (impersonation). |
 | Link Done | A **Done** button beside Copy / Share on every one-time link box (Admins screen, per-event admins, household invite) closes it so another can be made; asks first only if the link was never copied or shared (it can't be shown again) — Zee 2026-11-17. |
 | DL-1 | **Desktop layout** (Zee 2026-11-17): at ≥ 900 px resident pages are a 600 px column; Organizer Tools (`<body class="wide">`) goes up to 1200 px with forms kept at 600 px and card lists (events, sign-ups, households, pets, stray reports) in columns (`.jcgrid`); timelines stay one column; tab bar centred; `.jcsplit` (list beside map) ready for Community Cats. Phones unchanged. Tables deferred to the Cats register. |
+| PV-1 | **Photo viewer** (Zee 2026-11-17): tap a saved photo (pet page, My Reports, Organizer Tools stray reports + stray editor) → full screen; Close / Escape / tap outside (never the end of a swipe); several photos: "n of t", previous / next, arrow keys, swipe, mirrored in Arabic. List cards keep opening the pet. Shared `jcPhotoView` in `pet-photo.js`, same signed URLs (no extra downloads). Plan `docs/plans/PV-photo-viewer.md` |
 
 Detail: `docs/architecture.md` (Stack Manifest) and the reviews in `docs/qa/`.
 
@@ -277,7 +278,7 @@ cat (look-alike orange cats); no per-cat "fed" button (one log per station visit
   resident screens stay a centred column, a little wider. Built once in `assets/`, used by every module.
 - Before the Community Cats UI, so it's built wide from the start.
 
-### Photo viewer (shared)  ·  app only  (Zee 2026-11-17)
+### Photo viewer (shared)  ·  app only  (Zee 2026-11-17)  ·  ✓ PV-1 done (`docs/plans/PV-photo-viewer.md`)
 - Tap any pet / cat / stray-report photo → it opens large in a modal (close button, Escape, swipe or tap outside;
   next / previous when there are several photos). One shared component in `assets/`, reused by Events and Bookings
   wherever they show photos (cross-module consistency rule).

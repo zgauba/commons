@@ -404,7 +404,7 @@ var VIEWS = {
     /* header: photo, name, species · kind, badges; the missing alarm (with the owner's "is back home") on every tab */
     /* compact: photo beside the name, so the tabs stay on the first screen */
     var badges = chips(p, true, true);
-    h += '<div class="pthero">' + jcPetPhotoHtml(p, 34, "tile") + '<div class="ptwho"><div class="evtitle"><h1 dir="auto">' + esc(p.name) + '</h1>' +
+    h += '<div class="pthero">' + jcPetPhotoHtml(p, 34, "tile", { view: true }) + '<div class="ptwho"><div class="evtitle"><h1 dir="auto">' + esc(p.name) + '</h1>' +
       /* pets / community admins: the way into Organizer Tools → Pets, as on a court's page (R5d-1) */
       (canAdmin() ? '<a class="lang adminbtn" id="ptAdmin" href="../admin/?tab=pets&pet=' + encodeURIComponent(p.id) + '">' + esc(jcT("ev_admin")) + '</a>' : '') + '</div>' +
       '<p class="meta">' + esc(speciesText(p) + " · " + kindText(p)) + '</p>' +
@@ -1169,7 +1169,7 @@ function myReportsHtml(){
   return '<h2 class="group" id="rpMineH">' + esc(jcT("rp_mine")) + '</h2><ul class="bklist" id="rpMine">' + reports.map(function(x){
     var st = repState(x), open = x.state === "open", off = ptBusy ? ' disabled' : '';
     return '<li data-myreport="' + esc(x.id) + '"><div class="meta">' + esc(when(x.created_at) + " · " + jcT("pt_sp_" + (SPECIES.indexOf(x.species) >= 0 ? x.species : "other"))) + '</div>' +
-      (open && x.photo_path ? jcPetPhotoHtml(x, 34, "tile") : '') +
+      (open && x.photo_path ? jcPetPhotoHtml(x, 34, "tile", { view: true }) : '') +
       (x.place ? '<div class="meta" dir="auto">' + esc(x.place) + '</div>' : '') +
       '<div><b dir="auto">' + esc(st.t) + '</b></div>' +
       '<div class="acts">' + (st.pet ? '<button class="btn ghost small" type="button" data-rpopen="' + esc(st.pet.id) + '">' + esc(jcT("rp_see")) + '</button>' : '') +

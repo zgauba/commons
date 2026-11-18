@@ -9,10 +9,16 @@
 var JC_PET_PHOTO_MAX = 1280, JC_PET_PHOTO_TTL = 3600;
 var JC_PET_PHOTO_IN_MAX = 25e6, JC_PET_PHOTO_PX_MAX = 50e6;        /* refuse before decoding: a huge file / bitmap can kill the tab */
 var jcPetPhotoUrls = {}, jcPetPhotoAsked = {};                 /* path → { url, exp } · path → true while being signed */
-function jcPetPhotoHtml(p, size, cls){
+/* opt.view: the saved photo becomes a button that opens the photo viewer (PV-1) — true, or a list of paths (several
+   photos, this one first). Never inside another button (a list card): the card opens the pet instead. */
+function jcPetPhotoHtml(p, size, cls, opt){
   var path = typeof p.photo_path === "string" && p.photo_path ? p.photo_path : null;
   if (!path) return cls === "tile" ? '<span class="ptph tile">' + jcIcon("pets", size) + '</span>' : jcIcon("pets", size);
-  return '<span class="ptph ' + cls + '" data-photo="' + esc(path) + '">' + jcIcon("pets", size) + '</span>';
+  var h = '<span class="ptph ' + cls + '" data-photo="' + esc(path) + '">' + jcIcon("pets", size) + '</span>';
+  if (!opt || !opt.view) return h;
+  var paths = Array.isArray(opt.view) ? opt.view : [path];
+  return '<button type="button" class="ptview ' + cls + '" data-view="' + esc(JSON.stringify(paths)) + '" data-view-at="' +
+    Math.max(0, paths.indexOf(path)) + '" aria-label="' + esc(jcT("pv_view")) + '">' + h + '</button>';
 }
 /* a signed URL is good for an hour; re-sign 5 minutes early so a long-open page never keeps a dead one (review) */
 function jcPetPhotoUrl(path){ var u = jcPetPhotoUrls[path]; return u && u.exp > Date.now() ? u.url : null; }
@@ -102,6 +108,78 @@ function jcPetPhotoUpload(id, dataUrl, report){
     });
   });
 }
+
+/* ---------- photo viewer (PV-1, 2026-11-18) ----------
+   Tap a photo → full screen. Close button, Escape (native <dialog>), or a tap outside the photo (a tap, never the end
+   of a swipe). Several photos: "2 of 4", previous / next, arrow keys, swipe — all mirrored in Arabic. The photo is the
+   same signed URL the page already holds (jcPetPhotoFill): no extra download. */
+var jcPv = { paths: [], i: 0, from: null, swiped: false };
+function jcPvRtl(){ return document.documentElement.getAttribute("dir") === "rtl"; }
+function jcPvClose(){ var d = document.getElementById("jcPhotoView"); if (!d) return; if (d.close) d.close(); else { d.removeAttribute("open"); jcPvBack(); } }
+function jcPvBack(){ var b = jcPv.from; jcPv.from = null; if (b && b.isConnected) b.focus(); }
+function jcPvStep(n){ var j = jcPv.i + n; if (j < 0 || j >= jcPv.paths.length) return; jcPv.i = j; jcPvDraw(); }
+function jcPvDraw(){
+  var d = document.getElementById("jcPhotoView"), t = jcPv.paths.length, many = t > 1;
+  var a = document.activeElement, had = a && a !== d && d.contains(a) ? a.id : "";   /* keep focus on the same button */
+  d.innerHTML = '<div class="pvhead">' + (many ? '<span class="pvcount" aria-live="polite">' + esc(jcFmt("pv_count", { n: jcPv.i + 1, t: t })) + '</span>' : '<span></span>') +
+    '<button type="button" class="lang" id="pvClose">' + esc(jcT("ev_labels_close")) + '</button></div>' +
+    '<div class="pvstage"><span class="ptph full" data-photo="' + esc(jcPv.paths[jcPv.i]) + '">' + jcIcon("pets", 48) + '</span></div>' +
+    (many ? '<div class="pvnav"><button type="button" class="btn ghost" id="pvPrev" aria-label="' + esc(jcT("pv_prev")) + '"' + (jcPv.i === 0 ? ' disabled' : '') + '><span class="pvchev">‹</span></button>' +
+            '<button type="button" class="btn ghost" id="pvNext" aria-label="' + esc(jcT("pv_next")) + '"' + (jcPv.i === t - 1 ? ' disabled' : '') + '><span class="pvchev">›</span></button></div>' : '');
+  document.getElementById("pvClose").addEventListener("click", jcPvClose);
+  if (many) {
+    document.getElementById("pvPrev").addEventListener("click", function(){ jcPvStep(-1); });
+    document.getElementById("pvNext").addEventListener("click", function(){ jcPvStep(1); });
+  }
+  var f = had && document.getElementById(had);
+  (f && !f.disabled ? f : document.getElementById("pvClose")).focus();
+  jcPetPhotoFill();
+}
+function jcPhotoView(paths, i, from){
+  paths = (Array.isArray(paths) ? paths : []).filter(function(p){ return typeof p === "string" && p; });
+  if (!paths.length) return;
+  var d = document.getElementById("jcPhotoView");
+  if (!d) {
+    d = document.createElement("dialog");
+    d.id = "jcPhotoView"; d.className = "photoview";
+    document.body.appendChild(d);
+    var sx = null, sy = null;
+    /* one finger only: a second finger (a pinch) cancels the swipe and is never a closing tap (review) */
+    d.addEventListener("pointerdown", function(e){
+      if (!e.isPrimary) { sx = null; jcPv.swiped = true; return; }
+      sx = e.clientX; sy = e.clientY; jcPv.swiped = false;
+    });
+    d.addEventListener("pointercancel", function(){ sx = null; });
+    d.addEventListener("pointerup", function(e){
+      if (sx === null || !e.isPrimary) return;
+      var dx = e.clientX - sx, dy = e.clientY - sy; sx = null;
+      if (Math.abs(dx) >= 10 || Math.abs(dy) >= 10) jcPv.swiped = true;                /* moved: never a closing tap */
+      if (Math.abs(dx) > 40 && Math.abs(dx) > Math.abs(dy)) jcPvStep((dx < 0) !== jcPvRtl() ? 1 : -1);
+    });
+    d.addEventListener("click", function(e){
+      if (jcPv.swiped) { jcPv.swiped = false; return; }
+      var t = e.target;                                     /* anywhere dark (stage, header, arrow row): not the photo or a button */
+      if (!(t.closest && t.closest("button, img"))) jcPvClose();
+    });
+    d.addEventListener("keydown", function(e){
+      if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
+      e.preventDefault();
+      jcPvStep((e.key === "ArrowRight") !== jcPvRtl() ? 1 : -1);
+    });
+    d.addEventListener("close", jcPvBack);
+  }
+  jcPv.paths = paths; jcPv.i = Math.min(Math.max(0, i | 0), paths.length - 1); jcPv.from = from || null;
+  d.setAttribute("aria-label", jcT("pt_photo"));
+  if (d.showModal) { if (!d.open) d.showModal(); } else d.setAttribute("open", "");
+  jcPvDraw();
+}
+document.addEventListener("click", function(e){
+  var b = e.target.closest && e.target.closest("[data-view]");
+  if (!b) return;
+  var paths;
+  try { paths = JSON.parse(b.dataset.view); } catch (x) { return; }
+  jcPhotoView(paths, parseInt(b.dataset.viewAt, 10) || 0, b);
+});
 
 /* ---------- care log (care v2, 2026-11-15): one rule for both pages ----------
    An auto-logged status change carries the state (no note) and shows its label in the reader's language;
