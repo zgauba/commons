@@ -63,7 +63,10 @@ declare
     -- soft archive (PR 1)
     'jc_admin_pet_restore', 'jc_admin_pet_hidden_sightings', 'jc_admin_sighting_unhide',
     -- CC-2 (Cats areas + stations)
-    'jc_cat_places', 'jc_cat_programme', 'jc_cat_area_save', 'jc_cat_station_save'];
+    'jc_cat_places', 'jc_cat_programme', 'jc_cat_area_save', 'jc_cat_station_save',
+    -- CC-3 (Cats register)
+    'jc_cats_public', 'jc_cat_register', 'jc_cat_save', 'jc_cat_merge', 'jc_cat_unmerge',
+    'jc_cat_photo_begin', 'jc_cat_photo_commit', 'jc_cat_photo_remove'];
 begin
   -- Pre-launch suite: fixtures are written into 'jubail' and rolled back. Refuse to run
   -- once real residents exist — post-launch tests must move to a test community.

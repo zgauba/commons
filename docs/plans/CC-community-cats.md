@@ -99,7 +99,7 @@
 | CC-4 | **Visits + sightings** (DB → app) | DB, app | feeding visit form (checks, headcount, tap register thumbnails, "flag a problem"); sightings as dated history, allowed before a cat is identified |
 | CC-5 | **Vet log** (DB → app) | DB, app | per visit: date, clinic, what was done, vaccine, given, next due, invoice number, Drive link (allow-listed `drive.google.com` / `docs.google.com` only). No amounts |
 | CC-6 | **Import her doc** | data only | one-time load of ~40 cats, ~20 stations, volunteers, run by Zee in the SQL editor from a local file; **never committed** (PII). Comes **before** strays leave Pets so the real records are in Cats first |
-| CC-7 | **Pets just for pets** (app → DB) | app, DB | Pets' Strays tab, stray editor and per-cat "fed" quick log removed; every stray report routes to Cats (decision 2); the stray-only Pets functions switched off. **No data move:** the 7 strays in Pets are test data and are archived, not converted (Zee 2026-11-17); the real cats come from the import |
+| CC-7 | **Pets just for pets** (app → DB) | app, DB | Pets' Strays tab, stray editor and per-cat "fed" quick log removed; every stray report routes to Cats (decision 2); the stray-only Pets functions switched off; **Report a stray's Where step moves onto the shared `assets/where.js`** (CC-2 carry-over: pets.js `repWhereHtml` is still its own copy). **No data move:** the 7 strays in Pets are test data and are archived, not converted (Zee 2026-11-17); the real cats come from the import |
 
 - **Cost impact: $0.** No paid layer. Storage: Phase 1 photos are cat ID photos only (~40 cats × ~4 photos ×
   ~300 KB ≈ **48 MB**) against the 1 GB free tier; visit forms tag existing thumbnails and upload nothing.
@@ -141,6 +141,18 @@
   - Shared `assets/where.js` = Report a stray's Where flow, used by the station editor. **Carry into CC-7 (or sooner):** move
     Pets' Report a stray onto it (pets.js `repWhereHtml` is still its own copy).
   - Carry into CC-3/CC-4: a resident map of public stations if the list proves hard to use.
+- **CC-3 done 2026-11-18**: `20261118180000_cc3_cat_register` applied; Cats page cat register (residents: list + search + cat page;
+  programme: full record + status history; coordinators: editor, up to 4 photos, merge / undo). Review:
+  `docs/qa/cc-3-cat-register-review-2026-11-18.md`.
+  - Decisions taken in CC-3: residents see each cat's name, photos, area, status, ear tip, sterilisation and story (never the old ID,
+    station, TNVR, dates or sources); provisional cats are shown to residents, marked; a merge keeps the merged record as a pointer
+    (its photos + status history show on the survivor; cats inside it follow; undo restores); a station with no area gives the cat
+    the station's area; the photo path keeps the original cat's folder after a merge (accepted, security L1).
+  - Accepted for later: the resident list is unpaginated with no rate limit (≈40 cats; revisit past a few hundred); CC-2 can still
+    move or archive a station under cats (cats keep their own area; revisit at CC-4); a survivor can show more than 4 photos after
+    merges. "Vaccinated ✓" in the resident view comes with the vet log (CC-5).
+  - The desktop register **table** (DL-1 deferred it to CC-3) is deferred again: ~40 cats fit the card list + search on the
+    600 px column; build it when the coordinator asks for columns (sort by status / area).
 
 ## Decisions (Zee 2026-11-17, answering this plan)
 

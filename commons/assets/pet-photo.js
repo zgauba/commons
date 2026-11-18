@@ -94,9 +94,11 @@ function jcPetPhotoShrink(file){
     r.readAsDataURL(file);
   });
 }
-/* report: true → the photo of a resident's stray report (jc_stray_report_photo_begin / _commit, keyed p_id) */
+/* report: true → the photo of a resident's stray report (jc_stray_report_photo_begin / _commit, keyed p_id);
+   "cat" → one more photo of a programme cat (CC-3: jc_cat_photo_begin / _commit, keyed p_cat + the path) */
 function jcPetPhotoUpload(id, dataUrl, report){
-  var begin = report ? rpc("jc_stray_report_photo_begin", { p_id: id, p_ext: "jpg" }) : rpc("jc_pet_photo_begin", { p_pet: id, p_ext: "jpg" });
+  var begin = report === "cat" ? rpc("jc_cat_photo_begin", { p_cat: id, p_ext: "jpg" })
+            : report ? rpc("jc_stray_report_photo_begin", { p_id: id, p_ext: "jpg" }) : rpc("jc_pet_photo_begin", { p_pet: id, p_ext: "jpg" });
   return begin.then(function(b){
     if (!jcObj(b) || typeof b.path !== "string") throw jcErr("UNKNOWN");
     var bin = atob(dataUrl.slice(dataUrl.indexOf(",") + 1)), buf = new Uint8Array(bin.length);
@@ -104,7 +106,8 @@ function jcPetPhotoUpload(id, dataUrl, report){
     /* raw bytes, not a Blob: a Blob would go up as a multipart form */
     return jcDb.storage.from("pet-photos").upload(b.path, buf.buffer, { contentType: "image/jpeg", upsert: false }).then(function(r){
       if (!r || r.error) throw jcErr("PHOTO_UPLOAD_FAILED");
-      return report ? rpc("jc_stray_report_photo_commit", { p_id: id }) : rpc("jc_pet_photo_commit", { p_pet: id });
+      return report === "cat" ? rpc("jc_cat_photo_commit", { p_cat: id, p_path: b.path })
+           : report ? rpc("jc_stray_report_photo_commit", { p_id: id }) : rpc("jc_pet_photo_commit", { p_pet: id });
     });
   });
 }

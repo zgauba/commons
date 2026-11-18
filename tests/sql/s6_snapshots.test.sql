@@ -47,8 +47,8 @@ begin
 
   -- ---------- N01 one row per module per community per hour ----------
   n := jc_snapshot_run(v_at);
-  if n <> 6 * (select count(*) from jc_communities) then raise exception 'FAIL N01a returned %', n; end if;
-  if (select count(*) from jc_snapshots where community_id = 'testville6' and bucket = v_bucket) <> 6 then
+  if n <> 7 * (select count(*) from jc_communities) then raise exception 'FAIL N01a returned %', n; end if;
+  if (select count(*) from jc_snapshots where community_id = 'testville6' and bucket = v_bucket) <> 7 then
     raise exception 'FAIL N01b testville6 rows'; end if;
   k := k + 2;
 
@@ -81,7 +81,7 @@ begin
   -- ---------- N04 a re-run in the same hour overwrites (idempotent) ----------
   insert into jc_homes (community_id, village_key, home_type, number_raw) values ('testville6', 'north', 'villa', '3');
   perform jc_snapshot_run(v_at + interval '20 minutes');
-  if (select count(*) from jc_snapshots where community_id = 'testville6' and bucket = v_bucket) <> 6 then
+  if (select count(*) from jc_snapshots where community_id = 'testville6' and bucket = v_bucket) <> 7 then
     raise exception 'FAIL N04a duplicate rows on re-run'; end if;
   if (select (metrics ->> 'total')::int from jc_snapshots
        where community_id = 'testville6' and module = 'homes' and bucket = v_bucket) <> 3 then
