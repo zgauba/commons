@@ -22,6 +22,7 @@ var catQ = "", catId = null;          /* the cats search · the open cat */
 var ced = null;                       /* the cat editor's draft: { id | null, f: {field: value}, merge_into, shrinking } */
 var ed = null;                        /* the station editor's draft: { id | null, area_id, w (where.js), landmark, notes, private (null = not chosen), people {user_id: role}, archived } */
 var newArea = "";
+var renaming = null;                  /* the area being renamed: { id, name } (only one at a time) */
 function caMsg(code){ jcShowErrFor("ca_err_", code); }
 function scopes(){ return (state && state.me && state.me.admin_scopes) || []; }
 function inProgramme(){ var sc = scopes(); return sc.indexOf("cats") >= 0 || sc.indexOf("cats_vol") >= 0 || sc.indexOf("community") >= 0; }
@@ -125,7 +126,7 @@ var VIEWS = {
     var body = tab === "areas" ? areasHtml() : tab === "cats" ? catsHtml(reg, true) : stationsHtml();
     el("view").innerHTML = head + jcTabsHtml("caTab_", keys, tab, function(k){ return jcT("ca_tab_" + k); }, jcModTitle("cats"), "caPanel") +
       '<div ' + jcTabPanel("caTab_", tab, "caPanel") + '>' + body + '</div>';
-    jcTabsWire("caTab_", keys, function(k){ tab = k; draw(); });
+    jcTabsWire("caTab_", keys, function(k){ tab = k; renaming = null; draw(); });
     if (tab === "areas") wireAreas(); else if (tab === "cats") wireCats(reg); else wireStations();
   },
   cat: function(){ catView(); },
@@ -230,10 +231,16 @@ function areasHtml(){
     (list.length ? list.map(function(a){
       var n = typeof a.stations === "number" ? a.stations : 0;
       var lab = ' aria-label="' + esc(jcFmt("ca_area_named", { a: a.name })) + '"';     /* review L3: each row named */
-      return '<div class="panel caArea" data-area="' + esc(a.id) + '" role="group"' + lab + '><label>' + esc(jcT("ca_area_name")) +
-        '<input type="text" maxlength="40" dir="auto" data-aname="' + esc(a.id) + '" value="' + esc(a.name) + '"' + off + '></label>' +
-        '<p class="help">' + esc(a.archived === true ? jcT("ca_area_archived") : jcFmt("ca_area_count", { n: n })) + '</p>' +
-        '<div class="row"><button class="mini" type="button" data-arename="' + esc(a.id) + '"' + off + '>' + esc(jcT("ca_area_rename")) + '</button> ' +
+      var count = '<p class="help">' + esc(a.archived === true ? jcT("ca_area_archived") : jcFmt("ca_area_count", { n: n })) + '</p>';
+      /* Zee 2026-11-18: the name is plain text until Rename is tapped; then a box with Save / Cancel */
+      if (renaming && renaming.id === a.id) {
+        return '<form class="panel caArea" data-area="' + esc(a.id) + '" data-renaming' + lab + ' novalidate><label>' + esc(jcT("ca_area_name")) +
+          '<input type="text" maxlength="40" dir="auto" autocomplete="off" data-aname="' + esc(a.id) + '" value="' + esc(renaming.name) + '"' + off + '></label>' + count +
+          '<div class="row"><button class="btn" type="submit" data-asave="' + esc(a.id) + '"' + off + '>' + esc(jcT("ct_save")) + '</button>' +
+          '<button class="btn ghost" type="button" data-acancel="' + esc(a.id) + '"' + off + '>' + esc(jcT("ct_cancel")) + '</button></div></form>';
+      }
+      return '<div class="panel caArea" data-area="' + esc(a.id) + '" role="group"' + lab + '><b class="caAreaName" dir="auto">' + esc(a.name) + '</b>' + count +
+        '<div class="row"><button class="mini" type="button" data-arename="' + esc(a.id) + '"' + off + '>' + esc(jcT("ca_area_rename")) + '</button>' +
         '<button class="mini" type="button" data-aarch="' + esc(a.id) + '" data-on="' + (a.archived === true ? "0" : "1") + '"' + off + '>' +
           esc(jcT(a.archived === true ? "ca_area_restore" : "ca_area_archive")) + '</button></div></div>';
     }).join("") : '<p class="help" id="caNoAreas">' + esc(jcT("ca_areas_none")) + '</p>') +
@@ -241,6 +248,7 @@ function areasHtml(){
     '<input type="text" id="caAreaNew" maxlength="40" dir="auto" autocomplete="off"' + off + '></label>' +
     '<button class="btn" type="submit" id="caAreaAdd"' + off + '>' + esc(jcT("ca_area_add")) + '</button></form>';
 }
+function focusArea(sel){ var x = document.querySelector(sel); if (x) x.focus(); }
 function wireAreas(){
   el("caAreaNew").value = newArea;
   el("caAreaNew").addEventListener("input", function(){ newArea = el("caAreaNew").value; });
@@ -250,10 +258,28 @@ function wireAreas(){
     save("jc_cat_area_save", { p_area: null, p_name: newArea.trim(), p_archived: null }, "ca_saved", function(){ newArea = ""; });
   });
   each("[data-arename]", function(b){
-    var i = document.querySelector('[data-aname="' + b.dataset.arename + '"]');
-    if (!i || !i.value.trim()) { caMsg("NO_NAME"); return; }
-    save("jc_cat_area_save", { p_area: b.dataset.arename, p_name: i.value.trim(), p_archived: null }, "ca_saved");
+    var a = areasOf(prog).filter(function(x){ return x.id === b.dataset.arename; })[0];
+    if (!a) return;
+    renaming = { id: a.id, name: a.name };
+    draw();
+    focusArea('[data-aname="' + a.id + '"]');
   });
+  var f = document.querySelector("form[data-renaming]");
+  if (f) {
+    var id = f.dataset.area, inp = f.querySelector("[data-aname]");
+    var cancel = function(){ renaming = null; draw(); focusArea('[data-arename="' + id + '"]'); };
+    inp.addEventListener("input", function(){ renaming.name = inp.value; });
+    f.addEventListener("keydown", function(e){ if (e.key === "Escape") cancel(); });   /* review L7: from the buttons too */
+    f.querySelector("[data-acancel]").addEventListener("click", cancel);
+    f.addEventListener("submit", function(e){
+      e.preventDefault();
+      if (!inp.value.trim()) { caMsg("NO_NAME"); inp.focus(); return; }
+      /* review L5: after Save, focus goes back to this area's Rename (after save() has redrawn) */
+      save("jc_cat_area_save", { p_area: id, p_name: inp.value.trim(), p_archived: null }, "ca_saved", function(){
+        renaming = null; setTimeout(function(){ focusArea('[data-arename="' + id + '"]'); }, 0);
+      });
+    });
+  }
   each("[data-aarch]", function(b){
     save("jc_cat_area_save", { p_area: b.dataset.aarch, p_name: null, p_archived: b.dataset.on === "1" }, "ca_saved");
   });
@@ -263,6 +289,7 @@ function show(name){
   current = name;
   if (name !== "station") takeMap();
   if (name !== "catedit") ced = null;
+  if (name !== "home") renaming = null;      /* review L6: a rename box never outlives the Areas screen */
   jcHelp(name === "home" ? "cats" : null);
   VIEWS[name]();
 }

@@ -124,6 +124,22 @@ a.badge:visited{color:var(--jc-accent)}
 .chip{display:inline-block; font-size:11.5px; line-height:1.5; border:1px solid var(--jc-line); border-radius:999px; padding:0 8px; color:var(--jc-muted)}
 .chip.miss{background:var(--jc-danger); border-color:var(--jc-danger); color:#2d0808; font-weight:700}
 .chip.warn{border-color:var(--jc-warn); color:var(--jc-warn); font-weight:700}
+/* Shared building blocks, one copy for every page (module CSS only adds page-specific variants).
+   Three looks, never mixed up (Zee 2026-11-18):
+   - .chip: a small outlined pill that only labels (status, provisional). Never tappable.
+   - choices (.filters / .opts buttons): bigger filled pills you pick one of; the picked one gets the accent ring.
+   - actions: squarer corners. .btn for a screen's main actions, .mini for small actions inside a card.
+   Actions side by side go in a .row so they never touch. */
+.row{display:flex; gap:8px; flex-wrap:wrap}
+.row .btn{flex:1}
+.mini{font:inherit; font-size:13px; font-weight:700; cursor:pointer; color:var(--jc-ink); background:var(--jc-surface);
+  border:1px solid var(--jc-line); border-radius:8px; padding:7px 12px; min-height:36px; min-width:36px}
+.mini.danger{color:var(--jc-danger); border-color:var(--jc-danger)}
+.mini:disabled{opacity:.5; cursor:default}
+fieldset{border:0; margin:0; padding:0; display:flex; flex-direction:column; gap:6px}
+legend{font-size:13px; font-weight:700; color:var(--jc-muted); margin-bottom:6px; padding:0}
+h2.group{font-size:12.5px; letter-spacing:.08em; text-transform:uppercase; color:var(--jc-muted); margin:10px 0 0}
+.notice{margin:0; padding:10px 12px; border-radius:10px; border:1px solid var(--jc-accent); background:var(--jc-surface); font-size:13.5px; line-height:1.4}
 
 /* filter chips (api.js jcChipsHtml; OT-1 moved them here from pets.css): Pets, Organizer Tools */
 .filters, .opts{display:flex; flex-wrap:wrap; gap:6px}
