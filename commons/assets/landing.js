@@ -131,7 +131,9 @@ function renderHub(){
   el("tagline").textContent = hubHome ? jcFmt("hub_hello", { h: jcHomeLabel(hubHome) }) : jcT("tagline");
   var mods = cfg.modules || {};
   /* The Community (map + directory) has no module flag; it lands later in T5 */
-  el("cards").innerHTML = ["events", "bookings", "pets", "community"].map(function(k){
+  /* CC-1: Cats is a programme, not every community's: its card shows only while it is switched on (no "coming soon") */
+  var keys = ["events", "bookings", "pets"].concat(mods.cats && mods.cats.enabled === true ? ["cats"] : []).concat(["community"]);
+  el("cards").innerHTML = keys.map(function(k){
     return moduleCard(k, !!(mods[k] && mods[k].enabled));
   }).join("");
   if (mods.pets && mods.pets.enabled === true) loadPetAlerts();

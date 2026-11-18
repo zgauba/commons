@@ -26,6 +26,12 @@ var JC_ICONS = {
   pets: { vb: "2 -5 76 76", body:
     '<circle cx="10" cy="30" r="8"/><circle cx="28" cy="12" r="8"/><circle cx="52" cy="12" r="8"/>' +
     '<circle cx="70" cy="30" r="8"/><circle cx="40" cy="46" r="16"/>' },
+  /* CC-1 Cats: a cat's head in the dot language: a round face and two pointed ears, each ear three 8% dots
+     (tip + two at its base) so it reads as a point, not a mouse's round ear */
+  cats: { vb: "0 0 100 100", body:
+    '<circle cx="8" cy="8" r="8"/><circle cx="12" cy="27" r="8"/><circle cx="29" cy="19" r="8"/>' +
+    '<circle cx="92" cy="8" r="8"/><circle cx="88" cy="27" r="8"/><circle cx="71" cy="19" r="8"/>' +
+    '<circle cx="50" cy="62" r="34"/>' },
   /* the reduced cut of the Commons mark (brand.md: <24px / small UI) — stands for
      "a community" on the platform picker */
   mark: { vb: "3.95 3.95 88.1 88.1", body:

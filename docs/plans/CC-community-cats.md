@@ -122,6 +122,18 @@
 | 7 | Rollback | Covered | module flag off = kill switch (every Cats RPC → `MODULE_OFF`); migrations additive until CC-7; CC-7 archives the old test strays in `jc_pets` (not deleted) for 30 days |
 | UX | "Behaves differently from Pets" | **Yes** | cat page reuses the pet page's header, tabs, map tab and photo look; deliberate differences (status vs care state) explained in the page help "?" |
 
+## Progress
+
+- **CC-1 done 2026-11-18**: `20261118100000_cc1_cats_foundation` applied; `commons/cats/` page; Admins screen invites
+  Cats coordinators and volunteers while Cats is on. Review: `docs/qa/cc-1-cats-foundation-review-2026-11-18.md`.
+  - Decision taken in CC-1: Cats coordinators **and** volunteers never show Organizer Tools (`nav.js`
+    `JC_NOT_ORGANIZER`); coordinators work on the Cats page. Revisit at CC-7 if the stray report queue lands in
+    Organizer Tools.
+  - Cats stays **off** on every community (including `e2e`) until it is usable: switch it on for `e2e` at CC-2.
+  - **Carry into CC-4 (security review L4):** a coordinator doesn't hold `cats_vol`; every volunteer gate must accept
+    `cats` OR `cats_vol` (OR community), with a test.
+  - Carry into CC-3: add `cats` to `jc_snapshots_module_check` + `jc_snapshot_run` once there is cat data.
+
 ## Decisions (Zee 2026-11-17, answering this plan)
 
 1. **Volunteers = a role by invite link** (named, listed, removable, like admins), working on the Cats page only, no

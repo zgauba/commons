@@ -45,8 +45,8 @@ function jcCommunityName(cfg, id){
    written by jc_admin_module_label_set). Nothing set = the built-in strings below. Like jcCommunityName: a
    loaded config replaces the cache; until one loads (or if it fails), the last names this browser saw for
    this community. Display text only — callers esc() it, and give its element dir="auto". */
-var JC_MOD_NAME  = { events: "module_events", bookings: "module_bookings", pets: "feat_pets",   community: "module_community" };
-var JC_MOD_TITLE = { events: "ev_title",      bookings: "module_bookings", pets: "module_pets", community: "module_community" };
+var JC_MOD_NAME  = { events: "module_events", bookings: "module_bookings", pets: "feat_pets",   cats: "feat_cats",   community: "module_community" };
+var JC_MOD_TITLE = { events: "ev_title",      bookings: "module_bookings", pets: "module_pets", cats: "module_cats", community: "module_community" };
 var JC_LABELS;                              /* undefined = not read yet; null = none */
 function jcLabelsSet(cfg, id){
   if (cfg && typeof cfg === "object" && Object.prototype.hasOwnProperty.call(cfg, "labels")) {
