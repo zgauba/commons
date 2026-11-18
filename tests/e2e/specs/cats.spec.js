@@ -95,13 +95,26 @@ test("Admins screen: Cats coordinators and volunteers listed only while Cats is 
   expect(calls.filter((c) => c.name === "jc_module_admin_link_create").pop().args).toEqual({ p_scope: "cats_vol" });
 });
 
-test("Admins screen with Cats off: no Cats levels, none asked for", async ({ page }) => {
-  const { calls } = await stubBackend(page, { rpc: adminsBackend(CONFIG) });
+test("Admins screen with Cats off: no Cats levels while nobody holds one", async ({ page }) => {
+  await stubBackend(page, { rpc: adminsBackend(CONFIG) });
   await signIn(page);
   await page.goto("admin/?tab=community");
   await page.locator("#adOpen").click();
   await expect(page.locator("h2.group")).toHaveCount(4);
-  expect(calls.filter((c) => c.name === "jc_module_admins_list").map((c) => c.args.p_scope)).not.toContain("cats");
+});
+
+test("Admins screen with Cats off: a volunteer still holding the role is listed and removable", async ({ page }) => {
+  const VOL = { user_id: "u-5", name: "Mona", village: "ain-al-maha", type: "villa", building: null, number: "5",
+                granted_at: "2026-11-18T10:00:00Z", last_used_at: "2026-11-18T10:00:00Z", via: ["invite"], idle: false };
+  const rpc = adminsBackend(CONFIG);
+  const list = rpc.jc_module_admins_list;
+  rpc.jc_module_admins_list = (a, c) => (a.p_scope === "cats_vol" ? ok({ scope: "cats_vol", admins: [VOL], links: [] }) : list(a, c));
+  await stubBackend(page, { rpc });
+  await signIn(page);
+  await page.goto("admin/?tab=community");
+  await page.locator("#adOpen").click();
+  await expect(page.locator("h2.group")).toHaveText(["Community admins", "Event organizers", "Bookings admins", "Pets admins", "Cats volunteers"]);
+  await expect(page.locator('[data-adrm="cats_vol"][data-user="u-5"]')).toBeVisible();
 });
 
 test("accepting a Cats volunteer invite names the role and points to the Cats page", async ({ page }) => {

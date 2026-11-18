@@ -51,8 +51,15 @@ var INVITE = (function(){
 function inviteForget(){ try { sessionStorage.removeItem(INVITE_KEY); } catch(e){} }
 /* the levels on the Admins screen (pets since R5d-1: it has its own tab now) */
 var AD_SCOPES = ["community", "events", "bookings", "pets"];
-/* CC-1: the Cats levels (coordinators, volunteers) only while the Cats section is switched on */
-function adScopes(){ return jcModuleOn(cfg, "cats") ? AD_SCOPES.concat(["cats", "cats_vol"]) : AD_SCOPES; }
+/* CC-1: the Cats levels (coordinators, volunteers) are always read, and shown while the Cats section is on — or
+   while anyone still holds one / a link is open, so switching Cats off (the kill switch) never leaves a role that
+   can't be removed (code review M2) */
+var AD_CATS = ["cats", "cats_vol"];
+function adScopes(){ return AD_SCOPES.concat(AD_CATS); }
+function adShown(s){
+  if (AD_CATS.indexOf(s) < 0) return !!ad[s];
+  return !!ad[s] && (jcModuleOn(cfg, "cats") || ad[s].admins.length > 0 || ad[s].links.length > 0);
+}
 var ad = null;            /* R4b-1a: { <scope>: { admins, links } } from jc_module_admins_list | null */
 var adSent = {};          /* scope → true once its new link was copied or shared (Done asks only if not) */
 var adLinks = {};         /* scope → url: new invite links, shown until the person leaves the Admins screen
@@ -1288,7 +1295,7 @@ var VIEWS = {
     /* code unlocks are ephemeral (R4a-3 review D3): the durable floor is two people added by invite */
     var invited = ad.community.admins.filter(function(a){ return a.via.indexOf("invite") >= 0; }).length;
     if (invited < 2) html += '<div class="panel adwarn" id="adWarn" role="note">' + esc(jcT("adm_ad_warn_two")) + '</div>';
-    el("view").innerHTML = html + adScopes().filter(function(s){ return ad[s]; }).map(adScopeHtml).join("");
+    el("view").innerHTML = html + adScopes().filter(adShown).map(adScopeHtml).join("");
     wireAdminsView();
   },
 

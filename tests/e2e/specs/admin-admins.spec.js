@@ -18,8 +18,8 @@ const SARA = { user_id: "u-9", name: "Sara", village: "ain-al-maha", type: "vill
 function backend(opts = {}) {
   const ab = adminBackend({ scopes: opts.scopes || ["community"] });
   const st = ab.st;
-  st.lists = Object.assign({ community: [ME], events: [OMAR], bookings: [], pets: [] }, opts.lists || {});
-  st.mlinks = { community: [], events: [], bookings: [], pets: [] };
+  st.lists = Object.assign({ community: [ME], events: [OMAR], bookings: [], pets: [], cats: [], cats_vol: [] }, opts.lists || {});
+  st.mlinks = { community: [], events: [], bookings: [], pets: [], cats: [], cats_vol: [] };   // CC-1: the Cats lists are always read
   st.acceptable = opts.acceptable || {};          // token → scope
   let n = 0;
   const community = () => st.scopes.includes("community");
@@ -76,7 +76,7 @@ test("community admin: Admins lists every level with chips (Pets too, R5d-1); tw
   await openAdmins(page);
   await expect(page.locator("h2.group")).toHaveText(["Community admins", "Event organizers", "Bookings admins", "Pets admins"]);
   expect(calls.filter((c) => c.name === "jc_module_admins_list").map((c) => c.args.p_scope).sort())
-    .toEqual(["bookings", "community", "events", "pets"]);
+    .toEqual(["bookings", "cats", "cats_vol", "community", "events", "pets"]);
   const community = page.locator('[data-scope="community"]');
   await expect(community.locator('[data-admin="u-me"] .chip')).toHaveText(["Code"]);
   await expect(page.locator('[data-scope="events"] [data-admin="u-7"]')).toContainText("Villa 7");
@@ -179,7 +179,7 @@ test("someone else changed it: NOT_FOUND re-reads the lists and says so", async 
   page.once("dialog", (d) => d.accept());
   await page.locator('[data-adrm="events"][data-user="u-7"]').click();
   await expect(page.locator("#msg")).toHaveText("That changed in the meantime. The list below is up to date.");
-  expect(calls.filter((c) => c.name === "jc_module_admins_list").length).toBe(before + 4);
+  expect(calls.filter((c) => c.name === "jc_module_admins_list").length).toBe(before + 6);   // 4 levels + the 2 Cats lists (CC-1)
 });
 
 test("removing yourself while another community admin remains: re-reads who you are and leaves the Admins screen", async ({ page }) => {
@@ -366,7 +366,7 @@ test("removing another community admin stays on Admins and re-reads every level"
   await page.locator('[data-adrm="community"][data-user="u-8"]').click();
   await expect(page.locator("#msg")).toHaveText("Removed.");
   await expect(page.locator("h1")).toHaveText("Admins");
-  expect(calls.filter((c) => c.name === "jc_module_admins_list").length).toBe(before + 4);
+  expect(calls.filter((c) => c.name === "jc_module_admins_list").length).toBe(before + 6);   // 4 levels + the 2 Cats lists (CC-1)
 });
 
 test("R5d-1: accepting a Pets admin invite lands on Organizer Tools → Pets (it has screens now)", async ({ page }) => {

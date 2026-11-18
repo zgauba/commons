@@ -40,3 +40,14 @@ Plan: `docs/plans/CC-community-cats.md` (CC-1). Tier: data / auth: full rigor.
 | 2 | LOW | `jc_module_admin_accept`'s ALREADY_ADMIN check ignores `community_id` (pre-existing, R4a-3) | Deferred: harmless with one account per community; noted for the multi-community work |
 | 3 | LOW | `jc_admins_payload` shows a volunteer's name and home to community admins | Accepted: same as every other level, community-admin-only gate |
 | 4 | LOW | Coordinator doesn't imply volunteer (`jc_admin_has('cats_vol')` false for `cats`) | Deferred to CC-4: its gates must accept `cats` OR `cats_vol`, with a test; noted in the plan |
+
+## code-reviewer (app side): APPROVE, no CRITICAL / HIGH
+
+| # | Sev | Finding | Disposition |
+|---|---|---|---|
+| 1 | MED | `cats` bar entry is `auto` and sits before Community, so with every module on it could push Community off the default bar | Accepted: Community has `page: false` (not built) and is never on the bar today. Revisit when The Community ships |
+| 2 | MED | With Cats off, the Admins screen hid the Cats levels, so a coordinator or volunteer couldn't be removed after the kill switch | **Fixed**: the Cats lists are always read and shown while Cats is on OR anyone holds the role / a link is open (`adShown`); new e2e test; admins stub + re-read counts updated |
+| 3 | LOW | `ca_err_` has only UNKNOWN | Accepted: `jcErrTextFor` falls back to the shared `jcErrText` for any other code |
+| 4 | LOW | `cats/index.html` loads Leaflet / map / photo scripts and the tile hosts in its CSP before they're used | Accepted: same shell as `pets/`; CC-2 (maps) and CC-3 (photos) use them |
+
+Local e2e after the fixes (mobile project): cats, admin-admins, section-names, admin, shell, landing, strings-parity, help = **152 passed**.
