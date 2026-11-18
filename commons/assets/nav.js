@@ -13,6 +13,7 @@ var JC_DEST = [
   { key: "events",    path: "events/",    icon: "events",    label: "module_events",    auto: true, module: "events",   page: true },
   { key: "bookings",  path: "bookings/",  icon: "bookings",  label: "module_bookings",  auto: true, module: "bookings", page: true },
   { key: "pets",      path: "pets/",      icon: "pets",      label: "feat_pets",        auto: true, module: "pets",     page: true },
+  { key: "cats",      path: "cats/",      icon: "cats",      label: "feat_cats",        auto: true, module: "cats",     page: true },   /* CC-1 */
   { key: "community", path: "community/", icon: "community", label: "module_community", auto: true,                     page: false },
   { key: "admin",     path: "admin/",     icon: "tools",     label: "tab_admin",        admin: true }
 ];
@@ -35,9 +36,12 @@ function jcDest(key){
 function jcDestLabel(d){
   return Object.prototype.hasOwnProperty.call(JC_MOD_NAME, d.key) ? jcModName(d.key) : jcT(d.label);   /* RM-ok */
 }
+/* Cats roles (CC-1: coordinators 'cats', volunteers 'cats_vol') work on the Cats page only: they never show
+   Organizer Tools (plan CC Step 2 item 2). Display only — the server gates every call. */
+var JC_NOT_ORGANIZER = ["cats", "cats_vol"];
 function jcIsAdmin(me){
   me = me || {};
-  return (Array.isArray(me.admin_scopes) && me.admin_scopes.length > 0) ||
+  return (Array.isArray(me.admin_scopes) && me.admin_scopes.some(function(s){ return JC_NOT_ORGANIZER.indexOf(s) < 0; })) ||
          (Array.isArray(me.admin_events) && me.admin_events.length > 0) || me.is_owner === true;
 }
 function jcDestOk(key, me, cfg){
@@ -293,7 +297,7 @@ function jcHelpOpen(key){
     items.push("<li>" + esc(t).replace(/\*\*(.+?)\*\*/g, "<b>$1</b>") + "</li>");
   }
   /* RM: the Events / Courts / Pets sheets are titled with the section's own name */
-  var head = key === "events" ? jcModName("events") : key === "courts" ? jcModName("bookings") : key === "pets" ? jcModName("pets") : jcT("help_" + key + "_title");   /* RM-ok */
+  var head = key === "events" ? jcModName("events") : key === "courts" ? jcModName("bookings") : key === "pets" ? jcModName("pets") : key === "cats" ? jcModName("cats") : jcT("help_" + key + "_title");   /* RM-ok */
   d.setAttribute("aria-label", head);
   d.innerHTML = '<div class="sheethead"><h2 dir="auto">' + esc(head) + '</h2>' +
     '<button type="button" class="lang" id="jcHelpClose">' + esc(jcT("close")) + '</button></div>' +

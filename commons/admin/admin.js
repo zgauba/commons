@@ -31,7 +31,7 @@ if (GRANT && !/^[A-Za-z0-9_-]{16,64}$/.test(GRANT)) GRANT = null;
    The link carries NO role: anyone could edit one (security review M1), so the question never names a level —
    the server's answer does, right after accepting. */
 var INVITE_KEY = "jc_admin_invite";
-var INVITE_ROLES = { community: "y", events: "y", bookings: "y", pets: "y" };   /* scopes the answer may name */
+var INVITE_ROLES = { community: "y", events: "y", bookings: "y", pets: "y", cats: "y", cats_vol: "y" };   /* scopes the answer may name */
 var INVITE = (function(){
   var h = JC_URL_HASH || "";
   var m = /^#admininvite=([A-Za-z0-9_-]{16,64})$/.exec(h);
@@ -51,6 +51,15 @@ var INVITE = (function(){
 function inviteForget(){ try { sessionStorage.removeItem(INVITE_KEY); } catch(e){} }
 /* the levels on the Admins screen (pets since R5d-1: it has its own tab now) */
 var AD_SCOPES = ["community", "events", "bookings", "pets"];
+/* CC-1: the Cats levels (coordinators, volunteers) are always read, and shown while the Cats section is on — or
+   while anyone still holds one / a link is open, so switching Cats off (the kill switch) never leaves a role that
+   can't be removed (code review M2) */
+var AD_CATS = ["cats", "cats_vol"];
+function adScopes(){ return AD_SCOPES.concat(AD_CATS); }
+function adShown(s){
+  if (AD_CATS.indexOf(s) < 0) return !!ad[s];
+  return !!ad[s] && (jcModuleOn(cfg, "cats") || ad[s].admins.length > 0 || ad[s].links.length > 0);
+}
 var ad = null;            /* R4b-1a: { <scope>: { admins, links } } from jc_module_admins_list | null */
 var adSent = {};          /* scope → true once its new link was copied or shared (Done asks only if not) */
 var adLinks = {};         /* scope → url: new invite links, shown until the person leaves the Admins screen
@@ -1222,7 +1231,7 @@ var VIEWS = {
     if (!cfg) { el("view").innerHTML = html; el("msg").className = "msg err"; el("msg").textContent = jcT("error_config"); return; }
     /* first a short list of sections (Zee 2026-11-11: one long scroll was hard to use); tap one → only its boxes */
     if (!mnSec) {
-      el("view").innerHTML = html + '<ul class="mnlist">' + MN_KEYS.map(function(k){
+      el("view").innerHTML = html + '<ul class="mnlist">' + mnKeys().map(function(k){
         var st = mnStored(k), cur = jcModName(k), usual = jcT(JC_MOD_NAME[k]);   /* RM-ok: the built-in name, shown beside the current one */
         return '<li><button type="button" data-mnpick="' + k + '">' + jcIcon(k, 22) +
           '<span class="nm">' + esc(usual) + '</span>' +
@@ -1231,7 +1240,7 @@ var VIEWS = {
       }).join("") + '</ul>';
       Array.prototype.forEach.call(document.querySelectorAll("[data-mnpick]"), function(b){
         b.addEventListener("click", function(){
-          if (MN_KEYS.indexOf(b.dataset.mnpick) < 0) return;
+          if (mnKeys().indexOf(b.dataset.mnpick) < 0) return;
           mnSec = b.dataset.mnpick; mnDraft = null; show("names");
         });
       });
@@ -1286,7 +1295,7 @@ var VIEWS = {
     /* code unlocks are ephemeral (R4a-3 review D3): the durable floor is two people added by invite */
     var invited = ad.community.admins.filter(function(a){ return a.via.indexOf("invite") >= 0; }).length;
     if (invited < 2) html += '<div class="panel adwarn" id="adWarn" role="note">' + esc(jcT("adm_ad_warn_two")) + '</div>';
-    el("view").innerHTML = html + AD_SCOPES.map(adScopeHtml).join("");
+    el("view").innerHTML = html + adScopes().filter(adShown).map(adScopeHtml).join("");
     wireAdminsView();
   },
 
@@ -1508,9 +1517,14 @@ var VIEWS = {
 /* The built-in role / tab / scope words name a module: show the community's own section name instead.
    Not 'community' — there it means the community-admin role, not The Community section. */
 function scopeName(s){ return s === "events" || s === "bookings" || s === "pets" ? jcModName(s) : jcT("scope_" + s); }   /* RM-ok */
-function adScopeName(s){ return s === "bookings" || s === "pets" ? jcFmt("adm_ad_scope_mod", { m: jcModName(s) }) : jcT("adm_ad_scope_" + s); }   /* RM-ok */
+function adScopeName(s){
+  if (s === "cats" || s === "cats_vol") return jcFmt("adm_ad_scope_" + s, { m: jcModName("cats") });   /* CC-1 */
+  return s === "bookings" || s === "pets" ? jcFmt("adm_ad_scope_mod", { m: jcModName(s) }) : jcT("adm_ad_scope_" + s);   /* RM-ok */
+}
 function admTabLabel(t){ return t === "events" ? jcModName("events") : t === "courts" ? jcModName("bookings") : t === "pets" ? jcModName("pets") : jcT("adm_tab_" + t); }   /* RM-ok */
 var MN_KEYS = ["events", "bookings", "pets", "community"];
+/* CC-1: Cats can be renamed while it is switched on */
+function mnKeys(){ return jcModuleOn(cfg, "cats") ? ["events", "bookings", "pets", "cats", "community"] : MN_KEYS; }
 var MN_FIELDS = [{ k: "name_en", max: 14, dir: "ltr" }, { k: "name_ar", max: 18, dir: "rtl" },
                  { k: "title_en", max: 40, dir: "ltr" }, { k: "title_ar", max: 40, dir: "rtl" }];
 var mnDraft = null;       /* { <module>: {name_en, …} } typed, not saved — survives a language switch */
@@ -3200,10 +3214,11 @@ function adShape(d){
    then() runs after the redraw, so a message it draws survives */
 function loadAdmins(then, keep){
   adErr = null;
-  return Promise.all(AD_SCOPES.map(function(s){ return rpc("jc_module_admins_list", { p_scope: s }); })).then(function(r){
+  var list = adScopes();
+  return Promise.all(list.map(function(s){ return rpc("jc_module_admins_list", { p_scope: s }); })).then(function(r){
     if (current !== "admins") return;
     ad = {};
-    AD_SCOPES.forEach(function(s, i){ ad[s] = adShape(r[i]); });
+    list.forEach(function(s, i){ ad[s] = adShape(r[i]); });
     adLinks = keep || {}; if (!keep) adSent = {}; VIEWS.admins();
     if (then) then();
   }, function(e){
@@ -3352,10 +3367,12 @@ function inviteView(){
       return rpc("jc_me_get").then(function(me){
         scopes = me.admin_scopes || []; adminEvents = me.admin_events || []; owner = !!me.is_owner;
         if (canEnter()) return loadHome().then(function(){ showOk(done); });
-        /* a level with no screens here (none since R5d-1 gave pets its tab; kept as the safety net): say it worked, and the way out (review L3) */
+        /* a level with no screens here — the Cats roles (CC-1) work on the Cats page: say it worked, and the way there */
         current = "invited";
+        var cats = role === "cats" || role === "cats_vol";
         el("view").innerHTML = '<h1>' + esc(jcT("inv_title")) + '</h1>' + msgBox() +
-          '<p><a class="btn ghost" href="../">' + esc(jcT("acct_back")) + '</a></p>';
+          '<p><a class="btn' + (cats ? '' : ' ghost') + '" id="invGo" href="' + (cats ? '../cats/' : '../') + '">' +
+          esc(jcT(cats ? "inv_go_cats" : "acct_back")) + '</a></p>';
         showOk(done);
       }, function(){ location.replace(location.pathname); });   /* accepted; a fresh load reads the new role */
     }, function(e){
