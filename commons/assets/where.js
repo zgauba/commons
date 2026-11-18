@@ -26,10 +26,11 @@ function jcWhereWire(w, id, o){
   function open(fromSpot){
     var tok = w.tok = {};
     w.picking = true; w.moved = false;
-    if (fromSpot) { w.where = "spot"; w.view = [w.lat, w.lng]; w.zoom = 18; o.draw(); return; }   /* moving: start on the pin */
+    function focusHelp(){ var t = el(id + "Help"); if (t) { t.setAttribute("tabindex", "-1"); t.focus(); } }   /* review L2: both paths */
+    if (fromSpot) { w.where = "spot"; w.view = [w.lat, w.lng]; w.zoom = 18; o.draw(); focusHelp(); return; }   /* moving: start on the pin */
     w.where = "locating"; w.view = null; w.zoom = null;
     o.draw();
-    var t = el(id + "Help"); if (t) { t.setAttribute("tabindex", "-1"); t.focus(); }
+    focusHelp();
     jcLocate(function(lat, lng){
       if (w.tok !== tok || !w.picking || !o.alive()) return;
       w.where = "you"; w.view = [lat, lng]; w.zoom = 18;
@@ -55,7 +56,8 @@ function jcWhereWire(w, id, o){
   w.map = null;
   if (w.picking && typeof L !== "undefined" && el(id + "Map")) {
     var m = w.map = jcPinPicker(id + "Map", { center: w.view || o.center, zoom: w.zoom || o.zoom || 16, locateZoom: 18,
-      onError: function(code){ if (w.map === m && o.onError) o.onError(code); }, alive: function(){ return w.map === m && o.alive(); } });
+      /* review M1: a late Find Me failure after leaving the form says nothing */
+      onError: function(code){ if (w.map === m && o.alive() && o.onError) o.onError(code); }, alive: function(){ return w.map === m && o.alive(); } });
     if (o.setMap) o.setMap(m);
     m.on("moveend", function(){
       if (w.map !== m) return;

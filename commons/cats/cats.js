@@ -30,7 +30,7 @@ function areasOf(d){ return (d && Array.isArray(d.areas) ? d.areas : []).filter(
 function stationsOf(d){ return (d && Array.isArray(d.stations) ? d.stations : []).filter(isStation); }
 function areaName(d, id){ var a = areasOf(d).filter(function(x){ return x.id === id; })[0]; return a ? a.name : ""; }
 function dayOf(iso){ return jcDayText(jcDateOf(iso, cfg), { weekday: undefined, year: "numeric" }); }
-function takeMap(){ if (map) { jcMapRemove(map); map = null; } }
+function takeMap(){ if (map) { jcMapRemove(map); map = null; } if (ed && ed.w) ed.w.map = null; }
 function draw(){ show(current); }
 
 /* ---------- data ---------- */
@@ -56,7 +56,7 @@ function save(name, args, okKey, after){
 function peopleLine(s){
   var by = { lead: [], feeder: [], backup: [] };
   (Array.isArray(s.people) ? s.people : []).forEach(function(p){
-    if (hObj(p) && by[p.role]) by[p.role].push(typeof p.name === "string" && p.name ? p.name : jcT("ca_someone"));
+    if (hObj(p) && Object.prototype.hasOwnProperty.call(by, p.role)) by[p.role].push(typeof p.name === "string" && p.name ? p.name : jcT("ca_someone"));
   });
   return ["lead", "feeder", "backup"].filter(function(r){ return by[r].length; }).map(function(r){
     return '<span class="caPeople" data-role="' + r + '"><b>' + esc(jcT("ca_r_" + r + "s")) + ':</b> <span dir="auto">' + esc(by[r].join(", ")) + '</span></span>';
@@ -206,7 +206,8 @@ function areasHtml(){
   return '<p class="help">' + esc(jcT("ca_areas_help")) + '</p>' +
     (list.length ? list.map(function(a){
       var n = typeof a.stations === "number" ? a.stations : 0;
-      return '<div class="panel caArea" data-area="' + esc(a.id) + '"><label>' + esc(jcT("ca_area_name")) +
+      var lab = ' aria-label="' + esc(jcFmt("ca_area_named", { a: a.name })) + '"';     /* review L3: each row named */
+      return '<div class="panel caArea" data-area="' + esc(a.id) + '" role="group"' + lab + '><label>' + esc(jcT("ca_area_name")) +
         '<input type="text" maxlength="40" dir="auto" data-aname="' + esc(a.id) + '" value="' + esc(a.name) + '"' + off + '></label>' +
         '<p class="help">' + esc(a.archived === true ? jcT("ca_area_archived") : jcFmt("ca_area_count", { n: n })) + '</p>' +
         '<div class="row"><button class="mini" type="button" data-arename="' + esc(a.id) + '"' + off + '>' + esc(jcT("ca_area_rename")) + '</button> ' +

@@ -260,3 +260,20 @@ test("a coordinator's Areas tab: add, rename, archive; the server's refusal is s
   expect(sent).toEqual([{ p_area: null, p_name: "Maha", p_archived: null }, { p_area: A_SOUK, p_name: "Old Souk", p_archived: null },
                         { p_area: A_SEEF, p_name: null, p_archived: true }]);
 });
+
+test("leaving the station editor while Find Me is still looking: no error on the next screen; Move pin keeps focus", async ({ page }) => {
+  await stubBackend(page, { rpc: member(["cats"]) });
+  await signIn(page);
+  await page.goto("cats/");
+  await page.locator(`[data-edit="${S1}"]`).click();
+  await page.locator("#caWMove").click();
+  await expect(page.locator("#caWHelp")).toBeFocused();                          // review L2
+  await page.locator("#caWCancel").click();
+  await page.evaluate(() => { navigator.geolocation.getCurrentPosition = (ok, bad) => { window.lateFail = () => bad({ code: 1 }); }; });
+  await page.locator("#caWMove").click();
+  await page.locator("#locateBtn").click();
+  await page.locator("#caCancel").click();
+  await expect(page.locator(".caStation").first()).toBeVisible();
+  await page.evaluate(() => window.lateFail());
+  await expect(page.locator("#msg")).toHaveText("");                             // review M1
+});

@@ -46,3 +46,22 @@ Plan: `docs/plans/CC-community-cats.md` (CC-2). Tier: data / auth / PII: full ri
 | L4 | LOW | Inner join on `jc_accounts` | Accepted: a role holder is always a member (accept requires `jc_me`) |
 | L5 | LOW | `e2e` modules could be null | Checked live: a non-null object (events / bookings / pets) |
 | — | info | `can_edit` (jc_admin_has) vs writes (jc_assert_admin) must accept the same grants | Checked live 2026-11-18: both accept the scope or `community`, code or invite |
+
+## code-reviewer (app side): APPROVE, no CRITICAL / HIGH
+
+No XSS (every server string escaped, attributes too); the resident view renders only what `jc_cat_places` returns; editors gated
+on the server's `can_edit`.
+
+| # | Sev | Finding | Disposition |
+|---|---|---|---|
+| 1 | MED | A Find Me failure arriving after leaving the editor mid-pick showed an error on the Stations list | **Fixed**: `where.js` onError is alive-gated; `takeMap` clears the draft's map. New e2e test |
+| 2 | LOW | "Move pin" redrew without moving focus | **Fixed**: focus goes to the picker's help line on both paths (asserted in the same test) |
+| 3 | LOW | Area rows repeated the same accessible names | **Fixed**: each row is a group named "Area {name}" |
+| 4 | LOW | `by[p.role]` could hit the object prototype | **Fixed**: own-property check |
+| — | LOW | Unsaved rename text in other area rows lost on a save redraw | Accepted: one row at a time is the normal use |
+
+Screens looked at (stubbed, phone width): coordinator Stations list (private chip, people line, notes, Edit) and the station
+editor (area select, Where, landmark, notes, visibility radios, who feeds here, earlier locations). The first look showed
+unstyled selects / textarea / radios (Pets' and Organizer Tools' form rules live in their own page CSS) → `cats/cats.css`.
+
+Local e2e (mobile project): cats (16), admin, strings-parity, help, shell, landing, section-names, admin-admins, pets — all pass.
