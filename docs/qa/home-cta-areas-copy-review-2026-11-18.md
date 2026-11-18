@@ -6,4 +6,5 @@
 - The invite-accepted button (`inv_go_cats`, "Open Cats") is unchanged.
 
 **Tests:** `landing.spec.js` now asserts the Pets hub button reads "See Pets". landing + cats specs: 38/38 pass (mobile).
+**CI catch:** the Pets page reused `cta_pets` for its own Add button + form title — now its own key `pt_add` ("Add a Pet"); pets + landing specs 81/81.
 **Reviewer agent:** none (cosmetic tier).

@@ -30,6 +30,7 @@ var JC_STRINGS = {
     cta_events: "See Events",
     cta_bookings: "Book a Court or Pitch",
     cta_pets: "See Pets",
+    pt_add: "Add a Pet",   /* the Pets page's own add button + form title (cta_pets is the hub link) */
     cta_cats: "See Cats",
     module_cats: "Community Cats",   /* CC-1 */
     module_cats_desc: "The neighborhood cat programme: feeding, care and the cat register.",
@@ -1660,6 +1661,7 @@ var JC_STRINGS = {
     cta_events: "عرض الفعاليات",
     cta_bookings: "احجز ملعباً",
     cta_pets: "عرض الحيوانات الأليفة",
+    pt_add: "أضف حيوانك الأليف",
     cta_cats: "عرض القطط",
     module_cats: "قطط المجتمع",
     module_cats_desc: "برنامج قطط الحي: الإطعام والرعاية وسجل القطط.",
