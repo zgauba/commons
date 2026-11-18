@@ -8,11 +8,37 @@ const { adminBackend, signIn } = require("./backends");
 const CATS_ON = Object.assign({}, CONFIG, { modules: Object.assign({}, CONFIG.modules, { cats: { enabled: true } }) });
 const TOKEN = "INVITEtoken_abcdefghij12";
 
+// CC-2 fixtures: the resident family (public stations only, no Station ID) and the programme family
+const A_SOUK = "aaaaaaaa-0000-4000-8000-000000000001", A_SEEF = "aaaaaaaa-0000-4000-8000-000000000002";
+const S1 = "bbbbbbbb-0000-4000-8000-000000000001", S2 = "bbbbbbbb-0000-4000-8000-000000000002";
+const VERA = "cccccccc-0000-4000-8000-000000000001", CORA = "cccccccc-0000-4000-8000-000000000002";
+const PLACES = { areas: [{ id: A_SOUK, name: "Souk" }],
+  stations: [{ id: S1, area_id: A_SOUK, landmark: "Behind the souk", lat: 24.5301, lng: 54.4301 }] };
+function progFor(coord) {
+  const who = (id, role, name) => Object.assign(coord ? { user_id: id } : {}, { role, name });
+  return {
+    can_edit: coord,
+    areas: [{ id: A_SEEF, name: "Seef", archived: false, stations: 1 }, { id: A_SOUK, name: "Souk", archived: false, stations: 1 }],
+    stations: [
+      { id: S1, code: "S-001", area_id: A_SOUK, lat: 24.5301, lng: 54.4301, landmark: "Behind the souk", access_notes: null,
+        private: false, located_at: "2026-11-18T08:00:00Z", archived: false, people: [], moves: [] },
+      { id: S2, code: "S-002", area_id: A_SEEF, lat: 24.5401, lng: 54.4401, landmark: "Next door", access_notes: "Ring twice",
+        private: true, located_at: "2026-11-18T09:00:00Z", archived: false,
+        people: [who(VERA, "lead", "Vera"), who(CORA, "backup", "Cora")],
+        moves: [{ lat: 24.54, lng: 54.44, landmark: "A villa", from: "2026-11-01T08:00:00Z", until: "2026-11-18T09:00:00Z" }] },
+    ],
+    people: coord ? [{ user_id: CORA, scope: "cats", name: "Cora" }, { user_id: VERA, scope: "cats_vol", name: "Vera" }] : [],
+  };
+}
+
 // a member holding these admin scopes; Cats on unless cfg says otherwise
 function member(scopes, cfg) {
+  const inProg = scopes.some((s) => ["cats", "cats_vol", "community"].includes(s));
   return {
     jc_config_get: () => ok(cfg || CATS_ON),
     jc_me_get: (a, c) => (c.signedIn ? ok(Object.assign({}, MEMBER, { admin_scopes: scopes })) : raise("NOT_SIGNED_IN")),
+    jc_cat_places: () => ok(PLACES),
+    jc_cat_programme: () => (inProg ? ok(progFor(scopes.includes("cats") || scopes.includes("community"))) : raise("NOT_ADMIN")),
   };
 }
 
@@ -31,6 +57,7 @@ test("Cats on, a resident: the page, the bar button, the page hit; no role line;
   await page.goto("cats/");
   await expect(page.locator("h1")).toHaveText("Community Cats");
   await expect(page.locator("#caSoon")).toContainText("The cat programme is moving here");
+  await expect(page.locator(".caStation")).toHaveCount(1);
   await expect(page.locator("#caRole")).toHaveCount(0);
   await expect(page.locator('#tabbar [data-tab="cats"]')).toHaveAttribute("aria-current", "page");
   await expect(page.locator('#tabbar [data-tab="cats"]')).toHaveText("Cats");
@@ -125,4 +152,111 @@ test("accepting a Cats volunteer invite names the role and points to the Cats pa
   await expect(page.locator("#msg")).toHaveText("Done. You've joined the Cats volunteers.");
   await expect(page.locator("#invGo")).toHaveText("Open Cats");
   await expect(page.locator("#invGo")).toHaveAttribute("href", "../cats/");
+});
+
+// ---------- CC-2: areas + feeding stations ----------
+test("a resident sees public stations only: no Station ID, notes, people or editors; never asks for the programme", async ({ page }) => {
+  const { calls } = await stubBackend(page, { rpc: member([]) });
+  await signIn(page);
+  await page.goto("cats/");
+  const card = page.locator(`.caStation[data-station="${S1}"]`);
+  await expect(card).toContainText("Behind the souk");
+  await expect(page.locator("h2.group")).toHaveText(["Souk"]);
+  await expect(card).not.toContainText("S-001");
+  await expect(card.getByRole("link", { name: "Directions" })).toHaveAttribute("rel", "noopener noreferrer");
+  await expect(page.locator("[data-edit], #caAdd, [data-private], .caPeople, .caNotes")).toHaveCount(0);
+  expect(calls.some((c) => c.name === "jc_cat_programme")).toBe(false);
+});
+
+test("a volunteer sees every station (private ones too) with who feeds there, but no editors", async ({ page }) => {
+  await stubBackend(page, { rpc: member(["cats_vol"]) });
+  await signIn(page);
+  await page.goto("cats/");
+  const s2 = page.locator(`.caStation[data-station="${S2}"]`);
+  await expect(s2).toContainText("S-002 · Next door");
+  await expect(s2.locator("[data-private]")).toHaveText("Private location");
+  await expect(s2.locator('[data-role="lead"]')).toHaveText("Lead: Vera");
+  await expect(s2.locator('[data-role="backup"]')).toHaveText("Backups: Cora");
+  await expect(s2.locator(".caNotes")).toHaveText("Ring twice");
+  await expect(page.locator("[data-edit], #caAdd, #caTab_areas")).toHaveCount(0);
+});
+
+test("a coordinator adds a station: area, pin, private choice all required; the server gets exactly the form", async ({ page, context }) => {
+  await context.grantPermissions(["geolocation"]);
+  await context.setGeolocation({ latitude: 24.5333, longitude: 54.4333 });
+  const rpc = member(["cats"]);
+  let sent = null;
+  rpc.jc_cat_station_save = (a) => { sent = a; return ok(progFor(true)); };
+  await stubBackend(page, { rpc });
+  await signIn(page);
+  await page.goto("cats/");
+  await page.locator("#caAdd").click();
+  await expect(page.locator("h1")).toHaveText("New feeding station");
+  await page.locator("#caSave").click();
+  await expect(page.locator("#msg")).toHaveText("Choose an area.");
+  await page.locator("#caArea").selectOption(A_SEEF);
+  await page.locator("#caSave").click();
+  await expect(page.locator("#msg")).toHaveText("Add the station's location pin.");
+  await page.locator("#caWAdd").click();
+  await expect(page.locator("#caWOk")).toBeEnabled();
+  await page.locator("#caWOk").click();
+  await expect(page.locator("#caWPos")).toContainText("Location pin set.");
+  await expect(page.locator("#caWClear")).toHaveCount(0);                 // required: a set pin can only be moved
+  await page.locator("#caSave").click();
+  await expect(page.locator("#msg")).toHaveText("Choose who can see this station.");
+  await page.locator("#caLandmark").fill("Upper terraces");
+  await page.locator("#caNotes").fill("Gate code from the lead");
+  await page.locator('input[name="caVis"][value="private"]').check();
+  await page.locator(`[data-person="${VERA}"]`).selectOption("lead");
+  await page.locator("#caSave").click();
+  await expect(page.locator("#msg")).toHaveText("Saved.");
+  expect(sent.p_station).toBeNull();
+  expect(sent.p_fields).toMatchObject({ area_id: A_SEEF, landmark: "Upper terraces", access_notes: "Gate code from the lead",
+                                        private: true, people: [{ user_id: VERA, role: "lead" }] });
+  expect(Math.abs(sent.p_fields.lat - 24.5333)).toBeLessThan(0.001);
+  expect(Math.abs(sent.p_fields.lng - 54.4333)).toBeLessThan(0.001);
+});
+
+test("a coordinator edits a station: its people pre-chosen, earlier locations listed, two leads refused", async ({ page }) => {
+  const rpc = member(["cats"]);
+  const sent = [];
+  rpc.jc_cat_station_save = (a) => { sent.push(a); return ok(progFor(true)); };
+  await stubBackend(page, { rpc });
+  await signIn(page);
+  await page.goto("cats/");
+  await page.locator(`[data-edit="${S2}"]`).click();
+  await expect(page.locator("h1")).toHaveText("Edit S-002");
+  await expect(page.locator(`[data-person="${VERA}"]`)).toHaveValue("lead");
+  await expect(page.locator('input[name="caVis"][value="private"]')).toBeChecked();
+  await expect(page.locator("#caMoves li")).toHaveCount(1);
+  await expect(page.locator("#caMoves li")).toContainText("A villa");
+  await page.locator(`[data-person="${CORA}"]`).selectOption("lead");
+  await page.locator("#caSave").click();
+  await expect(page.locator("#msg")).toHaveText("A station has one lead.");
+  expect(sent).toHaveLength(0);
+  await page.locator(`[data-person="${CORA}"]`).selectOption("feeder");
+  await page.locator("#caSave").click();
+  await expect(page.locator("#msg")).toHaveText("Saved.");
+  expect(sent[0]).toMatchObject({ p_station: S2, p_fields: { area_id: A_SEEF, lat: 24.5401, lng: 54.4401, private: true,
+    people: [{ user_id: VERA, role: "lead" }, { user_id: CORA, role: "feeder" }] } });
+});
+
+test("a coordinator's Areas tab: add, rename, archive; the server's refusal is said in words", async ({ page }) => {
+  const rpc = member(["cats"]);
+  const sent = [];
+  rpc.jc_cat_area_save = (a) => { sent.push(a); return a.p_archived ? raise("AREA_IN_USE") : ok(progFor(true)); };
+  await stubBackend(page, { rpc });
+  await signIn(page);
+  await page.goto("cats/");
+  await page.locator("#caTab_areas").click();
+  await expect(page.locator(".caArea")).toHaveCount(2);
+  await page.locator("#caAreaNew").fill("  Maha ");
+  await page.locator("#caAreaAdd").click();
+  await expect(page.locator("#msg")).toHaveText("Saved.");
+  await page.locator(`[data-aname="${A_SOUK}"]`).fill("Old Souk");
+  await page.locator(`[data-arename="${A_SOUK}"]`).click();
+  await page.locator(`[data-aarch="${A_SEEF}"]`).click();
+  await expect(page.locator("#msg")).toHaveText("This area still has stations. Move or archive them first.");
+  expect(sent).toEqual([{ p_area: null, p_name: "Maha", p_archived: null }, { p_area: A_SOUK, p_name: "Old Souk", p_archived: null },
+                        { p_area: A_SEEF, p_name: null, p_archived: true }]);
 });
