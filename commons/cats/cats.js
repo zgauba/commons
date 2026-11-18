@@ -133,6 +133,9 @@ var VIEWS = {
     if (tab === "areas") wireAreas(); else if (tab === "cats") wireCats(reg); else if (tab === "log") wireLogTab(); else wireStations();
   },
   cat: function(){ catView(); },
+  visit: function(){ visitView(); },                 /* CC-4, log.js (loaded first) */
+  sighting: function(){ sightingView(); },
+  stlog: function(){ stationLogView(); },
   catedit: function(){ catEditView(); },
   station: function(){
     if (!ed || !prog) return show("home");

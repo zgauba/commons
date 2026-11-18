@@ -1,5 +1,6 @@
-/* Cats page — CC-4 visits + sightings (server 20261118220000_cc4_cat_visits_sightings.sql). Loaded after cats.js;
-   uses its state (reg, prog, cfg, busy, current, map) and helpers. Programme only: residents never call these.
+/* Cats page — CC-4 visits + sightings (server 20261118220000_cc4_cat_visits_sightings.sql). Loaded BEFORE cats.js
+   (definitions only, nothing runs at load: cats.js's boot may answer before a later script has run) and uses cats.js's
+   state (reg, prog, cfg, busy, current, map) and helpers at call time; cats.js registers the three views. Programme only: residents never call these.
    - a feeding visit at a station: date, food / water / cleaned, headcount, the cats recognised (tap their pictures),
      unfamiliar cats, kittens, "flag a problem", note → jc_cat_visit_add;
    - a sighting of a register cat, or of one not identified yet (described), at a station or a pin or just an area →
@@ -350,6 +351,3 @@ function sightingView(){
   });
 }
 
-VIEWS.visit = visitView;
-VIEWS.sighting = sightingView;
-VIEWS.stlog = stationLogView;

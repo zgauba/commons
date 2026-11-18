@@ -42,3 +42,19 @@ volunteers already see in `jc_cat_programme`, admin log holds ids only, STABLE f
 | 2 unidentified sighting → linked → on the cat (also through a merge) | CV02 |
 | 3 residents nothing new; `cats_vol` no other gate; coordinator without `cats_vol` logs | CV03 (+ s32 CF03/CF04 unchanged) |
 | 4 module off → `MODULE_OFF`; pets retention leaves cat entries | CV04 |
+
+## Code review (code-reviewer) — app (`commons/cats/log.js`, `cats.js`, strings, e2e) — no High
+| # | Finding | Disposition |
+|---|---|---|
+| M1 | A failed first load stuck until reload | **Fixed**: error + "Try again" button; e2e "a list that fails to load…" |
+| M2 | A failed "Show older" was silent | **Fixed**: the error shows above the list |
+| M3 | Hide / Show / Link reloaded the list (lost place, pages, focus) | **Fixed**: the server's returned entry replaces the one shown; lists off screen are dropped; focus stays on the button; e2e asserts no re-read |
+| L4 | Cat page Back always goes to the Cats home | Accepted (later: remember the origin) |
+| L5 | Sighting form returned to the newly picked cat | **Fixed**: `back_cat` keeps the cat it was opened from |
+| L6 | Device-local sighting time; a form left open over midnight; garbled number input sent as empty | Accepted (Abu Dhabi devices; server refuses the date with a clear message) |
+| L7 | BAD_STATION said "the cat's usual area" on the log forms | **Fixed**: `ca_err_BAD_STATION_LOG` ("That station was just archived…") |
+
+## Flake found + fixed before PR
+Repeated runs (`--repeat-each`) showed ~2% blank Cats pages: `ReferenceError: sd is not defined` in `takeMap`. Cause: the boot
+(async) could answer before the browser had run `log.js` (listed after `cats.js`). Fix: `log.js` loads first and only defines
+functions; `cats.js` registers the three views. After: cats spec **168/168** over 6 repeats; shell + landing + a11y + pets 127/127.
