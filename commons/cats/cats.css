@@ -8,3 +8,19 @@ select{font:inherit; font-size:16px; color:var(--jc-ink); background:var(--jc-su
 .check input{width:20px; height:20px; flex:0 0 auto; margin-top:1px}
 .caStation .row{align-items:center; gap:12px}
 #caWho label{margin-top:8px}
+/* CC-3: the cat register — a cat card is one button (photo + name + chips), the photo row on a cat's page */
+.panel.caCat{display:flex; flex-direction:row; align-items:center; justify-content:flex-start; gap:12px; width:100%;
+  text-align:start; font:inherit; color:var(--jc-ink); cursor:pointer}
+.caCatTxt{display:flex; flex-direction:column; align-items:flex-start; gap:2px; min-width:0; flex:1 1 auto}
+.caCatTop{display:flex; flex-wrap:wrap; align-items:center; gap:6px}
+.caCatTxt b{overflow-wrap:anywhere}
+.caPhotos{display:flex; flex-wrap:wrap; gap:8px; align-items:flex-end; margin-bottom:10px}
+.caPhotos .ptview.big, .caPhotos .ptph.big{flex:1 0 100%; max-width:420px}
+.caPhotoEd{display:flex; flex-direction:column; align-items:center; gap:4px}
+.caStory{margin:8px 0; white-space:pre-line}
+.caFacts{margin:8px 0}
+.caMergedRow .row{margin-top:6px}
+/* dates in the cat editor: the same field look as text inputs (iOS draws a bare control otherwise — as admin.css .pmform) */
+input[type=date]{font:inherit; font-size:16px; color:var(--jc-ink); background:var(--jc-surface-2); border:1px solid var(--jc-line);
+  border-radius:10px; padding:11px 12px; width:100%; -webkit-appearance:none; appearance:none; display:block; min-width:0;
+  max-width:100%; box-sizing:border-box; min-height:46px; color-scheme:dark}
