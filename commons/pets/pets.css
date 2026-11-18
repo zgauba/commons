@@ -4,13 +4,6 @@ main{display:flex; flex-direction:column; gap:12px}
 #view > h1, #view > p, #view > .subtabs{margin:0}
 #view > .subtabs + .msg{margin-top:-4px}
 [role="tabpanel"]{display:flex; flex-direction:column; gap:12px}
-h2.group{font-size:12.5px; letter-spacing:.08em; text-transform:uppercase; color:var(--jc-muted); margin:10px 0 0}
-.notice{margin:0; padding:10px 12px; border-radius:10px; border:1px solid var(--jc-accent); background:var(--jc-surface); font-size:13.5px; line-height:1.4}
-.row{display:flex; gap:8px; flex-wrap:wrap}
-.row .btn{flex:1}
-.mini{font:inherit; font-size:13px; font-weight:700; cursor:pointer; color:var(--jc-ink); background:var(--jc-surface);
-  border:1px solid var(--jc-line); border-radius:8px; padding:7px 12px; min-height:36px}
-.mini:disabled{opacity:.5; cursor:default}
 .bklist{list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:8px}
 .bklist li{background:var(--jc-surface); border:1px solid var(--jc-line); border-radius:var(--jc-radius); padding:12px 14px;
   display:flex; flex-direction:column; gap:6px; font-size:14px; overflow-wrap:anywhere}
@@ -43,8 +36,6 @@ h2.group{font-size:12.5px; letter-spacing:.08em; text-transform:uppercase; color
 .wamsg{margin:0; padding:10px 12px; border:1px dashed var(--jc-line); border-radius:10px; background:var(--jc-surface-2);
   font-size:13.5px; overflow-wrap:anywhere; user-select:all}
 .share .btn{flex:1 1 auto}
-fieldset{border:0; margin:0; padding:0; display:flex; flex-direction:column; gap:6px}
-legend{font-size:13px; font-weight:700; color:var(--jc-muted); margin-bottom:6px; padding:0}
 .btn.wide{width:100%}
 /* Remove sits apart from Save, at the bottom of the Edit form */
 

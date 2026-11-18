@@ -284,12 +284,45 @@ test("a coordinator's Areas tab: add, rename, archive; the server's refusal is s
   await page.locator("#caAreaNew").fill("  Maha ");
   await page.locator("#caAreaAdd").click();
   await expect(page.locator("#msg")).toHaveText("Saved.");
-  await page.locator(`[data-aname="${A_SOUK}"]`).fill("Old Souk");
+  // the name is plain text until Rename is tapped (Zee 2026-11-18); Cancel puts it back untouched
+  await expect(page.locator("[data-aname]")).toHaveCount(0);
   await page.locator(`[data-arename="${A_SOUK}"]`).click();
+  await expect(page.locator(`[data-aname="${A_SOUK}"]`)).toBeFocused();
+  await expect(page.locator(`[data-aarch="${A_SOUK}"]`)).toHaveCount(0);
+  await page.locator(`[data-aname="${A_SOUK}"]`).fill("Typo");
+  if (process.env.SHOT_DIR) await page.screenshot({ path: process.env.SHOT_DIR + "/cats-area-rename.png", fullPage: true });
+  await page.locator(`[data-acancel="${A_SOUK}"]`).click();
+  await expect(page.locator("[data-aname]")).toHaveCount(0);
+  await expect(page.locator(`[data-arename="${A_SOUK}"]`)).toBeFocused();
+  await page.locator(`[data-arename="${A_SOUK}"]`).click();
+  await page.locator(`[data-aname="${A_SOUK}"]`).fill("Old Souk");
+  await page.locator(`[data-asave="${A_SOUK}"]`).click();
+  await expect(page.locator("[data-aname]")).toHaveCount(0);
+  await expect(page.locator(`[data-arename="${A_SOUK}"]`)).toBeFocused();
   await page.locator(`[data-aarch="${A_SEEF}"]`).click();
   await expect(page.locator("#msg")).toHaveText("This area still has stations. Move or archive them first.");
   expect(sent).toEqual([{ p_area: null, p_name: "Maha", p_archived: null }, { p_area: A_SOUK, p_name: "Old Souk", p_archived: null },
                         { p_area: A_SEEF, p_name: null, p_archived: true }]);
+});
+
+test("nothing touches: area cards, the help line, and Save / Cancel each have space between them", async ({ page }) => {
+  await stubBackend(page, { rpc: member(["cats"]) });
+  await signIn(page);
+  await page.goto("cats/");
+  await page.locator("#caTab_areas").click();
+  if (process.env.SHOT_DIR) await page.screenshot({ path: process.env.SHOT_DIR + "/cats-areas.png", fullPage: true });
+  const gap = async (a, b) => { const x = await a.boundingBox(), y = await b.boundingBox(); return y.y - (x.y + x.height); };
+  const panel = page.locator('[role="tabpanel"]');
+  expect(await gap(panel.locator("> p.help").first(), page.locator(".caArea").first())).toBeGreaterThanOrEqual(8);
+  expect(await gap(page.locator(".caArea").nth(0), page.locator(".caArea").nth(1))).toBeGreaterThanOrEqual(8);
+  const btns = page.locator(".caArea").first().locator("button");
+  const r = await btns.nth(0).boundingBox(), r2 = await btns.nth(1).boundingBox();
+  expect(r2.x - (r.x + r.width)).toBeGreaterThanOrEqual(6);
+  await page.locator("#caTab_stations").click();
+  await page.locator(`[data-edit="${S1}"]`).click();
+  if (process.env.SHOT_DIR) await page.screenshot({ path: process.env.SHOT_DIR + "/cats-station-editor.png", fullPage: true });
+  const s = await page.locator("#caSave").boundingBox(), c = await page.locator("#caCancel").boundingBox();
+  expect(Math.abs(c.x - (s.x + s.width))).toBeGreaterThanOrEqual(6);
 });
 
 test("leaving the station editor while Find Me is still looking: no error on the next screen; Move pin keeps focus", async ({ page }) => {
