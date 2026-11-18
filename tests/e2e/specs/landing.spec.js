@@ -65,11 +65,13 @@ test("signed-in member: the hub (broadcast + enabled module), not the picker", a
   await stubBackend(page, {
     rpc: { jc_config_get: () => ok(Object.assign({}, CONFIG, {
       broadcast: "Road closed at Souk",
-      modules: { events: { enabled: true }, bookings: { enabled: false }, pets: { enabled: false } },
+      modules: { events: { enabled: true }, bookings: { enabled: false }, pets: { enabled: true } },
     })) },
   });
   await signIn(page);
   await expect(page.locator("#brand")).toHaveText("Jubail Commons");
+  // Pets opens the directory, not an add form — residents who already added a pet saw "Add a Pet" (Zee 2026-11-18)
+  await expect(page.locator("#cards a.go[href='pets/']")).toHaveText("See Pets");
   await expect(page.locator("#bcast")).toHaveText("⚠️ Road closed at Souk");
   await expect(page.locator("#cards a.go[href='events/']")).toHaveText("See Events");
   await expect(page.locator("#cards .card svg.ico")).toHaveCount(4);  // + The Community
