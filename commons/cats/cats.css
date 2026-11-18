@@ -31,3 +31,18 @@ input[type=date]{font:inherit; font-size:16px; color:var(--jc-ink); background:v
   border-radius:10px; padding:11px 12px; width:100%; -webkit-appearance:none; appearance:none; display:block; min-width:0;
   max-width:100%; box-sizing:border-box; min-height:46px; color-scheme:dark}
 .caAreaName{font-size:16px; overflow-wrap:anywhere}
+/* CC-4: the visit form's cat picker (tap a picture to select) and the history entries */
+.caPicks{display:grid; grid-template-columns:repeat(auto-fill, minmax(96px, 1fr)); gap:8px}
+.caPick{display:flex; flex-direction:column; align-items:center; gap:4px; padding:8px; font:inherit; font-size:13px; color:var(--jc-ink);
+  background:var(--jc-surface-2); border:2px solid var(--jc-line); border-radius:12px; cursor:pointer; min-height:44px}
+.caPick span{overflow-wrap:anywhere; text-align:center}
+.caPick[aria-pressed="true"]{border-color:var(--jc-accent); background:var(--jc-surface)}
+.caLog{display:flex; flex-direction:column; gap:6px}
+.caLog[data-hidden]{opacity:.7}
+.caLog .row, .caLogCats{flex-wrap:wrap; align-items:center; gap:8px}
+.caLog .caLinkRow{align-items:flex-end}
+.caLinkLab{display:flex; flex-direction:column; gap:4px; flex:1 1 180px}
+input[type=number], input[type=datetime-local]{font:inherit; font-size:16px; color:var(--jc-ink); background:var(--jc-surface-2);
+  border:1px solid var(--jc-line); border-radius:10px; padding:11px 12px; width:100%; box-sizing:border-box; min-height:46px;
+  min-width:0; max-width:100%; color-scheme:dark}
+input[type=datetime-local]{-webkit-appearance:none; appearance:none; display:block}

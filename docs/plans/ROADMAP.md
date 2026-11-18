@@ -309,6 +309,15 @@ cat (look-alike orange cats); no per-cat "fed" button (one log per station visit
   (abuse limits, who can send to whom).
 - **"Hidden homes stay hidden" above is void** — home hiding was removed 2026-11-12 (`docs/plans/HH-remove-home-hiding.md`).
 
+### "See it as a resident" for admins  ·  app only  ·  idea (Zee 2026-11-18)
+Anyone holding an admin role (community, events, bookings, pets, Cats coordinator or volunteer) wants a button that shows
+the app as a plain resident sees it, without signing out. Proposed shape: a **"See as a resident" switch in Settings**
+(and a one-line banner "You're seeing what residents see · Back" on every page while it's on). Display only: the page
+behaves as if `admin_scopes` were empty, so it calls the resident RPCs (Cats already has two families: `jc_cats_public`
+vs `jc_cat_register`), hides Organizer Tools and every editor. The server is unchanged and still trusts the real role,
+so nothing is weakened; per-session (`sessionStorage`), off on a new visit. Needs a short `/plan-change` (touches
+`nav.js` / `api.js` shared state; every module's role checks read through one helper).
+
 ### Light mode  ·  fast follower (Zee 2026-11-11)
 - The light palette already exists in `tokens.css` (`[data-theme="light"]`, contrast-checked); every page pins
   `color-scheme: dark` today. Follow the phone's setting (`prefers-color-scheme`), every screen checked in both, map

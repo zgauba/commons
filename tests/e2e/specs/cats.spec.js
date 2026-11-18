@@ -529,3 +529,159 @@ test("a photo the phone can't read is said in words; Stations / Areas writes ref
   await expect(page.locator("#msg")).toHaveText("Saved.");
   await expect.poll(() => regCalls).toBe(before + 1);
 });
+
+// ---------- CC-4: visits + sightings ----------
+const V1 = "ffffffff-0000-4000-8000-000000000001", SI1 = "ffffffff-0000-4000-8000-000000000002", SI2 = "ffffffff-0000-4000-8000-000000000003";
+const ITEMS = [
+  { kind: "visit", id: V1, at: "2026-11-18T07:30:00.123456+00:00", visited_on: "2026-11-18", station: { id: S1, code: "S-001", landmark: "Behind the souk", area_id: A_SOUK },
+    food: true, water: true, cleaned: false, headcount: 7, unfamiliar: 1, kittens: 2, problem: "Bowl broken", note: null, by: "Vera",
+    mine: false, hidden: false, can_hide: true, cats: [{ id: K1, code: "C-001", name: "Caramel" }] },
+  { kind: "sighting", id: SI1, at: "2026-11-17T16:00:00+00:00", cat: null, description: "Grey tabby, white paws", station: null,
+    area_id: A_SEEF, lat: 24.54, lng: 54.44, note: null, by: "Cora", linked: false, mine: false, hidden: false, can_hide: true },
+];
+function logBackend(scopes, sink) {
+  const rpc = member(scopes);
+  rpc.jc_cat_activity = (a) => { sink.activity.push(a);
+    const items = a.p_kind === "problem" ? ITEMS.slice(0, 1) : a.p_kind === "unidentified" ? ITEMS.slice(1) : ITEMS;
+    return ok({ items, more: !a.p_before && a.p_kind === null && !a.p_cat && !a.p_station, can_edit: scopes.includes("cats") }); };
+  rpc.jc_cat_visit_add = (a) => { sink.visit = a; return ok({ visit: ITEMS[0] }); };
+  rpc.jc_cat_sighting_add = (a) => { sink.sighting = a; return ok({ sighting: ITEMS[1] }); };
+  rpc.jc_cat_log_hide = (a) => { sink.hide = a; return ok({ sighting: Object.assign({}, ITEMS[1], { hidden: a.p_hidden }) }); };
+  rpc.jc_cat_sighting_link = (a) => { sink.link = a;
+    return ok({ sighting: Object.assign({}, ITEMS[1], { cat: { id: K2, code: "C-002", name: null }, linked: true }) }); };
+  return rpc;
+}
+
+test("a volunteer logs a feeding visit at a station: station cats first, problem, counts; the server gets exactly the form", async ({ page }) => {
+  const sink = { activity: [] };
+  await stubBackend(page, { rpc: logBackend(["cats_vol"], sink) });
+  await signIn(page);
+  await page.goto("cats/");
+  await page.locator("#caTab_stations").click();
+  await page.locator(`[data-visit="${S1}"]`).click();
+  await expect(page.locator("h1")).toHaveText("Log a visit");
+  // Caramel's usual station is S-001 → offered; the kitten from Seef only behind "Show all cats"
+  await expect(page.locator("[data-pick]")).toHaveCount(1);
+  await page.locator("#caVAll").click();
+  await expect(page.locator("[data-pick]")).toHaveCount(2);
+  await page.locator(`[data-pick="${K1}"]`).click();
+  await expect(page.locator(`[data-pick="${K1}"]`)).toHaveAttribute("aria-pressed", "true");
+  await expect(page.locator("#caVPicked")).toHaveText("1 selected");
+  await page.locator('[data-vchk="food"]').check();
+  await page.locator("#caVHead").fill("300");
+  await page.locator("#caVSave").click();
+  await expect(page.locator("#msg")).toHaveText("Counts are whole numbers: up to 200 cats, 50 unfamiliar cats or kittens.");
+  await page.locator("#caVHead").fill("6");
+  await page.locator("#caVProb").check();
+  await page.locator("#caVSave").click();
+  await expect(page.locator("#msg")).toHaveText("Say what the problem is, or untick Flag a problem.");
+  await page.locator("#caVProbTxt").fill("Bowl broken");
+  if (process.env.SHOT_DIR) await page.screenshot({ path: process.env.SHOT_DIR + "/cats-visit-form.png", fullPage: true });
+  await page.locator("#caVSave").click();
+  await expect(page.locator("#msg")).toHaveText("Visit saved.");
+  expect(sink.visit.p_station).toBe(S1);
+  expect(sink.visit.p_fields).toEqual(expect.objectContaining({ food: true, water: false, cleaned: false, headcount: 6, unfamiliar: null,
+    kittens: null, problem: "Bowl broken", note: null, cats: [K1] }));
+  expect(sink.visit.p_fields.visited_on).toMatch(/^\d{4}-\d\d-\d\d$/);
+});
+
+test("Activity tab: entries, chips ask the server, older pages send the exact cursor, a coordinator links + hides", async ({ page }) => {
+  const sink = { activity: [] };
+  await stubBackend(page, { rpc: logBackend(["cats"], sink) });
+  await signIn(page);
+  await page.goto("cats/");
+  await page.locator("#caTab_log").click();
+  const v = page.locator(`.caLog[data-log="${V1}"]`);
+  await expect(v).toContainText("Feeding visit");
+  await expect(v).toContainText("S-001 · Behind the souk · by Vera");
+  await expect(v.locator(".caProblem")).toHaveText("Problem: Bowl broken");
+  await expect(v.locator(`[data-lcat="${K1}"]`)).toHaveText("Caramel");
+  await expect(page.locator(`.caLog[data-log="${SI1}"] [data-unid]`)).toHaveText("Not identified yet");
+  if (process.env.SHOT_DIR) await page.screenshot({ path: process.env.SHOT_DIR + "/cats-activity.png", fullPage: true });
+  await page.locator("[data-lmore]").click();
+  expect(sink.activity.at(-1)).toEqual({ p_station: null, p_cat: null, p_kind: null, p_before: ITEMS[1].at, p_before_id: SI1 });
+  await page.locator("#caLk_problem").click();
+  await expect(page.locator(".caLog")).toHaveCount(1);
+  expect(sink.activity.at(-1).p_kind).toBe("problem");
+  await page.locator("#caLk_unidentified").click();
+  await page.locator(`[data-lsel="${SI1}"]`).selectOption(K2);
+  await page.locator(`[data-llink="${SI1}"]`).click();
+  await expect(page.locator("#msg")).toHaveText("Linked to the cat.");
+  expect(sink.link).toEqual({ p_sighting: SI1, p_cat: K2 });
+  // the entry changes in place (no reload of the list): it now names the cat, focus stays on Link
+  await expect(page.locator(`.caLog[data-log="${SI1}"] [data-lcat="${K2}"]`)).toHaveText("C-002");
+  await expect(page.locator(`[data-llink="${SI1}"]`)).toBeFocused();
+  const reads = sink.activity.length;
+  await page.locator(`[data-lhide="sighting:${SI1}"]`).click();
+  await expect(page.locator(`[data-lhide="sighting:${SI1}"]`)).toHaveText("Show again");
+  expect(sink.hide).toEqual({ p_kind: "sighting", p_id: SI1, p_hidden: true });
+  await expect(page.locator(`.caLog[data-log="${SI1}"]`)).toHaveAttribute("data-hidden", "");
+  expect(sink.activity.length).toBe(reads);
+});
+
+test("a sighting from the cat's page: the cat is chosen, a station or a place is required; history shows on the cat", async ({ page }) => {
+  const sink = { activity: [] };
+  await stubBackend(page, { rpc: logBackend(["cats_vol"], sink) });
+  await signIn(page);
+  await page.goto("cats/");
+  await page.locator(`[data-cat="${K1}"]`).click();
+  await expect(page.locator("#caCatLog .caLog")).toHaveCount(2);
+  expect(sink.activity.at(-1)).toEqual(expect.objectContaining({ p_cat: K1, p_kind: null }));
+  await page.locator("#caCatSeen").click();
+  await expect(page.locator("#caSCat")).toHaveValue(K1);
+  if (process.env.SHOT_DIR) await page.screenshot({ path: process.env.SHOT_DIR + "/cats-sighting-form.png", fullPage: true });
+  await expect(page.locator("#caSDesc")).toHaveCount(0);
+  await page.locator("#caSSave").click();
+  await expect(page.locator("#msg")).toHaveText("Say where: a station, a pin on the map or an area.");
+  await page.locator("#caSSt").selectOption(S1);
+  await page.locator("#caSSave").click();
+  await expect(page.locator("#msg")).toHaveText("Sighting saved.");
+  await expect(page.locator("h1")).toHaveText("Caramel");                    // back on the cat
+  expect(sink.sighting.p_fields).toEqual(expect.objectContaining({ cat_id: K1, station_id: S1, note: null }));
+  expect(Date.parse(sink.sighting.p_fields.seen_at)).toBeGreaterThan(Date.now() - 600000);
+});
+
+test("an unidentified sighting needs a description; residents get no Activity tab and no programme calls", async ({ page }) => {
+  const sink = { activity: [] };
+  await stubBackend(page, { rpc: logBackend(["cats_vol"], sink) });
+  await signIn(page);
+  await page.goto("cats/");
+  await page.locator("#caTab_log").click();
+  await page.locator("#caAddSight").click();
+  await page.locator("#caSSt").selectOption(S2);
+  await page.locator("#caSSave").click();
+  await expect(page.locator("#msg")).toHaveText("Choose the cat, or describe it.");
+  await page.locator("#caSDesc").fill("Black, tiny star");
+  await page.locator("#caSSave").click();
+  await expect(page.locator("#msg")).toHaveText("Sighting saved.");
+  expect(sink.sighting.p_fields).toEqual(expect.objectContaining({ description: "Black, tiny star", station_id: S2 }));
+  expect(sink.sighting.p_fields.cat_id).toBeUndefined();
+  await expect(page.locator("#caTab_log")).toHaveAttribute("aria-selected", "true");   // back on Activity
+});
+
+test("residents: no Activity tab, no visit buttons, no activity calls", async ({ page }) => {
+  const sink = { activity: [] };
+  await stubBackend(page, { rpc: logBackend([], sink) });
+  await signIn(page);
+  await page.goto("cats/");
+  await expect(page.locator(".caCat").first()).toBeVisible();
+  await expect(page.locator("#caTab_log, [data-visit], [data-stlog], #caCatSeen")).toHaveCount(0);
+  await page.locator(`[data-cat="${K1}"]`).click();
+  await expect(page.locator("#caCatSeen, #caCatLog")).toHaveCount(0);
+  expect(sink.activity.length).toBe(0);
+});
+
+test("a list that fails to load says so and offers Try again", async ({ page }) => {
+  const sink = { activity: [] };
+  const rpc = logBackend(["cats_vol"], sink);
+  const real = rpc.jc_cat_activity;
+  let fail = true;
+  rpc.jc_cat_activity = (a, c) => (fail ? (fail = false, raise("UNKNOWN")) : real(a, c));
+  await stubBackend(page, { rpc });
+  await signIn(page);
+  await page.goto("cats/");
+  await page.locator("#caTab_log").click();
+  await expect(page.locator("[data-logerr]")).toHaveText("Something went wrong. Try again.");
+  await page.locator("[data-lretry]").click();
+  await expect(page.locator(".caLog")).toHaveCount(2);
+});
