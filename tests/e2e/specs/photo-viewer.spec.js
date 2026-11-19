@@ -132,3 +132,71 @@ test("Organizer Tools: a stray report's photo opens the viewer", async ({ page }
   await expect(viewer(page)).toBeHidden();
   await expect(photo).toBeFocused();
 });
+
+// DS-3c (Cats review D12, docs/plans/DS-3-shared-pieces.md): zoom — Zoom In / double-tap = 2.5×, drag to look around,
+// kept inside the photo; while zoomed a drag never changes photo and a tap never closes; a new photo starts unzoomed
+for (const lang of ["en", "ar"]) {
+  test(`zoom: button and double-tap, drag pans inside the photo, no step or close while zoomed (${lang})`, async ({ page }) => {
+    await open(page, { q: "?pet=" + ID(1), lang });
+    await expect(page.locator(".pthero .ptview")).toBeVisible();
+    await page.evaluate(() => {                                    // two photos on one button (as in the test above)
+      const d = document.createElement("div");
+      d.innerHTML = jcPetPhotoHtml({ photo_path: "jubail/x/rex.jpg" }, 34, "tile", { view: ["jubail/x/rex.jpg", "jubail/x/luna.jpg"] });
+      d.firstChild.id = "pvTwo"; document.querySelector("main").appendChild(d.firstChild);
+    });
+    const ar = lang === "ar", of = (n) => (ar ? `${n} من 2` : `${n} of 2`);
+    const zin = ar ? "تكبير" : "Zoom In", zout = ar ? "تصغير" : "Zoom Out";
+    await page.locator("#pvTwo").click();
+    const img = viewer(page).locator(".ptph.full img"), zoom = page.locator("#pvZoom"), count = viewer(page).locator(".pvcount");
+    await expect.poll(() => loaded(viewer(page).locator(".ptph.full"))).toBe(true);
+    await img.evaluate((i) => { i.style.width = "300px"; i.style.height = "300px"; });    // the stub photo is 1×1: give it a size
+    // [x, y, scale] from the inline transform ("" = unzoomed); WebKit writes translate(0px) for translate(0px, 0px)
+    const tf = () => img.evaluate((i) => { const t = i.style.transform; if (!t) return "";
+      const m = /translate\(([-\d.]+)px(?:,\s*([-\d.]+)px)?\)\s*scale\(([\d.]+)\)/.exec(t);
+      return [Math.round(Number(m[1])), Math.round(Number(m[2] || 0)), Number(m[3])]; });
+    await expect(zoom).toHaveText(zin);
+    await expect(zoom).toHaveAttribute("aria-pressed", "false");
+    if (process.env.SHOT_DIR) await page.screenshot({ path: process.env.SHOT_DIR + `/pv-zoom-${lang}.png` });
+    // button: zoom in, centred
+    await zoom.click();
+    await expect(zoom).toHaveAttribute("aria-pressed", "true");
+    await expect(zoom).toHaveText(zout);
+    expect(await tf()).toEqual([0, 0, 2.5]);
+    // drag far: the photo moves, but never further than its own edge (width × 1.5 / 2), wherever the finger goes
+    const w = await img.evaluate((i) => i.offsetWidth), edge = w * 1.5 / 2;
+    expect(w).toBeGreaterThan(100);
+    const box = await img.boundingBox(), cx = box.x + box.width / 2, cy = box.y + box.height / 2;
+    const drag = async (dx, dy) => { await page.mouse.move(cx, cy); await page.mouse.down(); await page.mouse.move(cx + dx, cy + dy, { steps: 4 }); await page.mouse.up(); };
+    await drag(150, 40);                                             // on screen the whole way (a phone is 390 px wide)
+    expect(await tf()).toEqual([150, 40, 2.5]);
+    await drag(150, 0);                                              // 300 px in all: stops at the photo's edge
+    expect(await tf()).toEqual([Math.round(edge), 40, 2.5]);
+    await expect(count).toHaveText(of(1));                       // a zoomed drag never changes photo …
+    await expect(viewer(page)).toBeVisible();                    // … or closes
+    // a tap on the dark area while zoomed: stays open
+    const st = await viewer(page).locator(".pvstage").boundingBox();
+    await page.mouse.click(st.x + 4, st.y + 4);
+    await expect(viewer(page)).toBeVisible();
+    // swipe-length drag toward "next" while zoomed: still photo 1
+    await page.mouse.move(cx, cy); await page.mouse.down(); await page.mouse.move(ar ? cx + 150 : cx - 150, cy, { steps: 5 }); await page.mouse.up();
+    await expect(count).toHaveText(of(1));
+    // Zoom Out: back to fit
+    await zoom.click();
+    await expect(zoom).toHaveAttribute("aria-pressed", "false");
+    expect(await tf()).toBe("");
+    // double-tap on the photo: zooms toward the tapped point (left of centre → the photo shifts right)
+    const h = await img.evaluate((i) => i.offsetHeight);
+    await img.dblclick({ position: { x: w / 2 - 50, y: h / 2 } });
+    await expect(zoom).toHaveAttribute("aria-pressed", "true");
+    const [tx, ty] = await tf();                                    // −(−50) × 1.5: the tapped point stays put (±1 px rounding)
+    expect(Math.abs(tx - 75)).toBeLessThanOrEqual(1);
+    expect(Math.abs(ty)).toBeLessThanOrEqual(1);
+    // the next photo starts unzoomed
+    await page.locator("#pvNext").click();
+    await expect(count).toHaveText(of(2));
+    await expect(zoom).toHaveAttribute("aria-pressed", "false");
+    // unzoomed again, a tap on the dark area closes as before
+    await page.mouse.click(st.x + 4, st.y + 4);
+    await expect(viewer(page)).toBeHidden();
+  });
+}

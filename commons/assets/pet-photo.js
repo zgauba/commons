@@ -115,21 +115,49 @@ function jcPetPhotoUpload(id, dataUrl, report){
 /* ---------- photo viewer (PV-1, 2026-11-18) ----------
    Tap a photo → full screen. Close button, Escape (native <dialog>), or a tap outside the photo (a tap, never the end
    of a swipe). Several photos: "2 of 4", previous / next, arrow keys, swipe — all mirrored in Arabic. The photo is the
-   same signed URL the page already holds (jcPetPhotoFill): no extra download. */
-var jcPv = { paths: [], i: 0, from: null, swiped: false };
+   same signed URL the page already holds (jcPetPhotoFill): no extra download.
+   Zoom (DS-3c): the Zoom In button or a double-tap on the photo = 2.5×, toward the tapped point; drag to look around
+   (kept inside the photo). While zoomed a drag never changes the photo and a tap never closes; a new photo starts unzoomed. */
+var JC_PV_ZOOM = 2.5;
+var jcPv = { paths: [], i: 0, from: null, swiped: false, z: 1, tx: 0, ty: 0, lastTap: 0 };
+function jcPvImg(){ var d = document.getElementById("jcPhotoView"); return d ? d.querySelector(".ptph.full img") : null; }
+function jcPvClamp(){
+  var img = jcPvImg(); if (!img || jcPv.z <= 1) { jcPv.tx = jcPv.ty = 0; return; }
+  var mx = img.offsetWidth * (jcPv.z - 1) / 2, my = img.offsetHeight * (jcPv.z - 1) / 2;
+  jcPv.tx = Math.max(-mx, Math.min(mx, jcPv.tx)); jcPv.ty = Math.max(-my, Math.min(my, jcPv.ty));
+}
+function jcPvApply(){
+  var img = jcPvImg(), st = document.querySelector("#jcPhotoView .pvstage"), b = document.getElementById("pvZoom"), on = jcPv.z > 1;
+  if (st) st.classList.toggle("zoomed", on);
+  if (b) { b.setAttribute("aria-pressed", on ? "true" : "false"); b.textContent = jcT(on ? "pv_zoom_out" : "pv_zoom_in"); }
+  if (img) img.style.transform = on ? "translate(" + jcPv.tx + "px, " + jcPv.ty + "px) scale(" + jcPv.z + ")" : "";
+}
+/* on: zoom in (toward the client point cx, cy if given: that point stays under the finger) or out */
+function jcPvZoom(on, cx, cy){
+  jcPv.z = on ? JC_PV_ZOOM : 1; jcPv.tx = jcPv.ty = 0;
+  var img = jcPvImg();
+  if (on && img && cx != null) {
+    var r = img.getBoundingClientRect();
+    jcPv.tx = -(cx - (r.left + r.width / 2)) * (jcPv.z - 1); jcPv.ty = -(cy - (r.top + r.height / 2)) * (jcPv.z - 1);
+  }
+  jcPvClamp(); jcPvApply();
+}
 function jcPvRtl(){ return document.documentElement.getAttribute("dir") === "rtl"; }
 function jcPvClose(){ var d = document.getElementById("jcPhotoView"); if (!d) return; if (d.close) d.close(); else { d.removeAttribute("open"); jcPvBack(); } }
 function jcPvBack(){ var b = jcPv.from; jcPv.from = null; if (b && b.isConnected) b.focus(); }
-function jcPvStep(n){ var j = jcPv.i + n; if (j < 0 || j >= jcPv.paths.length) return; jcPv.i = j; jcPvDraw(); }
+function jcPvStep(n){ var j = jcPv.i + n; if (j < 0 || j >= jcPv.paths.length) return; jcPv.i = j; jcPvDraw(); }   /* draw unzooms */
 function jcPvDraw(){
   var d = document.getElementById("jcPhotoView"), t = jcPv.paths.length, many = t > 1;
   var a = document.activeElement, had = a && a !== d && d.contains(a) ? a.id : "";   /* keep focus on the same button */
+  jcPv.z = 1; jcPv.tx = jcPv.ty = 0; jcPv.lastTap = 0;
   d.innerHTML = '<div class="pvhead">' + (many ? '<span class="pvcount" aria-live="polite">' + esc(jcFmt("pv_count", { n: jcPv.i + 1, t: t })) + '</span>' : '<span></span>') +
-    '<button type="button" class="lang" id="pvClose">' + esc(jcT("ev_labels_close")) + '</button></div>' +
+    '<span class="pvbtns"><button type="button" class="lang" id="pvZoom" aria-pressed="false">' + esc(jcT("pv_zoom_in")) + '</button>' +
+    '<button type="button" class="lang" id="pvClose">' + esc(jcT("ev_labels_close")) + '</button></span></div>' +
     '<div class="pvstage"><span class="ptph full" data-photo="' + esc(jcPv.paths[jcPv.i]) + '">' + jcIcon("pets", 48) + '</span></div>' +
     (many ? '<div class="pvnav"><button type="button" class="btn ghost" id="pvPrev" aria-label="' + esc(jcT("pv_prev")) + '"' + (jcPv.i === 0 ? ' disabled' : '') + '><span class="pvchev">‹</span></button>' +
             '<button type="button" class="btn ghost" id="pvNext" aria-label="' + esc(jcT("pv_next")) + '"' + (jcPv.i === t - 1 ? ' disabled' : '') + '><span class="pvchev">›</span></button></div>' : '');
   document.getElementById("pvClose").addEventListener("click", jcPvClose);
+  document.getElementById("pvZoom").addEventListener("click", function(){ jcPvZoom(jcPv.z <= 1); });
   if (many) {
     document.getElementById("pvPrev").addEventListener("click", function(){ jcPvStep(-1); });
     document.getElementById("pvNext").addEventListener("click", function(){ jcPvStep(1); });
@@ -146,22 +174,42 @@ function jcPhotoView(paths, i, from){
     d = document.createElement("dialog");
     d.id = "jcPhotoView"; d.className = "photoview";
     document.body.appendChild(d);
-    var sx = null, sy = null;
+    var sx = null, sy = null, tx0 = 0, ty0 = 0, pan = false;
+    var stageOf = function(){ return d.querySelector(".pvstage"); };
     /* one finger only: a second finger (a pinch) cancels the swipe and is never a closing tap (review) */
     d.addEventListener("pointerdown", function(e){
       if (!e.isPrimary) { sx = null; jcPv.swiped = true; return; }
-      sx = e.clientX; sy = e.clientY; jcPv.swiped = false;
+      sx = e.clientX; sy = e.clientY; tx0 = jcPv.tx; ty0 = jcPv.ty; jcPv.swiped = false;
+      pan = jcPv.z > 1 && !!(e.target.closest && e.target.closest(".pvstage"));       /* a drag that starts on the stage */
     });
-    d.addEventListener("pointercancel", function(){ sx = null; });
+    /* zoomed: a drag that started on the stage moves the photo (kept inside it), wherever the finger goes */
+    d.addEventListener("pointermove", function(e){
+      if (sx === null || !e.isPrimary || !pan) return;
+      jcPv.tx = tx0 + (e.clientX - sx); jcPv.ty = ty0 + (e.clientY - sy); jcPvClamp();
+      var st = stageOf(); if (st) st.classList.add("drag");
+      jcPvApply();
+    });
+    d.addEventListener("pointercancel", function(){ sx = null; var st = stageOf(); if (st) st.classList.remove("drag"); });
+    d.addEventListener("dragstart", function(e){ e.preventDefault(); });   /* the browser's own image drag would cancel a pan */
     d.addEventListener("pointerup", function(e){
       if (sx === null || !e.isPrimary) return;
       var dx = e.clientX - sx, dy = e.clientY - sy; sx = null;
+      var st = stageOf(); if (st) st.classList.remove("drag");
       if (Math.abs(dx) >= 10 || Math.abs(dy) >= 10) jcPv.swiped = true;                /* moved: never a closing tap */
+      if (jcPv.z > 1) return;                                                          /* zoomed: a drag pans, never steps */
       if (Math.abs(dx) > 40 && Math.abs(dx) > Math.abs(dy)) jcPvStep((dx < 0) !== jcPvRtl() ? 1 : -1);
     });
     d.addEventListener("click", function(e){
       if (jcPv.swiped) { jcPv.swiped = false; return; }
-      var t = e.target;                                     /* anywhere dark (stage, header, arrow row): not the photo or a button */
+      var t = e.target;
+      if (t.tagName === "IMG" && t.closest(".pvstage")) {                              /* two taps on the photo within 350 ms */
+        var now = Date.now();
+        if (now - jcPv.lastTap < 350) { jcPv.lastTap = 0; jcPvZoom(jcPv.z <= 1, e.clientX, e.clientY); }
+        else jcPv.lastTap = now;
+        return;
+      }
+      if (jcPv.z > 1) return;                               /* zoomed: a tap never closes */
+      /* anywhere dark (stage, header, arrow row): not the photo or a button */
       if (!(t.closest && t.closest("button, img"))) jcPvClose();
     });
     d.addEventListener("keydown", function(e){

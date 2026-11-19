@@ -261,10 +261,10 @@ Cats today: sex (3), life stage (4), ear tip (3), sterilisation (3) → pills ·
 ### Photo + viewer
 | | |
 |---|---|
-| Status | **Shared**; zoom is a **Gap** (D12, DS-3) |
+| Status | **Shared**, with zoom (DS-3c, D12) |
 | Native basis | `button` (tappable photo), `dialog` (viewer) |
 | Markup | `jcPetPhotoHtml(p, size, cls, {view})` (`pet-photo.js`); `.ptph` `.thumb` 44px · `.tile` · `.big`; paw placeholder until loaded |
-| Variants / states | `{view:true}` or a list of paths → opens `jcPhotoView(paths, i, from)`: full screen, count, prev/next |
+| Variants / states | `{view:true}` or a list of paths → opens `jcPhotoView(paths, i, from)`: full screen, count, prev/next, **Zoom In / Zoom Out** (button `#pvZoom`, `aria-pressed`) or a double-tap on the photo = 2.5× toward the tapped point; drag to look around (kept inside the photo). While zoomed a drag never changes photo and a tap never closes; a new photo starts unzoomed |
 | Accessibility | Count `aria-live`; prev/next labelled, mirrored in Arabic; ←/→ keys; one-finger swipe; focus returns to the photo on close |
 | Wiring | `jcPetPhotoFill()` after `innerHTML` |
 | Use / Don't | Every photo of a person's animal. Don't build a second viewer |
