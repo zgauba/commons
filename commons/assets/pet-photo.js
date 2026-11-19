@@ -121,21 +121,24 @@ function jcPetPhotoUpload(id, dataUrl, report){
 var JC_PV_ZOOM = 2.5;
 var jcPv = { paths: [], i: 0, from: null, swiped: false, z: 1, tx: 0, ty: 0, lastTap: 0 };
 function jcPvImg(){ var d = document.getElementById("jcPhotoView"); return d ? d.querySelector(".ptph.full img") : null; }
+/* keep the zoomed photo covering the stage: it can move only as far as it is bigger than the visible area, per axis */
 function jcPvClamp(){
-  var img = jcPvImg(); if (!img || jcPv.z <= 1) { jcPv.tx = jcPv.ty = 0; return; }
-  var mx = img.offsetWidth * (jcPv.z - 1) / 2, my = img.offsetHeight * (jcPv.z - 1) / 2;
+  var img = jcPvImg(), st = document.querySelector("#jcPhotoView .pvstage");
+  if (!img || !st || jcPv.z <= 1) { jcPv.tx = jcPv.ty = 0; return; }
+  var mx = Math.max(0, (img.offsetWidth * jcPv.z - st.clientWidth) / 2), my = Math.max(0, (img.offsetHeight * jcPv.z - st.clientHeight) / 2);
   jcPv.tx = Math.max(-mx, Math.min(mx, jcPv.tx)); jcPv.ty = Math.max(-my, Math.min(my, jcPv.ty));
 }
 function jcPvApply(){
   var img = jcPvImg(), st = document.querySelector("#jcPhotoView .pvstage"), b = document.getElementById("pvZoom"), on = jcPv.z > 1;
   if (st) st.classList.toggle("zoomed", on);
-  if (b) { b.setAttribute("aria-pressed", on ? "true" : "false"); b.textContent = jcT(on ? "pv_zoom_out" : "pv_zoom_in"); }
+  if (b) b.setAttribute("aria-pressed", on ? "true" : "false");     /* one label, its state in aria-pressed (review M2) */
   if (img) img.style.transform = on ? "translate(" + jcPv.tx + "px, " + jcPv.ty + "px) scale(" + jcPv.z + ")" : "";
 }
 /* on: zoom in (toward the client point cx, cy if given: that point stays under the finger) or out */
 function jcPvZoom(on, cx, cy){
-  jcPv.z = on ? JC_PV_ZOOM : 1; jcPv.tx = jcPv.ty = 0;
   var img = jcPvImg();
+  if (on && !img) return;                                   /* the photo hasn't loaded yet: nothing to zoom (review M1) */
+  jcPv.z = on ? JC_PV_ZOOM : 1; jcPv.tx = jcPv.ty = 0;
   if (on && img && cx != null) {
     var r = img.getBoundingClientRect();
     jcPv.tx = -(cx - (r.left + r.width / 2)) * (jcPv.z - 1); jcPv.ty = -(cy - (r.top + r.height / 2)) * (jcPv.z - 1);
@@ -151,7 +154,7 @@ function jcPvDraw(){
   var a = document.activeElement, had = a && a !== d && d.contains(a) ? a.id : "";   /* keep focus on the same button */
   jcPv.z = 1; jcPv.tx = jcPv.ty = 0; jcPv.lastTap = 0;
   d.innerHTML = '<div class="pvhead">' + (many ? '<span class="pvcount" aria-live="polite">' + esc(jcFmt("pv_count", { n: jcPv.i + 1, t: t })) + '</span>' : '<span></span>') +
-    '<span class="pvbtns"><button type="button" class="lang" id="pvZoom" aria-pressed="false">' + esc(jcT("pv_zoom_in")) + '</button>' +
+    '<span class="row"><button type="button" class="lang" id="pvZoom" aria-pressed="false">' + esc(jcT("pv_zoom")) + '</button>' +
     '<button type="button" class="lang" id="pvClose">' + esc(jcT("ev_labels_close")) + '</button></span></div>' +
     '<div class="pvstage"><span class="ptph full" data-photo="' + esc(jcPv.paths[jcPv.i]) + '">' + jcIcon("pets", 48) + '</span></div>' +
     (many ? '<div class="pvnav"><button type="button" class="btn ghost" id="pvPrev" aria-label="' + esc(jcT("pv_prev")) + '"' + (jcPv.i === 0 ? ' disabled' : '') + '><span class="pvchev">‹</span></button>' +
@@ -185,6 +188,7 @@ function jcPhotoView(paths, i, from){
     /* zoomed: a drag that started on the stage moves the photo (kept inside it), wherever the finger goes */
     d.addEventListener("pointermove", function(e){
       if (sx === null || !e.isPrimary || !pan) return;
+      if (e.pointerType === "mouse" && !(e.buttons & 1)) { sx = null; return; }        /* button let go outside the window (L3) */
       jcPv.tx = tx0 + (e.clientX - sx); jcPv.ty = ty0 + (e.clientY - sy); jcPvClamp();
       var st = stageOf(); if (st) st.classList.add("drag");
       jcPvApply();
@@ -192,9 +196,9 @@ function jcPhotoView(paths, i, from){
     d.addEventListener("pointercancel", function(){ sx = null; var st = stageOf(); if (st) st.classList.remove("drag"); });
     d.addEventListener("dragstart", function(e){ e.preventDefault(); });   /* the browser's own image drag would cancel a pan */
     d.addEventListener("pointerup", function(e){
+      var st = stageOf(); if (st) st.classList.remove("drag");                         /* also after a pinch cancelled the pan (L2) */
       if (sx === null || !e.isPrimary) return;
       var dx = e.clientX - sx, dy = e.clientY - sy; sx = null;
-      var st = stageOf(); if (st) st.classList.remove("drag");
       if (Math.abs(dx) >= 10 || Math.abs(dy) >= 10) jcPv.swiped = true;                /* moved: never a closing tap */
       if (jcPv.z > 1) return;                                                          /* zoomed: a drag pans, never steps */
       if (Math.abs(dx) > 40 && Math.abs(dx) > Math.abs(dy)) jcPvStep((dx < 0) !== jcPvRtl() ? 1 : -1);
@@ -212,10 +216,14 @@ function jcPhotoView(paths, i, from){
       /* anywhere dark (stage, header, arrow row): not the photo or a button */
       if (!(t.closest && t.closest("button, img"))) jcPvClose();
     });
+    /* arrows: zoomed, look around (40 px a press — the keyboard's pan, review M3); otherwise ← / → change photo */
     d.addEventListener("keydown", function(e){
-      if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
+      var k = e.key, step = { ArrowLeft: [40, 0], ArrowRight: [-40, 0], ArrowUp: [0, 40], ArrowDown: [0, -40] }[k];
+      if (!step) return;
+      if (jcPv.z > 1) { e.preventDefault(); jcPv.tx += step[0]; jcPv.ty += step[1]; jcPvClamp(); jcPvApply(); return; }
+      if (k !== "ArrowLeft" && k !== "ArrowRight") return;
       e.preventDefault();
-      jcPvStep((e.key === "ArrowRight") !== jcPvRtl() ? 1 : -1);
+      jcPvStep((k === "ArrowRight") !== jcPvRtl() ? 1 : -1);
     });
     d.addEventListener("close", jcPvBack);
   }

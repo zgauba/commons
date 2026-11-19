@@ -212,7 +212,6 @@ dialog.photoview::backdrop{background:rgba(0,0,0,.94)}
   transition:transform .2s ease; transform-origin:50% 50%; -webkit-user-drag:none; user-select:none; -webkit-user-select:none}
 /* DS-3c zoom (Cats review D12): Zoom In / double-tap = 2.5×, drag to look around; the stage clips, and while zoomed a
    drag never changes the photo and a tap never closes the viewer */
-.pvbtns{display:flex; gap:8px}
 .pvstage.zoomed{touch-action:none; cursor:grab}
 .pvstage.zoomed img{cursor:grab}
 .pvstage.zoomed.drag img{transition:none; cursor:grabbing}

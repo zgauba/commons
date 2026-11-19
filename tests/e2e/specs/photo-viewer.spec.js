@@ -145,7 +145,7 @@ for (const lang of ["en", "ar"]) {
       d.firstChild.id = "pvTwo"; document.querySelector("main").appendChild(d.firstChild);
     });
     const ar = lang === "ar", of = (n) => (ar ? `${n} من 2` : `${n} of 2`);
-    const zin = ar ? "تكبير" : "Zoom In", zout = ar ? "تصغير" : "Zoom Out";
+    const zlabel = ar ? "تكبير" : "Zoom";                          // one label; the state is aria-pressed
     await page.locator("#pvTwo").click();
     const img = viewer(page).locator(".ptph.full img"), zoom = page.locator("#pvZoom"), count = viewer(page).locator(".pvcount");
     await expect.poll(() => loaded(viewer(page).locator(".ptph.full"))).toBe(true);
@@ -154,23 +154,30 @@ for (const lang of ["en", "ar"]) {
     const tf = () => img.evaluate((i) => { const t = i.style.transform; if (!t) return "";
       const m = /translate\(([-\d.]+)px(?:,\s*([-\d.]+)px)?\)\s*scale\(([\d.]+)\)/.exec(t);
       return [Math.round(Number(m[1])), Math.round(Number(m[2] || 0)), Number(m[3])]; });
-    await expect(zoom).toHaveText(zin);
+    await expect(zoom).toHaveText(zlabel);
     await expect(zoom).toHaveAttribute("aria-pressed", "false");
     if (process.env.SHOT_DIR) await page.screenshot({ path: process.env.SHOT_DIR + `/pv-zoom-${lang}.png` });
     // button: zoom in, centred
     await zoom.click();
     await expect(zoom).toHaveAttribute("aria-pressed", "true");
-    await expect(zoom).toHaveText(zout);
+    await expect(zoom).toHaveText(zlabel);
     expect(await tf()).toEqual([0, 0, 2.5]);
-    // drag far: the photo moves, but never further than its own edge (width × 1.5 / 2), wherever the finger goes
-    const w = await img.evaluate((i) => i.offsetWidth), edge = w * 1.5 / 2;
-    expect(w).toBeGreaterThan(100);
+    // keyboard: arrows look around while zoomed (never change photo)
+    await page.keyboard.press("ArrowLeft");
+    expect(await tf()).toEqual([40, 0, 2.5]);
+    await expect(count).toHaveText(of(1));
+    await page.keyboard.press("ArrowRight");
+    expect(await tf()).toEqual([0, 0, 2.5]);
+    // drag far: the photo moves only as far as it is wider than the screen (it always covers it), wherever the finger goes
+    const w = await img.evaluate((i) => i.offsetWidth), stageW = await viewer(page).locator(".pvstage").evaluate((e) => e.clientWidth);
+    const edge = (w * 2.5 - stageW) / 2;
+    expect(edge).toBeGreaterThan(150);
     const box = await img.boundingBox(), cx = box.x + box.width / 2, cy = box.y + box.height / 2;
     const drag = async (dx, dy) => { await page.mouse.move(cx, cy); await page.mouse.down(); await page.mouse.move(cx + dx, cy + dy, { steps: 4 }); await page.mouse.up(); };
-    await drag(150, 40);                                             // on screen the whole way (a phone is 390 px wide)
-    expect(await tf()).toEqual([150, 40, 2.5]);
-    await drag(150, 0);                                              // 300 px in all: stops at the photo's edge
-    expect(await tf()).toEqual([Math.round(edge), 40, 2.5]);
+    await drag(150, 0);                                              // on screen the whole way (a phone is 390 px wide)
+    expect(await tf()).toEqual([150, 0, 2.5]);
+    await drag(150, 0);                                              // 300 px in all: stops where the photo's edge meets the screen's
+    expect(await tf()).toEqual([Math.round(edge), 0, 2.5]);
     await expect(count).toHaveText(of(1));                       // a zoomed drag never changes photo …
     await expect(viewer(page)).toBeVisible();                    // … or closes
     // a tap on the dark area while zoomed: stays open
