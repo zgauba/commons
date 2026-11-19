@@ -36,7 +36,7 @@ Every component uses the same fields (shape borrowed from shadcn-html's per-comp
 | Colour is never the only signal | A state always says it in words too (slots, care status, Missing) |
 | Logical properties only | `margin-inline`, `padding-inline`, `inset-inline`, `text-align:start`; Arabic mirrors from `dir`. Exception: map controls (Leaflet zoom is physically top-left) |
 | Mirrored icons | Back, chevrons, prev/next: `transform:scaleX(-1)` under `[dir=rtl]` |
-| User-typed text | `dir="auto"` (keeps Latin letters in order) **plus** `text-align:right` under `html[dir=rtl]` so it lines up with the Arabic. Pets does this for names but **not** for `dl.facts dd`: a Latin fact sits flush left in Arabic (`design/pet-stray-ar.jpg`). Fix in DS-3 |
+| User-typed text | `dir="auto"` (keeps Latin letters in order) **plus** `text-align:right` under `html[dir=rtl]` so it lines up with the Arabic: card and hero names, `dl.facts dd` (`app.css`, DS-3b; `design/pet-stray-ar.jpg`). Still to fix: `.care .note` (a Latin care note sits flush left in Arabic) — DS-4 |
 | Type scale | `h1` 22px/800 · `h2.group` 12.5px caps muted · body 15px · `.meta` 12.5–13px muted · `.help` 12.5px faint |
 | Inputs ≥ 16px text | iOS zooms on focus below 16px |
 | Touch targets | ≥ 44px for anything primary; `.mini` 36px, inside cards only |
@@ -74,9 +74,9 @@ Cats today: sex (3), life stage (4), ear tip (3), sterilisation (3) → pills ·
 ### Page shell (12px rhythm)
 | | |
 |---|---|
-| Status | **Module-only** (copied in `pets/pets.css:2-6` and `cats/cats.css:2-6`) → `app.css` in DS-3 |
+| Status | **Shared** (`app.css`, DS-3b) — opt in with `<main class="jcpage">`; `.jcstack` for a wrapper of its own |
 | Native basis | `main`, `#view`, `[role=tabpanel]` |
-| Markup | Flex columns, `gap:12px`; direct children carry no vertical margins |
+| Markup | Flex columns, `gap:12px`; direct children carry no vertical margins. Used by Pets, Courts, Cats |
 | Accessibility | — |
 | Wiring | — |
 | Use / Don't | Every module page. Don't space blocks with margins |
@@ -150,9 +150,9 @@ Cats today: sex (3), life stage (4), ear tip (3), sterilisation (3) → pills ·
 ### Photo card grid
 | | |
 |---|---|
-| Status | **Module-only** (`pets/pets.css` `.ptgrid/.ptcard/.ptbody`; `card()` in `pets/pets.js:262`) → shared in DS-3 |
+| Status | **Shared** (`app.css` + `jcCardHtml(o)` in `assets/blocks.js`, DS-3b) |
 | Native basis | `ul > li > button` |
-| Markup | `ul.ptgrid > li > button.ptcard` = photo tile (`jcPetPhotoHtml(p, 34, "tile")`) + `.ptbody` (`b` name, `.meta` lines, `.head` chips) |
+| Markup | `ul.ptgrid` of `jcCardHtml({ missing, liAttrs, btnAttrs, photoHtml, name, linesHtml })`: photo tile (`jcPetPhotoHtml(p, 34, "tile")`) + `.ptbody` (`b` name, lines from `jcMetaHtml(text, cls, auto)`, a `.head` chip row) |
 | Variants / states | 2 columns (default) · `.ptgrid.wide`: 1 column, photo beside text, for urgent items · `li.missing`: red 2px border |
 | Accessibility | The whole card is one button; name is its first text; name `dir="auto"` |
 | Wiring | Page binds click → open the item |
@@ -162,9 +162,9 @@ Cats today: sex (3), life stage (4), ear tip (3), sterilisation (3) → pills ·
 ### List cards
 | | |
 |---|---|
-| Status | **Module-only**, already drifting (copied in `pets/pets.css` and `bookings/bookings.css`) → shared in DS-3 |
+| Status | **Shared** (`app.css`, DS-3b). Organizer Tools still has its own copies (`.sulist`, `.fblist`, `.mnlist`) — shrink when next touched |
 | Native basis | `ul > li` |
-| Markup | `ul.bklist > li`: optional `.meta` line, body, `.acts` row at the foot |
+| Markup | `ul.bklist > li`: optional `.meta` line, body, `.acts` row at the foot. A dated list: `jcEntriesHtml` (§4) |
 | Variants / states | `li.missing` red border |
 | Use / Don't | Text entries without photos: sightings, activity, reports, bookings |
 | Reference | `design/pet-sightings.jpg` |
@@ -220,9 +220,9 @@ Cats today: sex (3), life stage (4), ear tip (3), sterilisation (3) → pills ·
 ### Hero header
 | | |
 |---|---|
-| Status | **Module-only** (`pets/pets.css` `.pthero/.ptwho`; `pets/pets.js:404-419`) → shared in DS-3 |
+| Status | **Shared** (`app.css` + `jcHeroHtml(o)` in `assets/blocks.js`, DS-3b) |
 | Native basis | `div` + `h1` |
-| Markup | `.pthero` = photo tile 104px (`jcPetPhotoHtml(p, 34, "tile", {view:true})`) **beside** `.ptwho` (`h1 dir=auto`, `.meta` "Kind · Status", chips). Sub-tabs follow (About · Sightings · Map) |
+| Markup | `jcHeroHtml({ photoHtml, name, afterNameHtml, meta, chipsHtml })` → `.pthero` = photo tile 104px (`jcPetPhotoHtml(p, 34, "tile", {view:true})`) **beside** `.ptwho` (`h1 dir=auto`, `.meta` "Kind · Status", chips). Sub-tabs follow (About · Sightings · Map) |
 | Variants / states | A state box (§4) sits between hero and tabs when it applies |
 | Accessibility | Photo opens the viewer (button); name mirrors in Arabic (`design/pet-stray-ar.jpg`) |
 | Use / Don't | Every page about one animal / thing with a photo. **Never a full-width photo stacked above the name (D3)** |
@@ -231,9 +231,9 @@ Cats today: sex (3), life stage (4), ear tip (3), sterilisation (3) → pills ·
 ### Facts list
 | | |
 |---|---|
-| Status | **Module-only** (`pets/pets.css` `.facts`) → shared in DS-3 (with the Arabic alignment fix, §1) |
+| Status | **Shared** (`app.css` + `jcFactsHtml(pairs, id)` in `assets/blocks.js`, DS-3b), Arabic alignment fixed |
 | Native basis | `dl` |
-| Markup | `dl.facts > dt + dd[dir=auto]`, two columns: muted bold label, value |
+| Markup | `jcFactsHtml([[label, value], …], id)` → `dl.facts > dt + dd[dir=auto]`, two columns: muted bold label, value |
 | Variants / states | Long sets split under `h2.group` labels (Cats: About · Health · Where) |
 | Accessibility | `dl` reads as label/value pairs |
 | Use / Don't | Any label → value facts. **Never bullets (D3)** |
@@ -242,9 +242,9 @@ Cats today: sex (3), life stage (4), ear tip (3), sterilisation (3) → pills ·
 ### Sightings block
 | | |
 |---|---|
-| Status | **Module-only** (`sightingsHtml()` in `pets/pets.js:530`) → shared shell in DS-3; each module keeps its own data + RPCs |
+| Status | **Shared** list: `jcEntriesHtml(o)` in `assets/blocks.js` (DS-3b) — the dated-entry list for sightings, care logs and activity; each module keeps its own data + RPCs and its own report button |
 | Native basis | `button` + `ul` |
-| Markup | ghost `.btn` "Report seeing ⟨name⟩" → `h2.group` → `ul.bklist` (`.meta` when · by me, note, optional `.ptmini`, "Open in Google Maps") → `p.help` retention line |
+| Markup | ghost `.btn` "Report seeing ⟨name⟩" → `jcEntriesHtml({ heading, id, items: [{ meta, bodyHtml }], empty, afterHtml })` = `h2.group` → `ul.bklist` (`.meta` when · by me, note, optional `.ptmini`, "Open in Google Maps") → `p.help` retention line |
 | Variants / states | Empty: `p.help` instead of the list |
 | Accessibility | Mini map is `role=img` + label; the link beside it is the real target |
 | Wiring | `jcMiniMap(node, latlng)` for each `.ptmini` after `innerHTML` |

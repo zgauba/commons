@@ -36,6 +36,9 @@ Last groomed: 2026-11-02
       final numbers in `docs/halloween-2026-final.md`, season-2026 rows deleted,
       cron unscheduled. Private CSV export to be deleted 2026-11-17.
 - [ ] Update stale stats on `/` and `/jubail/` with final event numbers.
+- [ ] 2026-11-19 (found in DS-3) **WebKit e2e lane times out**: the job's 15-min limit cancels it on ~half the runs
+      (3 of the last 6, incl. #172 and earlier PRs); the suite takes 11–15 min there. A cancelled lane says nothing about
+      WebKit. Options: shard the WebKit job, or raise its `timeout-minutes` (`.github/workflows/commons-e2e.yml:49`).
 
 ## Commons platform features
 

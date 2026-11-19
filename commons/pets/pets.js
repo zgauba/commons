@@ -264,18 +264,16 @@ function card(p, i, all, near){
   var d = near ? jcDistOf(jcOrigin(), strayAt(p)) : null;   /* Strays cards only: their spot from the origin */
   var miss = p.missing === true, out = seenOut(p);
   var seen = p.kind === "stray" && p.care_state !== "rehomed" && recent(p.last_seen_at, 30 * DAY) ? jcAgo(p.last_seen_at) : "";
-  return '<li class="' + (miss ? "missing" : "") + '" data-pet="' + esc(p.id) + '">' +
-    '<button class="ptcard" type="button" data-open="' + esc(p.id) + '">' + jcPetPhotoHtml(p, 34, "tile") +
-    '<span class="ptbody"><b dir="auto">' + esc(p.name) + '</b>' +
-    '<span class="meta">' + esc(speciesText(p) + " · " + kindText(p)) + '</span>' +
-    (where ? '<span class="meta where" dir="auto">' + esc(where) + '</span>' : '') +
-    (chips(p) ? '<span class="head">' + chips(p) + '</span>' : '') +
-    (miss && p.last_seen_note ? '<span class="meta" dir="auto">' + esc(jcFmt("pt_last_seen", { t: p.last_seen_note })) + '</span>' : '') +
-    (seen ? '<span class="meta">' + esc(jcFmt("pt_seen_ago", { t: seen })) + '</span>' : '') +
-    (d !== null ? '<span class="meta"><bdi dir="ltr">' + esc(jcFmt("sort_dist", { d: jcFmtDist(d) })) + '</bdi></span>' : '') +
-    /* amber, not red: a heads-up for the household, nothing has changed state (plan R5b-2b-2a) */
-    (out ? '<span class="meta seenout">' + esc(jcFmt("pt_seen_out", { t: out })) + '</span>' : '') +
-    '</span></button></li>';
+  return jcCardHtml({ missing: miss, liAttrs: 'data-pet="' + esc(p.id) + '"', btnAttrs: 'data-open="' + esc(p.id) + '"',
+    photoHtml: jcPetPhotoHtml(p, 34, "tile"), name: p.name, linesHtml: [
+      jcMetaHtml(speciesText(p) + " · " + kindText(p)),
+      where && jcMetaHtml(where, "where", true),
+      chips(p) && '<span class="head">' + chips(p) + '</span>',
+      miss && p.last_seen_note && jcMetaHtml(jcFmt("pt_last_seen", { t: p.last_seen_note }), "", true),
+      seen && jcMetaHtml(jcFmt("pt_seen_ago", { t: seen })),
+      d !== null && '<span class="meta"><bdi dir="ltr">' + esc(jcFmt("sort_dist", { d: jcFmtDist(d) })) + '</bdi></span>',
+      /* amber, not red: a heads-up for the household, nothing has changed state (plan R5b-2b-2a) */
+      out && jcMetaHtml(jcFmt("pt_seen_out", { t: out }), "seenout") ] });
 }
 /* The Strays cards: Needs help first, rehomed last; within each, nearest first — the server's order (nearest my home
    pin), or from this visit's phone position once Find Me / Use Where I Am is tapped (NF-2) */
@@ -404,11 +402,10 @@ var VIEWS = {
     /* header: photo, name, species · kind, badges; the missing alarm (with the owner's "is back home") on every tab */
     /* compact: photo beside the name, so the tabs stay on the first screen */
     var badges = chips(p, true, true);
-    h += '<div class="pthero">' + jcPetPhotoHtml(p, 34, "tile", { view: true }) + '<div class="ptwho"><div class="evtitle"><h1 dir="auto">' + esc(p.name) + '</h1>' +
+    h += jcHeroHtml({ photoHtml: jcPetPhotoHtml(p, 34, "tile", { view: true }), name: p.name,
       /* pets / community admins: the way into Organizer Tools → Pets, as on a court's page (R5d-1) */
-      (canAdmin() ? '<a class="lang adminbtn" id="ptAdmin" href="../admin/?tab=pets&pet=' + encodeURIComponent(p.id) + '">' + esc(jcT("ev_admin")) + '</a>' : '') + '</div>' +
-      '<p class="meta">' + esc(speciesText(p) + " · " + kindText(p)) + '</p>' +
-      (badges ? '<div class="head">' + badges + '</div>' : '') + '</div></div>';
+      afterNameHtml: canAdmin() ? '<a class="lang adminbtn" id="ptAdmin" href="../admin/?tab=pets&pet=' + encodeURIComponent(p.id) + '">' + esc(jcT("ev_admin")) + '</a>' : '',
+      meta: speciesText(p) + " · " + kindText(p), chipsHtml: badges });
     if (p.missing === true) {
       h += '<div class="alarm" id="ptAlarm"><b>' + esc(jcFmt("pt_missing_since", { n: p.name, d: when(p.missing_since) })) + '</b>' +
         (p.last_seen_note ? '<p dir="auto">' + esc(jcFmt("pt_last_seen", { t: p.last_seen_note })) + '</p>' : '') +
@@ -433,7 +430,7 @@ var VIEWS = {
         if (p.territory) facts.push(['pt_territory', p.territory]);
       }
       if (p.description) body += '<p class="desc" dir="auto" id="ptDesc">' + esc(p.description) + '</p>';
-      body += '<dl class="facts" id="ptFacts">' + facts.map(function(f){ return '<dt>' + esc(jcT(f[0])) + '</dt><dd dir="auto">' + esc(f[1]) + '</dd>'; }).join("") + '</dl>';
+      body += jcFactsHtml(facts.map(function(f){ return [jcT(f[0]), f[1]]; }), "ptFacts");
       /* my own pet: the household's controls */
       if (p.mine === true && p.kind === "owned") body += ownerHtml(p);
       if (p.kind === "stray") body += careHtml(p);
@@ -445,7 +442,7 @@ var VIEWS = {
       if (Array.isArray(p.sightings)) body += sightingsHtml(p);
       if (shareOn(p)) body += '<section class="share" id="ptShare" aria-labelledby="ptShareHead"></section>';
     }
-    el("view").innerHTML = h + (tabs.length > 1 ? '<div ' + jcTabPanel("ptpg-", petTab, "ptPage") + '>' + body + '</div>' : '<div id="ptPage">' + body + '</div>');
+    el("view").innerHTML = h + (tabs.length > 1 ? '<div ' + jcTabPanel("ptpg-", petTab, "ptPage") + '>' + body + '</div>' : '<div id="ptPage" class="jcstack">' + body + '</div>');
     if (tabs.length > 1) jcTabsWire("ptpg-", tabs, function(t){
       petTab = t; sheet = null; sight = null; missDraft = null;     /* an open form belongs to its tab */
       setUrl(petQuery(p.id)); draw();
@@ -528,26 +525,26 @@ function drawPicker(p){
 }
 var MINI_MAX = 10;                                    /* small maps on the newest 10 sightings with a location */
 function sightingsHtml(p){
-  var h = '<h2 class="group">' + esc(jcT("pt_sightings")) + '</h2>', minisLeft = typeof L !== "undefined" ? MINI_MAX : 0;
-  /* the household's own pet at home: where neighbours' "out on their own" reports land */
-  if (!p.sightings.length) return h + '<p class="help" id="ptSightings">' + esc(outAlone(p) && p.mine === true ? jcFmt("pt_out_none", { n: p.name }) : jcT("pt_sightings_none")) + '</p>';
-  return h + '<ul class="bklist" id="ptSightings">' + sightList(p).map(function(s){
-    var pos = finite(s.lat) && finite(s.lng), mini = pos && minisLeft-- > 0;
-    return '<li><div class="meta">' + esc(when(s.seen_at)) + (s.by_me === true ? ' · ' + esc(jcT("pt_by_me")) : '') + '</div>' +
-      (s.note ? '<div dir="auto">' + esc(s.note) + '</div>' : '') +
-      (mini ? '<div class="ptmini" data-lat="' + esc(String(s.lat)) + '" data-lng="' + esc(String(s.lng)) + '" role="img" aria-label="' +
-        esc(jcT("pt_mini_label")) + '"></div>' : '') +
-      (pos ? '<div class="acts"><a target="_blank" rel="noopener noreferrer" href="' +
-        esc("https://www.google.com/maps/search/?api=1&query=" + encodeURIComponent(s.lat + "," + s.lng)) + '">' + esc(jcT("pt_on_map")) + '</a></div>' : '') +
-      '</li>';
-  }).join("") + '</ul><p class="help">' + esc(jcT("pt_sightings_kept")) + '</p>';
+  var minisLeft = typeof L !== "undefined" ? MINI_MAX : 0;
+  return jcEntriesHtml({ heading: jcT("pt_sightings"), id: "ptSightings",
+    /* the household's own pet at home: where neighbours' "out on their own" reports land */
+    empty: outAlone(p) && p.mine === true ? jcFmt("pt_out_none", { n: p.name }) : jcT("pt_sightings_none"),
+    items: p.sightings.length ? sightList(p).map(function(s){
+      var pos = finite(s.lat) && finite(s.lng), mini = pos && minisLeft-- > 0;
+      return { meta: when(s.seen_at) + (s.by_me === true ? ' · ' + jcT("pt_by_me") : ''),
+        bodyHtml: (s.note ? '<div dir="auto">' + esc(s.note) + '</div>' : '') +
+          (mini ? '<div class="ptmini" data-lat="' + esc(String(s.lat)) + '" data-lng="' + esc(String(s.lng)) + '" role="img" aria-label="' +
+            esc(jcT("pt_mini_label")) + '"></div>' : '') +
+          (pos ? '<div class="acts"><a target="_blank" rel="noopener noreferrer" href="' +
+            esc("https://www.google.com/maps/search/?api=1&query=" + encodeURIComponent(s.lat + "," + s.lng)) + '">' + esc(jcT("pt_on_map")) + '</a></div>' : '') };
+    }) : [],
+    afterHtml: '<p class="help">' + esc(jcT("pt_sightings_kept")) + '</p>' });
 }
 function logHtml(p){
-  if (!p.care_log.length) return '';
-  return '<h2 class="group">' + esc(jcT("pt_log")) + '</h2><ul class="bklist" id="ptLog">' + p.care_log.filter(hObj).map(function(c){
+  return jcEntriesHtml({ heading: jcT("pt_log"), id: "ptLog", items: p.care_log.filter(hObj).map(function(c){
     var k = ["fed", "vet", "note", "state"].indexOf(c.kind) >= 0 ? c.kind : "note";
-    return '<li><div class="meta">' + esc(jcT("pt_log_" + k) + " · " + when(c.at)) + '</div>' + jcCareLogBody(c) + '</li>';
-  }).join("") + '</ul>';
+    return { meta: jcT("pt_log_" + k) + " · " + when(c.at), bodyHtml: jcCareLogBody(c) };
+  }) });
 }
 
 /* ---------- WhatsApp (Zee W1 = a): copy the message + open the group; or WhatsApp's own chat picker ---------- */
