@@ -26,6 +26,12 @@ function jcHeroHtml(o){
     (o.chipsHtml ? '<div class="head">' + o.chipsHtml + '</div>' : '') + '</div></div>';
 }
 
+/* The red "missing" box above a thing's tabs (design.md §4 state boxes): bold text, then optional trusted markup
+   (a note line, an .acts row). id: on the box */
+function jcAlarmHtml(id, text, bodyHtml){
+  return '<div class="alarm" id="' + esc(id) + '"><b>' + esc(text) + '</b>' + (bodyHtml || '') + '</div>';
+}
+
 /* Facts: label → value pairs ([[label, value], …], both text) as dl.facts; id optional */
 function jcFactsHtml(pairs, id){
   return '<dl class="facts"' + (id ? ' id="' + esc(id) + '"' : '') + '>' + pairs.map(function(f){

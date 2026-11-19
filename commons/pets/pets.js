@@ -407,10 +407,10 @@ var VIEWS = {
       afterNameHtml: canAdmin() ? '<a class="lang adminbtn" id="ptAdmin" href="../admin/?tab=pets&pet=' + encodeURIComponent(p.id) + '">' + esc(jcT("ev_admin")) + '</a>' : '',
       meta: speciesText(p) + " · " + kindText(p), chipsHtml: badges });
     if (p.missing === true) {
-      h += '<div class="alarm" id="ptAlarm"><b>' + esc(jcFmt("pt_missing_since", { n: p.name, d: when(p.missing_since) })) + '</b>' +
+      h += jcAlarmHtml("ptAlarm", jcFmt("pt_missing_since", { n: p.name, d: when(p.missing_since) }),
         (p.last_seen_note ? '<p dir="auto">' + esc(jcFmt("pt_last_seen", { t: p.last_seen_note })) + '</p>' : '') +
         (p.mine === true && p.kind === "owned" ? '<div class="acts"><button class="btn" type="button" id="ptFound"' + (ptBusy ? ' disabled' : '') + '>' +
-          esc(jcFmt("pt_found", { n: p.name })) + '</button></div>' : '') + '</div>';
+          esc(jcFmt("pt_found", { n: p.name })) + '</button></div>' : ''));
     }
     h += seenOutHtml(p);
     if (tabs.length > 1) h += jcTabsHtml("ptpg-", tabs, petTab, function(t){

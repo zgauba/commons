@@ -2,7 +2,7 @@
 
 Parent: `docs/plans/DS-design-system.md` (step DS-4). Sources: `docs/qa/cats-design-review-2026-11-19.md` (D1–D14),
 `docs/qa/plan-conformance-retro-cats-review-2026-11-19.md` (map REUSE row, dated-entry list), DS-3 carry-ins
-(`.care .note` in Arabic, DEPART A `.alarm`/`.acts`, "Open in Google Maps" wording). **Status: awaiting Zee's approval.**
+(`.care .note` in Arabic, DEPART A `.alarm`/`.acts`, "Open in Google Maps" wording). **Approved by Zee 2026-11-19** (all four decisions as recommended; merge pre-authorized for all three PRs).
 
 ## Scope
 **Tier: cross-layer.** It touches shared CSS (`app.css`, which 7 pages load), shared markup (`blocks.js`, `map.js`),
@@ -123,4 +123,8 @@ Already done elsewhere: D7 dropdown height/chevron and D13 accent checkboxes (DS
 4. **No Map tab on a cat's page** (DEPART). Recommend yes.
 
 ## Progress
-_(filled in per PR)_
+- **4a** (branch `ds-4a-cats-list-page`): Cats tab on Pets photo cards + "Missing now" wide group (Pets list order);
+  residents Cats · Stations tabs; cat page = hero + alarm + About · Activity + facts (About / Health / Where) + status
+  history rows; Private chip inline. Shared: `.alarm` + `jcAlarmHtml`, `.jcpage .acts`, `.jcpage .desc`; Arabic
+  `.care .note` / story right-aligned; typed parts in joined values isolated. Pets 0 px (10 screens EN + AR).
+  Review: `docs/qa/DS-4a-review-2026-11-19.md`.

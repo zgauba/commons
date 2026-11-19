@@ -400,8 +400,8 @@ function catView(){
   var h = jcHeroHtml({ photoHtml: jcPetPhotoHtml({ photo_path: photos[0] || null }, 34, "tile", { view: photos }), name: catTitle(c),
     afterNameHtml: canEditCats() && !merged(c) ? '<button class="lang adminbtn" type="button" id="caEditCat"' + off + '>' + esc(jcT("ca_edit")) + '</button>' : '',
     meta: catSub(c), chipsHtml: catChips(c, true) });
-  if (c.status === "missing") h += '<div class="alarm" id="caAlarm"><b>' + esc(programme && dateText(c.status_on)
-    ? jcFmt("ca_missing_since", { n: catTitle(c), d: dateText(c.status_on) }) : jcFmt("ca_missing_now", { n: catTitle(c) })) + '</b></div>';
+  if (c.status === "missing") h += jcAlarmHtml("caAlarm", programme && dateText(c.status_on)
+    ? jcFmt("ca_missing_since", { n: catTitle(c), d: dateText(c.status_on) }) : jcFmt("ca_missing_now", { n: catTitle(c) }));
   if (merged(c)) h += '<p class="notice">' + esc(jcFmt("ca_merged_into", { c: c.merged_into.code || "" })) + '</p>' +
     (canEditCats() ? '<div class="row"><button class="btn ghost" type="button" id="caUnmerge"' + off + '>' + esc(jcT("ca_unmerge")) + '</button></div>' : '');
   if (tabs.length > 1) h += jcTabsHtml("caPg_", tabs, catTab, function(t){ return jcT(t === "log" ? "ca_tab_log" : "ca_pg_about"); }, catTitle(c), "caPage");
@@ -574,7 +574,7 @@ function catEditView(){
     var into = catFind(reg, e.merge_into);
     if (!into) { caMsg("NO_MERGE"); if (mt) mt.focus(); return; }
     if (!window.confirm(jcFmt("ca_merge_q", { a: c.code, b: into.code }))) return;
-    save("jc_cat_merge", { p_from: c.id, p_into: into.id }, "ca_merged", function(){ catId = into.id; current = "cat"; });
+    save("jc_cat_merge", { p_from: c.id, p_into: into.id }, "ca_merged", function(){ catId = into.id; catTab = "about"; current = "cat"; });
   });
   jcPetPhotoFill();
 }

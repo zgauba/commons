@@ -775,3 +775,22 @@ test("DS-4a Arabic: a Latin note in the status history lines up right", async ({
   expect(await note.evaluate((n) => getComputedStyle(n).textAlign)).toBe("right");
   if (process.env.SHOT_DIR) await page.screenshot({ path: process.env.SHOT_DIR + "/ds4a-cat-page-ar.png", fullPage: true });
 });
+
+test("DS-4a review: a cat opened from an Activity entry starts on About; search keeps the missing group, whose cards still open", async ({ page }) => {
+  const sink = { activity: [] };
+  await stubBackend(page, { rpc: logBackend(["cats"], sink) });
+  await signIn(page);
+  await page.goto("cats/");
+  await page.locator(`[data-cat="${K1}"]`).click();
+  await page.locator("#caPg_log").click();                                                   // leave Caramel on its Activity tab
+  await page.locator("#jcBackBtn").click();
+  await page.locator("#caTab_log").click();
+  await page.locator(`.caLog[data-log="${V1}"] [data-lcat="${K1}"]`).click();
+  await expect(page.locator("#caPg_about")).toHaveAttribute("aria-selected", "true");
+  await page.locator("#jcBackBtn").click();
+  await page.locator("#caTab_cats").click();
+  await page.locator("#caQ").fill("caramel");
+  await expect(page.locator(`#caMissing [data-cat="${K2}"]`)).toHaveCount(1);
+  await page.locator(`#caMissing [data-cat="${K2}"]`).click();
+  await expect(page.locator("#caAlarm")).toBeVisible();
+});
