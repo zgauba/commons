@@ -68,7 +68,9 @@ declare
     'jc_cats_public', 'jc_cat_register', 'jc_cat_save', 'jc_cat_merge', 'jc_cat_unmerge',
     'jc_cat_photo_begin', 'jc_cat_photo_commit', 'jc_cat_photo_remove',
     -- CC-4 (Cats visits + sightings)
-    'jc_cat_visit_add', 'jc_cat_sighting_add', 'jc_cat_activity', 'jc_cat_log_hide', 'jc_cat_sighting_link'];
+    'jc_cat_visit_add', 'jc_cat_sighting_add', 'jc_cat_activity', 'jc_cat_log_hide', 'jc_cat_sighting_link',
+    -- Pets admins mark missing
+    'jc_admin_pet_missing_set'];
 begin
   -- Pre-launch suite: fixtures are written into 'jubail' and rolled back. Refuse to run
   -- once real residents exist — post-launch tests must move to a test community.
