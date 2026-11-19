@@ -4,7 +4,7 @@
    · edit (add / edit one of my home's pets).
    Pets = owned pets in the server's order (missing → nearest my home pin → name); Strays = a map (one pin per
    stray at its latest visible sighting, else its territory; rehomed off the map) + the stray cards.
-   Server: jc_pets_list, jc_pet_get, jc_pet_save, jc_pet_archive, jc_pet_missing_set,
+   Server: jc_pets_list, jc_pet_get, jc_pet_save, jc_pet_archive, jc_pet_missing_set, jc_admin_pet_missing_set (Pets team),
    jc_pet_sighting_add, jc_pets_group_get (S4 + R5a, R5b-2b-0); photos are R5c; the admin side is R5d.
    PRIVACY — this page renders what the server sends and nothing else:
    - an owned pet's home arrives on its card (homes can't be hidden — HH, Zee 2026-11-11); shown only when it
@@ -56,6 +56,9 @@ var msgBox = jcMsgBox, say = jcSay, showOk = jcShowOk, on = jcOn, each = jcEach,
 function ptMsg(code){ jcShowErrFor("pt_err_", code); }
 /* pets or community admins (the server checks every admin call; this only shows the way in) */
 function canAdmin(){ var sc = (state && state.me && state.me.admin_scopes) || []; return sc.indexOf("pets") >= 0 || sc.indexOf("community") >= 0; }
+/* a neighbour's pet: the Pets team can raise / clear the missing alert for an owner who phoned (jc_admin_pet_missing_set) */
+function teamMiss(p){ return p.kind === "owned" && p.mine !== true && canAdmin(); }
+function missRpc(p){ return teamMiss(p) ? "jc_admin_pet_missing_set" : "jc_pet_missing_set"; }
 function hasHome(){ return !!(state && state.me && state.me.home); }
 function moduleOn(){ return jcModuleOn(cfg, "pets"); }
 function listUrl(){ return tab === "pets" ? null : "tab=" + tab; }
@@ -408,7 +411,8 @@ var VIEWS = {
     if (p.missing === true) {
       h += jcAlarmHtml("ptAlarm", jcFmt("pt_missing_since", { n: p.name, d: when(p.missing_since) }),
         (p.last_seen_note ? '<p dir="auto">' + esc(jcFmt("pt_last_seen", { t: p.last_seen_note })) + '</p>' : '') +
-        (p.mine === true && p.kind === "owned" ? '<div class="acts"><button class="btn" type="button" id="ptFound"' + (ptBusy ? ' disabled' : '') + '>' +
+        (p.mine === true && p.missing_by_team === true ? '<p id="ptByTeam">' + esc(jcT("pt_missing_by_team")) + '</p>' : '') +
+        ((p.mine === true && p.kind === "owned") || teamMiss(p) ? '<div class="acts"><button class="btn" type="button" id="ptFound"' + (ptBusy ? ' disabled' : '') + '>' +
           esc(jcFmt("pt_found", { n: p.name })) + '</button></div>' : ''));
     }
     h += seenOutHtml(p);
@@ -432,6 +436,7 @@ var VIEWS = {
       body += jcFactsHtml(facts.map(function(f){ return [jcT(f[0]), f[1]]; }), "ptFacts");
       /* my own pet: the household's controls */
       if (p.mine === true && p.kind === "owned") body += ownerHtml(p);
+      else if (teamMiss(p)) body += ownerHtml(p, true);       /* the Pets team: the same panel, the missing switch only */
       if (p.kind === "stray") body += careHtml(p);
       if (Array.isArray(p.care_log)) body += logHtml(p);
     } else if (petTab === "map") {
@@ -463,20 +468,20 @@ function careHtml(p){
       (it && typeof it.n === "string" && it.n ? '<span class="note" dir="auto">' + esc(it.n) + '</span>' : '') + '</li>';
   }).join("") + '</ul>';
 }
-function ownerHtml(p){
-  var h = '<h2 class="group">' + esc(jcT("pt_yours")) + '</h2><div class="panel" id="ptOwner">';
+function ownerHtml(p, team){
+  var h = '<h2 class="group">' + esc(jcT(team ? "pt_team" : "pt_yours")) + '</h2><div class="panel" id="ptOwner">';
   if (sheet === "missing") {
     var d = missDraft || { note: "" };
     h += '<p><b>' + esc(jcFmt("pt_miss_q", { n: p.name })) + '</b></p>' +
       '<label>' + esc(jcT("pt_miss_note")) + '<textarea id="ptMissNote" maxlength="200" dir="auto">' + esc(d.note) + '</textarea></label>' +
-      '<p class="help">' + esc(jcT("pt_miss_help")) + '</p>' +
+      '<p class="help">' + esc(jcT(team ? "pt_miss_help_team" : "pt_miss_help")) + '</p>' +
       '<div class="acts"><button class="btn danger-fill" type="button" id="ptMissGo"' + (ptBusy ? ' disabled' : '') + '>' + esc(jcT("pt_miss_go")) + '</button>' +
       '<button class="btn ghost" type="button" id="ptSheetKeep">' + esc(jcT("ct_cancel")) + '</button></div>';
   } else if (p.missing !== true) {          /* while missing, "is back home" sits in the alarm, on every tab */
     h += '<button class="btn danger-fill wide" type="button" id="ptMiss">' + esc(jcT("pt_miss")) + '</button>';
   }
   /* not beside the red button while the missing sheet is open; Remove is in the Edit form, away from the alarm */
-  if (sheet !== "missing") h += '<button class="btn ghost wide" type="button" id="ptEdit">' + esc(jcT("pt_edit")) + '</button>';
+  if (sheet !== "missing" && !team) h += '<button class="btn ghost wide" type="button" id="ptEdit">' + esc(jcT("pt_edit")) + '</button>';
   return h + '</div>';
 }
 function sightHtml(p){
@@ -606,7 +611,7 @@ function wirePet(){
   on("ptMissGo", function(){
     var note = el("ptMissNote").value.trim();
     ptWrite(el("ptMissGo"), function(){
-      return rpc("jc_pet_missing_set", { p_pet: p.id, p_missing: true, p_note: note || null });
+      return rpc(missRpc(p), { p_pet: p.id, p_missing: true, p_note: note || null });
     }, function(){
       sheet = null; missDraft = null; pets = null; petTab = "sightings";    /* the share is there: "Share the alert below" */
       setUrl(petQuery(p.id));
@@ -615,7 +620,7 @@ function wirePet(){
   });
   on("ptFound", function(){
     if (!window.confirm(jcFmt("pt_found_q", { n: p.name }))) return;
-    ptWrite(el("ptFound"), function(){ return rpc("jc_pet_missing_set", { p_pet: p.id, p_missing: false, p_note: null }); }, function(){
+    ptWrite(el("ptFound"), function(){ return rpc(missRpc(p), { p_pet: p.id, p_missing: false, p_note: null }); }, function(){
       pets = null; sent = null; petTab = "about"; setUrl(petQuery(p.id));
       loadPet(p.id, function(){ showOk(jcFmt("pt_found_done", { n: p.name })); });
     }, function(code){ if (code === "NOT_FOUND") { backToList("NOT_FOUND"); return true; } return false; });

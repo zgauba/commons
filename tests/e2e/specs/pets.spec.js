@@ -1160,3 +1160,61 @@ test("DS-3b: the pet page uses the shared hero / facts / entries; Arabic facts l
   const gap = await page.locator("[role=tabpanel]").evaluate((e) => getComputedStyle(e).rowGap);
   expect(gap).toBe("12px");
 });
+
+// ── Pets admins mark a neighbour's pet missing (ROADMAP; Zee 2026-11-19: the household sees "Marked missing by the Pets
+// team"). Same panel, sheet and "is back home" as the household's; the server call is jc_admin_pet_missing_set. ──
+test("Pets team: a neighbour's pet — the same Report as missing sheet (team wording), then back home; plain members get neither", async ({ page }) => {
+  const b = backend({ me: Object.assign({}, MEMBER, { admin_scopes: ["pets"] }) });
+  await open(page, b, { q: "?pet=" + ID(1) });
+  await expect(page.locator("h1")).toHaveText("Rex");
+  await expect(page.locator("#ptOwner")).toBeVisible();
+  await expect(page.locator("#ptOwner").locator("xpath=preceding-sibling::h2[1]")).toHaveText("Pets team");
+  await expect(page.locator("#ptOwner .btn")).toHaveText(["Report as missing"]);            // no Edit: not their pet
+  if (process.env.SHOT_DIR) await page.screenshot({ path: process.env.SHOT_DIR + "/pt-team-panel.png", fullPage: true });
+  await page.locator("#ptMiss").click();
+  await expect(page.locator("#ptOwner .help")).toHaveText("Everyone in the community will see the alert. The household will see that the Pets team reported it.");
+  await page.locator("#ptMissNote").fill("Owner called: near the canal");
+  await page.locator("#ptMissGo").click();
+  await expect(page.locator("#ptAlarm")).toContainText("Rex has been missing since");
+  await expect(page.locator("#ptByTeam")).toHaveCount(0);                                     // the household's line, not the admin's
+  expect(b.st.adminMissing).toEqual([{ p_pet: ID(1), p_missing: true, p_note: "Owner called: near the canal" }]);
+  page.once("dialog", (d) => d.accept());
+  await page.locator("#ptFound").click();
+  await expect(page.locator("#ptAlarm")).toHaveCount(0);
+  expect(b.st.adminMissing[1]).toEqual({ p_pet: ID(1), p_missing: false, p_note: null });
+});
+
+test("Pets team: a plain member gets no panel on a neighbour's pet and no 'is back home' on a neighbour's missing pet", async ({ page }) => {
+  await open(page, backend(), { q: "?pet=" + ID(1) });
+  await expect(page.locator("h1")).toHaveText("Rex");
+  await expect(page.locator("#ptOwner")).toHaveCount(0);
+  await page.goto("pets/?pet=" + ID(2));
+  await expect(page.locator("#ptAlarm")).toBeVisible();
+  await expect(page.locator("#ptFound")).toHaveCount(0);
+});
+
+test("Pets team: the household sees 'Marked missing by the Pets team' until their own write; the team sees back home on it", async ({ page }) => {
+  const b = backend();
+  Object.assign(b.st.pets.find((p) => p.id === ID(6)), { missing: true, missing_since: "2026-11-11T06:00:00Z", missing_by_team: true });
+  await open(page, b, { q: "?pet=" + ID(6) });
+  await expect(page.locator("h1")).toHaveText("Mochi");
+  await expect(page.locator("#ptByTeam")).toHaveText("Marked missing by the Pets team.");
+  if (process.env.SHOT_DIR) await page.screenshot({ path: process.env.SHOT_DIR + "/pt-by-team.png", fullPage: true });
+  page.once("dialog", (d) => d.accept());
+  await page.locator("#ptFound").click();                                                    // their own "is back home"
+  await expect(page.locator("#ptAlarm")).toHaveCount(0);
+  expect(b.st.pets.find((p) => p.id === ID(6)).missing_by_team).toBe(false);
+});
+
+test("Pets team: an admin's own pet keeps the household's panel and the household's server call", async ({ page }) => {
+  const b = backend({ me: Object.assign({}, MEMBER, { admin_scopes: ["pets"] }) });
+  await open(page, b, { q: "?pet=" + ID(6) });
+  await expect(page.locator("h1")).toHaveText("Mochi");
+  await expect(page.locator("#ptOwner .btn")).toHaveText(["Report as missing", "Edit details"]);
+  await page.locator("#ptMiss").click();
+  await expect(page.locator("#ptOwner .help")).toHaveText("Everyone in your community will see the alert at the top of Pets until you mark it found.");
+  await page.locator("#ptMissGo").click();
+  await expect(page.locator("#ptAlarm")).toBeVisible();
+  await expect(page.locator("#ptByTeam")).toHaveCount(0);
+  expect(b.st.adminMissing).toBeUndefined();                                      // jc_pet_missing_set, not the admin RPC
+});
