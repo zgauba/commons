@@ -22,7 +22,7 @@ if (PET && !/^[0-9a-f-]{36}$/i.test(PET)) PET = null;
 
 var state = null, cfg = null, current = null;
 var map = null, layer = "sat";                         /* the one big map on screen (Strays, a pet's Map tab, the pin picker) */
-var minis = [], miniObs = null;                        /* the Sightings tab's small maps, built when scrolled into view */
+var minis = { maps: [], obs: null };                        /* the Sightings tab's small maps, built when scrolled into view */
 var full = jcMapFull(function(){ return map; }, null); /* the map, bigger (assets/map.js) */
 var pets = null, listErr = null, listLoading = false, listSeq = 0;
 var pet = null, petId = null, petErr = null, petLoading = false, petSeq = 0;   /* the open pet (jc_pet_get) */
@@ -224,8 +224,7 @@ function draw(){ var r = jcFocusKeep(); VIEWS[current](); r(); jcPetPhotoFill();
 /* ---------- views ---------- */
 function dropMap(){
   full.reset();
-  if (miniObs) { miniObs.disconnect(); miniObs = null; }
-  minis.forEach(jcMapRemove); minis = [];
+  jcMinisClear(minis);
   if (map) { var m = map; map = null; jcMapRemove(m); }
 }
 function show(name){
@@ -450,7 +449,7 @@ var VIEWS = {
     wirePet();
     if (petTab === "sightings" && shareOn(p)) { drawShare(); loadGroup(); }
     if (petTab === "map") drawPetMap(p);
-    if (petTab === "sightings") { drawMinis(); drawPicker(p); }
+    if (petTab === "sightings") { jcMinisDraw(minis); drawPicker(p); }
   }
 };
 
@@ -533,10 +532,7 @@ function sightingsHtml(p){
       var pos = finite(s.lat) && finite(s.lng), mini = pos && minisLeft-- > 0;
       return { meta: when(s.seen_at) + (s.by_me === true ? ' · ' + jcT("pt_by_me") : ''),
         bodyHtml: (s.note ? '<div dir="auto">' + esc(s.note) + '</div>' : '') +
-          (mini ? '<div class="ptmini" data-lat="' + esc(String(s.lat)) + '" data-lng="' + esc(String(s.lng)) + '" role="img" aria-label="' +
-            esc(jcT("pt_mini_label")) + '"></div>' : '') +
-          (pos ? '<div class="acts"><a target="_blank" rel="noopener noreferrer" href="' +
-            esc("https://www.google.com/maps/search/?api=1&query=" + encodeURIComponent(s.lat + "," + s.lng)) + '">' + esc(jcT("pt_on_map")) + '</a></div>' : '') };
+          (mini ? jcMiniHtml(s.lat, s.lng) : '') + (pos ? '<div class="acts">' + jcMapLink(s.lat, s.lng) + '</div>' : '') };
     }) : [],
     afterHtml: '<p class="help">' + esc(jcT("pt_sightings_kept")) + '</p>' });
 }
@@ -780,22 +776,6 @@ function drawPetMap(p){
   jcMapPopups(m, null);                                /* the map's buttons step aside while a popup is open */
   jcFitPins(m, pts);
 }
-/* small still maps on the Sightings tab, built only once scrolled into view (tiles cost a request each) */
-function drawMinis(){
-  var nodes = Array.prototype.slice.call(document.querySelectorAll(".ptmini"));
-  if (!nodes.length || typeof L === "undefined") return;
-  function build(n){
-    if (n.dataset.built) return;
-    n.dataset.built = "1";
-    minis.push(jcMiniMap(n, [Number(n.dataset.lat), Number(n.dataset.lng)]));
-  }
-  if (typeof IntersectionObserver === "undefined") return nodes.forEach(build);
-  var obs = miniObs = new IntersectionObserver(function(es){
-    es.forEach(function(e){ if (e.isIntersecting && miniObs === obs) { obs.unobserve(e.target); build(e.target); } });
-  }, { rootMargin: "200px 0px" });
-  nodes.forEach(function(n){ obs.observe(n); });
-}
-
 VIEWS.edit = function(){
   if (!form) return show("list");
   var f = form;

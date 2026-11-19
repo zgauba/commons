@@ -32,6 +32,19 @@ function jcAlarmHtml(id, text, bodyHtml){
   return '<div class="alarm" id="' + esc(id) + '"><b>' + esc(text) + '</b>' + (bodyHtml || '') + '</div>';
 }
 
+/* Choice pills (design.md §5): fieldset > legend + .opts > button[aria-pressed]. Text arguments are escaped here.
+   o: { id — on the fieldset; legend; items — [{ value, text }]; pressed — the pressed value;
+        attr — the attribute that carries each value, trusted (it may start with fixed attributes: 'data-pill="sex" data-v');
+        idPrefix — each button gets id="<idPrefix><value>"; off — ' disabled' or '';
+        afterHtml — trusted markup inside the fieldset after the pills (a dependent field) } */
+function jcPillsHtml(o){
+  return '<fieldset' + (o.id ? ' id="' + esc(o.id) + '"' : '') + '><legend>' + esc(o.legend) + '</legend><div class="opts">' +
+    o.items.map(function(it){
+      return '<button type="button"' + (o.idPrefix ? ' id="' + esc(o.idPrefix + it.value) + '"' : '') + ' ' + o.attr + '="' + esc(it.value) + '"' +
+        ' aria-pressed="' + (it.value === o.pressed) + '"' + (o.off || '') + '>' + esc(it.text) + '</button>';
+    }).join("") + '</div>' + (o.afterHtml || '') + '</fieldset>';
+}
+
 /* Facts: label → value pairs ([[label, value], …], both text) as dl.facts; id optional */
 function jcFactsHtml(pairs, id){
   return '<dl class="facts"' + (id ? ' id="' + esc(id) + '"' : '') + '>' + pairs.map(function(f){
@@ -40,13 +53,14 @@ function jcFactsHtml(pairs, id){
 }
 
 /* Dated-entry list (sightings, care log, activity): a group label, then one card per entry, newest first as given.
-   o: { heading; id — on the list, or on the empty line; items — [{ meta: "when · by me" text, bodyHtml }];
+   o: { heading — none: no label (a tab whose name it would repeat, D1); id — on the list, or on the empty line;
+        items — [{ meta: "when · by me" text, bodyHtml, liAttrs — trusted attributes on the li }];
         empty — text shown instead of the list (omit: nothing at all when empty, not even the heading);
-        afterHtml — under the list (e.g. how long entries are kept) } */
+        emptyAttrs — trusted attributes on the empty line; afterHtml — under the list (e.g. how long entries are kept) } */
 function jcEntriesHtml(o){
-  var h = '<h2 class="group">' + esc(o.heading) + '</h2>', id = o.id ? ' id="' + esc(o.id) + '"' : '';
-  if (!o.items.length) return o.empty == null ? '' : h + '<p class="help"' + id + '>' + esc(o.empty) + '</p>';
+  var h = o.heading ? '<h2 class="group">' + esc(o.heading) + '</h2>' : '', id = o.id ? ' id="' + esc(o.id) + '"' : '';
+  if (!o.items.length) return o.empty == null ? '' : h + '<p class="help"' + id + (o.emptyAttrs ? ' ' + o.emptyAttrs : '') + '>' + esc(o.empty) + '</p>';
   return h + '<ul class="bklist"' + id + '>' + o.items.map(function(it){
-    return '<li><div class="meta">' + esc(it.meta) + '</div>' + (it.bodyHtml || '') + '</li>';
+    return '<li' + (it.liAttrs ? ' ' + it.liAttrs : '') + '><div class="meta">' + esc(it.meta) + '</div>' + (it.bodyHtml || '') + '</li>';
   }).join("") + '</ul>' + (o.afterHtml || '');
 }

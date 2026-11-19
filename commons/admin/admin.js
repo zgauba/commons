@@ -2294,8 +2294,7 @@ function prCard(r){
       (pet ? '<div class="acts"><a class="btn ghost small" href="../pets/?pet=' + encodeURIComponent(pet.id) + '" dir="auto">' + esc(pet.name) + '</a></div>' : '') + '</li>';
   }
   h += '<div class="acts">' +
-    (pos ? '<a class="btn ghost small" target="_blank" rel="noopener noreferrer" href="' +
-      esc("https://www.google.com/maps/search/?api=1&query=" + encodeURIComponent(r.lat + "," + r.lng)) + '">' + esc(jcT("pt_on_map")) + '</a>' : '') +
+    (pos ? jcMapLink(r.lat, r.lng, "btn ghost small") : '') +
     /* the number itself is never printed: a link the organizer taps (an attribute, set below) */
     (wa ? '<a class="btn ghost small" target="_blank" rel="noopener noreferrer" data-prwa="' + esc(r.id) + '">' + esc(jcT("pr_wa")) + '</a>' : '') +
     '</div>';
@@ -2545,8 +2544,7 @@ function pmSightLi(s, off, hidden){
   var pos = jcFinite(s.lat) && jcFinite(s.lng);
   return '<li data-sighting="' + esc(String(s.id)) + '"><div class="meta">' + esc(hDate(s.seen_at)) + '</div>' +
     (s.note ? '<div dir="auto">' + esc(s.note) + '</div>' : '') +
-    '<div class="acts">' + (pos ? '<a class="btn ghost small" target="_blank" rel="noopener noreferrer" href="' +
-      esc("https://www.google.com/maps/search/?api=1&query=" + encodeURIComponent(s.lat + "," + s.lng)) + '">' + esc(jcT("pt_on_map")) + '</a>' : '') +
+    '<div class="acts">' + (pos ? jcMapLink(s.lat, s.lng, "btn ghost small") : '') +
     (hidden ? '<button class="mini" type="button" id="pmUnhide-' + esc(String(s.id)) + '" data-pmunhide="' + esc(String(s.id)) + '"' + off + '>' +
       esc(jcT("pm_unhide")) + '</button>'
     : '<button class="mini danger" type="button" id="pmHide-' + esc(String(s.id)) + '" data-pmhide="' + esc(String(s.id)) + '"' + off + '>' +

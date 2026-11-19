@@ -242,12 +242,12 @@ Cats today: sex (3), life stage (4), ear tip (3), sterilisation (3) → pills ·
 ### Sightings block
 | | |
 |---|---|
-| Status | **Shared** list: `jcEntriesHtml(o)` in `assets/blocks.js` (DS-3b) — the dated-entry list for sightings, care logs and activity; each module keeps its own data + RPCs and its own report button |
+| Status | **Shared** list: `jcEntriesHtml(o)` in `assets/blocks.js` (DS-3b) — the dated-entry list for sightings, care logs and activity (Pets sightings + care log, Cats Activity / station history / a cat's Activity, DS-4b); each module keeps its own data + RPCs and its own report button |
 | Native basis | `button` + `ul` |
-| Markup | ghost `.btn` "Report seeing ⟨name⟩" → `jcEntriesHtml({ heading, id, items: [{ meta, bodyHtml }], empty, afterHtml })` = `h2.group` → `ul.bklist` (`.meta` when · by me, note, optional `.ptmini`, "Open in Google Maps") → `p.help` retention line |
+| Markup | ghost `.btn` "Report seeing ⟨name⟩" in `.acts` → `jcEntriesHtml({ heading, id, items: [{ meta, bodyHtml, liAttrs }], empty, emptyAttrs, afterHtml })` = `h2.group` (omit `heading` inside a tab it would repeat) → `ul.bklist` (`.meta` kind · when · where · by, body, optional `jcMiniHtml`, then one `.acts` row at the foot: `jcMapLink` + the entry's buttons) → `afterHtml` (retention line, "Show older") |
 | Variants / states | Empty: `p.help` instead of the list |
 | Accessibility | Mini map is `role=img` + label; the link beside it is the real target |
-| Wiring | `jcMiniMap(node, latlng)` for each `.ptmini` after `innerHTML` |
+| Wiring | `jcMinisDraw(st, root)` after `innerHTML` (builds each `.ptmini` once scrolled into view; the page keeps `st = { maps: [], obs: null }` and calls `jcMinisClear(st)` before a redraw). Newest 10 with a pin get a map |
 | Use / Don't | Every "seen this animal" feature. One component, not a Cats-only one (D4) |
 | Reference | `design/pet-sightings.jpg` |
 
@@ -312,7 +312,7 @@ Cats today: sex (3), life stage (4), ear tip (3), sterilisation (3) → pills ·
 | Status | **Shared** (`app.css`, DS-3a) |
 | Native basis | `select` |
 | Markup | Field look, min 46px, `appearance:none` + one chevron drawn with `--jc-muted` on the end side (left in Arabic) |
-| Use / Don't | Per the choice table (§1). **Never redraw the form on `change` and re-focus a new `select`**: on iPhone it can re-open the picker (D9). Update only the dependent part |
+| Use / Don't | Per the choice table (§1). **Never redraw the form on `change` and re-focus a new `select`**: on iPhone it can re-open the picker (D9). Update only the dependent part: toggle `hidden` on a wrapper, or rebuild the dependent `select`'s options (Cats sighting form, visit form, cat editor — spec "DS-4b D9", Chromium + WebKit). A fixed list in a fieldset: the select is `aria-labelledby` the legend, no second label (D8) |
 
 ### Date · time · datetime
 | | |
@@ -324,9 +324,9 @@ Cats today: sex (3), life stage (4), ear tip (3), sterilisation (3) → pills ·
 ### Choice pills
 | | |
 |---|---|
-| Status | **Shared** (the Events and My Home overrides removed in DS-3a) |
+| Status | **Shared** (the Events and My Home overrides removed in DS-3a); builder `jcPillsHtml(o)` in `assets/blocks.js` (DS-4b, used by Cats). Pets / Organizer Tools / Events / My Home still hand-build the same markup — switch when next touched |
 | Native basis | `button` in a `fieldset` |
-| Markup | `fieldset > legend + .opts > button[aria-pressed]` |
+| Markup | `fieldset > legend + .opts > button[aria-pressed]` (+ optional dependent field inside the fieldset: `afterHtml`) |
 | Variants / states | Pressed = accent ring |
 | Accessibility | `aria-pressed`; 40px min |
 | Use / Don't | Per the choice table (§1) |
@@ -365,7 +365,8 @@ Cats today: sex (3), life stage (4), ear tip (3), sterilisation (3) → pills ·
 | Map key | Shared | `jcKeySheet` / `jcKeySheetHtml`; `dialog.sheet .legend` | "Map Labels" |
 | Pin picker | Shared | `jcPinPickerHtml` + `jcPinPicker`; `.pinmap` (fixed ring, map pans) | Choosing a place |
 | Where field | Shared | `jcWhereHtml` / `jcWhereWire` (`where.js`) | "Where" on a report form |
-| Mini map | Shared | `jcMiniMap(node, latlng)`; `.ptmini` | A still dot inside a list entry |
+| Mini map | Shared | `jcMiniHtml(lat, lng)` + `jcMinisDraw` / `jcMinisClear` (DS-4b); `.ptmini` in `app.css` | A still dot inside a list entry |
+| Map links | Shared | `jcMapLink(lat, lng, cls)` "Open in Google Maps" — where something was **seen** · `jcDirLink(lat, lng)` "Directions" — a place you **go** (stations, venues) | Never build either link inline |
 | You-are-here | Shared | `jcMeDot`; `--jc-me` | Every map |
 
 Accessibility for all maps: the map is never the only way to reach information. Each pin's content is also in a list,

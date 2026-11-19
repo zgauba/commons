@@ -128,3 +128,16 @@ Already done elsewhere: D7 dropdown height/chevron and D13 accent checkboxes (DS
   history rows; Private chip inline. Shared: `.alarm` + `jcAlarmHtml`, `.jcpage .acts`, `.jcpage .desc`; Arabic
   `.care .note` / story right-aligned; typed parts in joined values isolated. Pets 0 px (10 screens EN + AR).
   Review: `docs/qa/DS-4a-review-2026-11-19.md`.
+- **4b** (branch `ds-4b-cats-activity-forms`): exact payload tests first (cat save / visit / sighting, then the forms changed);
+  Activity tab, station history and a cat's Activity on `jcEntriesHtml` (meta kind · when · where · by; actions in one
+  `.acts` at the foot; no heading inside a tab); "Report seeing ⟨name⟩"; one "Log activity" screen (Feeding visit ·
+  Sighting pills; a visit asks for its station; switching keeps the station); D9: selects update only their dependent
+  part (WebKit too); cat editor: Photos first, pills for sex / life stage / ear tip / sterilisation, legends as the only
+  caption, Merge above one Save, no Cancel (as Edit pet). Shared: `jcMiniHtml` / `jcMinisDraw` / `jcMinisClear`,
+  `.ptmini` CSS, `jcMapLink` (Pets + Organizer Tools switched over; `pt_on_map` → `map_open`), `jcEntriesHtml` optional
+  heading + `liAttrs`. Pets 0 px (10 screens EN + AR).
+  Review fixes: a visit opened from a station names it (no dropdown), as the plan's D10 row; shared `jcPillsHtml`.
+  **DEPARTs recorded at review (4b):** (1) the visit and sighting forms lose their Cancel button — back arrow only, as Edit
+  pet (the editor's was covered by D14); a draft is lost on Back, as on Edit pet. (2) Choosing a station while the pin map
+  is open redraws the sighting form (a hidden pin map can't stay open) — the one D9 exception, rare. (3) string key
+  `pt_on_map` renamed `map_open` (now shared). Review: `docs/qa/DS-4b-review-2026-11-19.md`.
