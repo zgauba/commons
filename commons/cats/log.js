@@ -7,14 +7,15 @@
      jc_cat_sighting_add;
    - the history lists (Activity tab, a station's, a cat's) → jc_cat_activity, 50 a page; Hide / Show again
      (coordinators, or the author for 24 h) → jc_cat_log_hide; coordinators link a sighting to a cat →
-     jc_cat_sighting_link. Every rule is the server's; the page only words it. */
+     jc_cat_sighting_link. Every rule is the server's; the page only words it.
+   CC-5: vet visits (vet.js) share the lists (kind "vet", chip Vet) and the Log activity screen (coordinators). */
 
 var vd = null;          /* the visit form's draft: { station_id, on, food, water, cleaned, headcount, unfamiliar, kittens, problemOn, problem, note, cats {id: true}, all, back } */
 var sd = null;          /* the sighting form's draft: { cat_id, desc, when, station_id, area_id, w (where.js), note, back } */
 var logs = {};          /* history lists by key ("all:<filter>", "st:<id>", "cat:<id>") → { items, more, loading, err } */
 var actKind = "all";    /* the Activity tab's chip */
 var stLogId = null;     /* the station whose history is open */
-var LOG_KINDS = ["all", "visit", "sighting", "problem", "unidentified"];
+var LOG_KINDS = ["all", "visit", "sighting", "problem", "unidentified", "vet"];
 var caMinis = { maps: [], obs: null };   /* the sightings' small maps (map.js jcMinisDraw); cats.js show() takes them down */
 
 function logReset(){ logs = {}; }
@@ -35,7 +36,7 @@ function logFetch(key, more){
   L.loading = true; L.err = null;
   rpc("jc_cat_activity", args).then(function(d){
     if (logs[key] !== L) return;
-    var items = d && Array.isArray(d.items) ? d.items.filter(function(x){ return hObj(x) && typeof x.id === "string" && (x.kind === "visit" || x.kind === "sighting"); }) : [];
+    var items = d && Array.isArray(d.items) ? d.items.filter(function(x){ return hObj(x) && typeof x.id === "string" && (x.kind === "visit" || x.kind === "sighting" || x.kind === "vet"); }) : [];
     L.items = more ? L.items.concat(items) : items; L.more = !!(d && d.more === true); L.loading = false; L.loaded = true;
     logPaint(key);
   }, function(e){
@@ -54,10 +55,11 @@ function logPaint(key){
 }
 function logBox(key){ return '<div class="caLogBox jcstack" data-logkey="' + esc(key) + '">' + logListBody(key) + '</div>'; }
 function logWhen(it){
-  if (it.kind === "visit" && typeof it.visited_on === "string") return dayOf(it.visited_on + "T12:00:00Z");
+  if ((it.kind === "visit" || it.kind === "vet") && typeof it.visited_on === "string") return dayOf(it.visited_on + "T12:00:00Z");
   return typeof it.at === "string" ? jcDayText(jcDateOf(it.at, cfg), { weekday: undefined, year: "numeric" }) + " " + jcClock(it.at, cfg) : "";
 }
 function logPlace(it){
+  if (it.kind === "vet") return typeof it.clinic === "string" ? it.clinic : "";            /* CC-5: a vet visit's place is its clinic */
   var s = hObj(it.station) ? [it.station.code, it.station.landmark].filter(Boolean).join(" · ") : "";
   if (s) return s;
   var a = typeof it.area_id === "string" ? areaName(prog, it.area_id) : "";
@@ -73,7 +75,8 @@ function catLinks(list){
 function logItem(it, mini){
   var off = busy ? ' disabled' : '', can = it.can_hide === true, coord = canEditCats(), h = [];
   if (it.hidden === true) h.push('<div class="head"><span class="chip">' + esc(jcT("ca_l_hidden")) + '</span></div>');
-  if (it.kind === "visit") {
+  if (it.kind === "vet") h = h.concat(vetItemHtml(it));                                     /* CC-5, vet.js */
+  else if (it.kind === "visit") {
     var checks = ["food", "water", "cleaned"].filter(function(k){ return it[k] === true; }).map(function(k){ return jcT("ca_v_" + k); });
     var counts = [["headcount", "ca_l_headcount"], ["unfamiliar", "ca_l_unfamiliar"], ["kittens", "ca_l_kittens"]].filter(function(p){
       return typeof it[p[0]] === "number"; }).map(function(p){ return jcFmt(p[1], { n: it[p[0]] }); });
@@ -98,13 +101,14 @@ function logItem(it, mini){
   }
   var acts = [];
   if (pos) acts.push(jcMapLink(it.lat, it.lng));
+  if (it.kind === "vet" && it.doc_url) acts.push(vetDocLink(it.doc_url));
   if (coord && it.kind === "sighting" && typeof it.description === "string" && it.description)
     acts.push('<button class="mini" type="button" data-llink="' + esc(it.id) + '"' + off + '>' + esc(jcT("ca_l_link")) + '</button>');
   if (can) acts.push('<button class="mini" type="button" data-lhide="' + esc(it.kind + ":" + it.id) + '" data-on="' + (it.hidden === true ? "0" : "1") + '"' + off + '>' +
     esc(jcT(it.hidden === true ? "ca_l_show" : "ca_l_hide")) + '</button>');
   if (acts.length) h.push('<div class="acts">' + acts.join("") + '</div>');
   return { liAttrs: 'class="caLog" data-log="' + esc(it.id) + '" data-kind="' + esc(it.kind) + '"' + (it.hidden === true ? ' data-hidden' : ''),
-    meta: [jcT(it.kind === "visit" ? "ca_l_visit" : "ca_l_sighting"), logWhen(it), logPlace(it),
+    meta: [jcT(it.kind === "visit" ? "ca_l_visit" : it.kind === "vet" ? "ca_l_vet" : "ca_l_sighting"), logWhen(it), logPlace(it),
            typeof it.by === "string" && it.by ? jcFmt("ca_l_by", { n: it.by }) : ""].filter(Boolean).join(" · "),
     bodyHtml: h.join("") };
 }
@@ -133,7 +137,7 @@ function logWrite(name, args, okKey, btn){
   if (btn) jcBusy(btn.id || (btn.id = "caLb" + Date.now()), true);
   rpc(name, args).then(function(d){
     busy = false;
-    var it = d && (hObj(d.visit) ? d.visit : hObj(d.sighting) ? d.sighting : null);
+    var it = d && (hObj(d.visit) ? d.visit : hObj(d.sighting) ? d.sighting : hObj(d.vet) ? d.vet : null);
     Object.keys(logs).forEach(function(k){
       var box = document.querySelector('.caLogBox[data-logkey="' + k + '"]');
       if (!box || !it) { delete logs[k]; return; }
@@ -200,11 +204,13 @@ function stationLogView(){
 function catLogHtml(c){
   if (!reg || merged(c)) return '';
   var off = busy ? ' disabled' : '';
-  return '<div class="acts"><button class="btn ghost" type="button" id="caCatSeen"' + off + '>' + esc(jcFmt("ca_l_seen_btn", { n: catTitle(c) })) + '</button></div>' +
+  return '<div class="acts"><button class="btn ghost" type="button" id="caCatSeen"' + off + '>' + esc(jcFmt("ca_l_seen_btn", { n: catTitle(c) })) + '</button>' +
+    (canEditCats() ? '<button class="btn ghost" type="button" id="caCatVet"' + off + '>' + esc(jcT("ca_vt_add")) + '</button>' : '') + '</div>' +
     '<div id="caCatLog">' + logBox("cat:" + c.id) + '</div>';
 }
 function wireCatLog(c){
   on("caCatSeen", function(){ openSighting(c.id, { to: "cat", cat: c.id }); });
+  on("caCatVet", function(){ openVet({ to: "cat", cat: c.id }, c.id); });                     /* CC-5 */
   logWire();
 }
 
@@ -218,15 +224,18 @@ function logBack(b){
   else { if (b.to === "log") tab = "log"; show("home"); }
 }
 function kindHtml(k, off){
-  return jcPillsHtml({ id: "caKind", legend: jcT("ca_l_kind"), attr: "data-lkind", idPrefix: "caKind_", pressed: k, off: off,
-    items: [{ value: "visit", text: jcT("ca_l_visit") }, { value: "sighting", text: jcT("ca_l_sighting") }] });
+  var items = [{ value: "visit", text: jcT("ca_l_visit") }, { value: "sighting", text: jcT("ca_l_sighting") }];
+  if (canEditCats()) items.push({ value: "vet", text: jcT("ca_l_vet") });                    /* CC-5: coordinators */
+  return jcPillsHtml({ id: "caKind", legend: jcT("ca_l_kind"), attr: "data-lkind", idPrefix: "caKind_", pressed: k, off: off, items: items });
 }
 /* stationNow(): the station chosen at the moment of the switch */
 function wireKind(k, stationNow, back){
   each("[data-lkind]", function(b){
     if (b.dataset.lkind === k) return;
     var st = stationNow();
-    if (b.dataset.lkind === "sighting") openSighting(null, back, st); else openVisit(st || null, back);
+    if (b.dataset.lkind === "sighting") openSighting(null, back, st);
+    else if (b.dataset.lkind === "vet") openVet(back);
+    else openVisit(st || null, back);
     var x = el("caKind_" + b.dataset.lkind); if (x) x.focus();
   });
 }
@@ -253,8 +262,9 @@ function pickHtml(c, on, off){
 function numHtml(id, key, v, max, off){
   return '<label>' + esc(jcT(key)) + '<input type="number" id="' + id + '" inputmode="numeric" min="0" max="' + max + '" step="1" value="' + esc(v) + '"' + off + '></label>';
 }
-/* the cats to tap: this station's first, then its area's, then (on "Show all") the rest */
-function picksHtml(v, off){
+/* the cats to tap: this station's first, then its area's, then (on "Show all") the rest. legendKey / helpKey: the vet
+   form's own words (CC-5; it has no station, so every cat is behind "Show all" until picked) */
+function picksHtml(v, off, legendKey, helpKey){
   var st = stationsOf(prog).filter(function(s){ return s.id === v.station_id; })[0] || null;
   var live = catsList(reg).filter(function(c){ return !merged(c); });
   var here = st ? live.filter(function(c){ return c.station_id === st.id; }) : [];
@@ -262,8 +272,9 @@ function picksHtml(v, off){
   var rest = live.filter(function(c){ return here.indexOf(c) < 0 && near.indexOf(c) < 0; });
   var shown = here.concat(near).concat(v.all ? rest : rest.filter(function(c){ return v.cats[c.id]; }));
   var picked = Object.keys(v.cats).filter(function(k){ return v.cats[k]; }).length;
-  return '<legend>' + esc(jcT("ca_v_cats")) + '</legend>' +
-    '<p class="help" id="caVPicked" role="status">' + esc(picked ? jcFmt("ca_v_picked", { n: picked }) : jcT("ca_v_cats_help")) + '</p>' +
+  return '<legend>' + esc(jcT(legendKey || "ca_v_cats")) + '</legend>' +
+    '<p class="help" id="caVPicked" role="status" data-help="' + esc(helpKey || "ca_v_cats_help") + '">' +
+      esc(picked ? jcFmt("ca_v_picked", { n: picked }) : jcT(helpKey || "ca_v_cats_help")) + '</p>' +
     (shown.length ? '<div class="caPicks">' + shown.map(function(c){ return pickHtml(c, !!v.cats[c.id], off); }).join("") + '</div>' : '') +
     (rest.length && !v.all ? '<div class="acts"><button class="mini" type="button" id="caVAll"' + off + '>' + esc(jcFmt("ca_v_all", { n: rest.length })) + '</button></div>' : '');
 }
@@ -272,7 +283,7 @@ function wirePicks(v){
     v.cats[b.dataset.pick] = !v.cats[b.dataset.pick];
     b.setAttribute("aria-pressed", v.cats[b.dataset.pick] ? "true" : "false");
     var n = Object.keys(v.cats).filter(function(k){ return v.cats[k]; }).length;
-    el("caVPicked").textContent = n ? jcFmt("ca_v_picked", { n: n }) : jcT("ca_v_cats_help");
+    el("caVPicked").textContent = n ? jcFmt("ca_v_picked", { n: n }) : jcT(el("caVPicked").dataset.help || "ca_v_cats_help");
   });
   on("caVAll", function(){ v.all = true; draw(); var f = document.querySelector("[data-pick]"); if (f) f.focus(); });
 }

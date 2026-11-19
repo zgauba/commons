@@ -28,7 +28,7 @@ h1{font-size:22px; font-weight:800; margin:0 0 6px}
   padding:18px 16px; display:flex; flex-direction:column; gap:12px}
 label{display:flex; flex-direction:column; gap:5px; font-size:13px; font-weight:700; color:var(--jc-muted)}
 /* every form field, one look (DS-3a, docs/design.md §5): modules never restyle these — fix them here for everyone */
-input[type=email], input[type=password], input[type=text], input[type=number], input[type=tel],
+input[type=email], input[type=password], input[type=text], input[type=number], input[type=tel], input[type=url],
 input[type=date], input[type=time], input[type=datetime-local], textarea, select{
   font:inherit; font-size:16px; /* ≥16px: iOS doesn't zoom on focus */
   color:var(--jc-ink); background:var(--jc-surface-2); border:1px solid var(--jc-line);
