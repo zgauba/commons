@@ -141,8 +141,9 @@ function wireStationActs(root){
   function onClick(sel, fn){ Array.prototype.forEach.call(root.querySelectorAll(sel), function(b){ b.addEventListener("click", function(){ fn(b); }); }); }
   onClick("[data-edit]", function(b){ openEditor(b.dataset.edit); });
   onClick("[data-visit]", function(b){ openVisit(b.dataset.visit, { to: "home" }, true); });                    /* CC-4 */
-  onClick("[data-stlog]", function(b){ stLogId = b.dataset.stlog; show("stlog"); try { window.scrollTo(0, 0); } catch(e){} });
+  onClick("[data-stlog]", function(b){ openStationLog(b.dataset.stlog); });
 }
+function openStationLog(id){ stLogId = id; show("stlog"); try { window.scrollTo(0, 0); } catch(e){} }
 function drawStations(){
   if (typeof L === "undefined" || !el("caMap")) return;
   var x = stationsData(), m = smap = jcBigMap("caMap", { cfg: cfg, layer: sLayer, onLayer: function(l){ sLayer = l; }, full: sfull });
@@ -160,7 +161,7 @@ function drawStations(){
           (x.programme && s.private === true ? '<div class="head"><span class="chip">' + esc(jcT("ca_private")) + '</span></div>' : ''),
         open: x.programme ? { id: s.id, label: jcT("ca_l_history") } : null }), JC_POPUP);
   });
-  jcMapPopups(m, x.programme ? function(id){ sfull.set(false); stLogId = id; show("stlog"); } : null);
+  jcMapPopups(m, x.programme ? function(id){ sfull.set(false); openStationLog(id); } : null);
   jcFitPins(m, pts);
 }
 

@@ -921,6 +921,12 @@ test("DS-4c: residents' stations — a map with the public pins, a sorted-by lin
   await expect(page.locator("#caSorted")).toBeVisible();
   await expect(page.locator("#caStList > li.caStation .acts").getByRole("link", { name: "Directions" })).toHaveCount(1);
   if (process.env.SHOT_DIR) await page.screenshot({ path: process.env.SHOT_DIR + "/ds4c-resident-stations.png", fullPage: true });
+  // the popup: Directions only — no History button, no Station ID, no private chip (review M)
+  await page.locator("#caMap .leaflet-interactive").first().click({ force: true });
+  await expect(page.locator(".leaflet-popup")).toContainText("Behind the souk");
+  await expect(page.locator(".leaflet-popup").getByRole("link", { name: "Directions" })).toHaveCount(1);
+  await expect(page.locator(".leaflet-popup [data-popopen], .leaflet-popup .chip")).toHaveCount(0);
+  await expect(page.locator(".leaflet-popup")).not.toContainText("S-0");
 });
 
 test("DS-4c: the programme's stations — private pins too, popup opens the history; Use Where I Am sorts nearest first", async ({ page, context }) => {
