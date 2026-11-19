@@ -21,6 +21,7 @@ function jcMapColors(){
            ink: s.getPropertyValue("--jc-ink").trim() || "#f6f2e9",
            me: s.getPropertyValue("--jc-me").trim() || "#3a86ff",
            warn: s.getPropertyValue("--jc-warn").trim() || "#f2b33c",
+           danger: s.getPropertyValue("--jc-danger").trim() || "#ef7b7b",
            muted: s.getPropertyValue("--jc-muted").trim() || "#a9a294" };
 }
 

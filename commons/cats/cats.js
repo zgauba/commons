@@ -144,6 +144,13 @@ function wireStationActs(root){
   onClick("[data-stlog]", function(b){ openStationLog(b.dataset.stlog); });
 }
 function openStationLog(id){ stLogId = id; show("stlog"); try { window.scrollTo(0, 0); } catch(e){} }
+/* the cats that live at a station (programme: the register's home station). Merged, adopted, transferred and deceased
+   cats don't; clinic / foster ones still do, away for a while. Missing first, then by name */
+var CA_GONE = ["adopted", "transferred", "deceased"];
+function homeCats(stationId){
+  return live(reg).filter(function(c){ return c.station_id === stationId && CA_GONE.indexOf(c.status) < 0; })
+    .sort(function(a, b){ return (b.status === "missing") - (a.status === "missing") || catTitle(a).localeCompare(catTitle(b)); });
+}
 function drawStations(){
   if (typeof L === "undefined" || !el("caMap")) return;
   var x = stationsData(), m = smap = jcBigMap("caMap", { cfg: cfg, layer: sLayer, onLayer: function(l){ sLayer = l; }, full: sfull });
@@ -151,17 +158,31 @@ function drawStations(){
     onError: function(code){ sfull.set(false); caMsg(code); } });
   var col = jcMapColors(), pts = [];
   x.live.forEach(function(s){
-    var title = stationTitle(s, x.programme);
+    var title = stationTitle(s, x.programme), home = x.programme ? homeCats(s.id) : [];
+    var miss = home.some(function(c){ return c.status === "missing"; });
     pts.push([s.lat, s.lng]);
-    /* Leaflet sets string content as HTML: names are escaped */
-    L.circleMarker([s.lat, s.lng], { radius: 11, weight: 3, color: col.ink, fillColor: col.accent, fillOpacity: .95 }).addTo(m)
-      .bindTooltip('<span dir="auto">' + esc(title) + '</span>', { permanent: true, direction: "top", offset: [0, -12], className: "bklabel" })
+    /* Leaflet sets string content as HTML: names are escaped. Programme: how many cats live here; red = one is missing */
+    L.circleMarker([s.lat, s.lng], { radius: 11, weight: 3, color: col.ink, fillColor: miss ? col.danger : col.accent, fillOpacity: .95 }).addTo(m)
+      .bindTooltip('<span dir="auto">' + esc(title + (home.length ? " · " + jcFmt(home.length === 1 ? "ca_pin_cat" : "ca_pin_cats", { n: home.length }) : "")) + '</span>',
+        { permanent: true, direction: "top", offset: [0, -12], className: "bklabel" })
       .bindPopup(jcPopHtml({ head: esc(title), headAuto: true, lat: s.lat, lng: s.lng,
         body: '<div class="meta" dir="auto">' + esc(areaName(x.d, s.area_id)) + '</div>' +
           (x.programme && s.private === true ? '<div class="head"><span class="chip">' + esc(jcT("ca_private")) + '</span></div>' : ''),
-        open: x.programme ? { id: s.id, label: jcT("ca_l_history") } : null }), JC_POPUP);
+        /* the cats after History · Directions: a long list scrolls (maxHeight) without pushing those out of reach */
+        after: (home.length ? '<div class="popacts" data-popcats>' + home.map(function(c){
+            var lost = c.status === "missing";
+            return '<button type="button" class="mini' + (lost ? ' danger' : '') + '" data-popcat="' + esc(c.id) + '" dir="auto">' +
+              esc(catTitle(c) + (lost ? " · " + jcT("ca_st_missing") : "")) + '</button>';
+          }).join("") + '</div>' : ''),
+        open: x.programme ? { id: s.id, label: jcT("ca_l_history") } : null }), home.length ? Object.assign({}, JC_POPUP, { maxHeight: 240 }) : JC_POPUP);
   });
-  jcMapPopups(m, x.programme ? function(id){ sfull.set(false); openStationLog(id); } : null);
+  /* a cat in a station's popup → its page (out of full screen first, as History) */
+  jcMapPopups(m, x.programme ? function(id){ sfull.set(false); openStationLog(id); } : null, { open: function(pe){
+    var node = pe.popup.getElement();
+    Array.prototype.forEach.call(node ? node.querySelectorAll("[data-popcat]") : [], function(b){
+      b.addEventListener("click", function(){ sfull.set(false); catId = b.dataset.popcat; catTab = "about"; show("cat"); try { window.scrollTo(0, 0); } catch(e){} });
+    });
+  } });
   jcFitPins(m, pts);
 }
 
