@@ -84,24 +84,85 @@ function peopleLine(s){
     return '<span class="caPeople" data-role="' + r + '"><b>' + esc(jcT("ca_r_" + r + "s")) + ':</b> <span dir="auto">' + esc(by[r].join(", ")) + '</span></span>';
   }).join(" · ");
 }
+/* DS-4c: stations as the Pets Strays tab — a map of the stations above a nearest-first list of list cards
+   (sorted-by line, Use Where I Am), archived ones last. The map: Street / Satellite, Full Screen, Find Me (the kit). */
+var smap = null, sLayer = "sat", sfull = jcMapFull(function(){ return smap; }, null);
+function dropSmap(){ sfull.reset(); if (smap) { var m = smap; smap = null; jcMapRemove(m); } }
+function stationAt(s){ return { lat: s.lat, lng: s.lng }; }
+function stationTitle(s, programme){ return programme && s.code ? s.code + (s.landmark ? " · " + s.landmark : "") : (s.landmark || jcT("ca_station")); }
 function stationCard(d, s, programme){
-  var title = programme && s.code ? s.code + (s.landmark ? " · " + s.landmark : "") : (s.landmark || jcT("ca_station"));
-  return '<div class="panel caStation" data-station="' + esc(s.id) + '">' +
-    '<div class="head"><b dir="auto">' + esc(title) + '</b>' +          /* D6: the chip right after the title */
+  var dist = s.archived === true ? null : jcDistOf(jcOrigin(), stationAt(s));
+  var acts = [jcDirLink(s.lat, s.lng)];
+  if (programme && s.archived !== true) acts.push('<button class="mini" type="button" data-visit="' + esc(s.id) + '">' + esc(jcT("ca_l_add_visit")) + '</button>');   /* CC-4 */
+  if (programme) acts.push('<button class="mini" type="button" data-stlog="' + esc(s.id) + '">' + esc(jcT("ca_l_history")) + '</button>');
+  if (programme && canEdit()) acts.push('<button class="mini" type="button" data-edit="' + esc(s.id) + '">' + esc(jcT("ca_edit")) + '</button>');
+  return '<li class="caStation" data-station="' + esc(s.id) + '">' +
+    '<div class="head"><b dir="auto">' + esc(stationTitle(s, programme)) + '</b>' +          /* D6: the chip right after the title */
     (programme && s.private === true ? '<span class="chip" data-private>' + esc(jcT("ca_private")) + '</span>' : '') + '</div>' +
-    (programme ? (peopleLine(s) ? '<p class="help">' + peopleLine(s) + '</p>' : '') +
-      (typeof s.access_notes === "string" && s.access_notes ? '<p class="help caNotes" dir="auto">' + esc(s.access_notes) + '</p>' : '') : '') +
-    '<div class="row">' + jcDirLink(s.lat, s.lng) +
-    (programme && s.archived !== true ? ' <button class="mini" type="button" data-visit="' + esc(s.id) + '">' + esc(jcT("ca_l_add_visit")) + '</button>' : '') +   /* CC-4 */
-    (programme ? ' <button class="mini" type="button" data-stlog="' + esc(s.id) + '">' + esc(jcT("ca_l_history")) + '</button>' : '') +
-    (programme && canEdit() ? ' <button class="mini" type="button" data-edit="' + esc(s.id) + '">' + esc(jcT("ca_edit")) + '</button>' : '') + '</div></div>';
+    '<div class="meta" dir="auto">' + esc(areaName(d, s.area_id)) + '</div>' +
+    (dist !== null ? '<div class="meta"><bdi dir="ltr">' + esc(jcFmt("sort_dist", { d: jcFmtDist(dist) })) + '</bdi></div>' : '') +
+    (programme && peopleLine(s) ? '<div>' + peopleLine(s) + '</div>' : '') +
+    (programme && typeof s.access_notes === "string" && s.access_notes ? '<div class="caNotes" dir="auto">' + esc(s.access_notes) + '</div>' : '') +
+    '<div class="acts">' + acts.join("") + '</div></li>';
 }
-/* stations grouped under their areas, in the server's area order */
-function grouped(d, list, programme){
-  return areasOf(d).map(function(a){
-    var mine = list.filter(function(s){ return s.area_id === a.id; });
-    return mine.length ? '<h2 class="group" dir="auto">' + esc(a.name) + '</h2>' + mine.map(function(s){ return stationCard(d, s, programme); }).join("") : '';
-  }).join("");
+/* the server's area order, then nearest first from the phone / the home pin when there is one */
+function stationOrder(d, list){
+  var byArea = [];
+  areasOf(d).forEach(function(a){ list.forEach(function(s){ if (s.area_id === a.id) byArea.push(s); }); });
+  list.forEach(function(s){ if (byArea.indexOf(s) < 0) byArea.push(s); });
+  return jcNear(byArea, jcOrigin(), stationAt);
+}
+function stationListHtml(d, live, programme){
+  return jcSortedHtml({ id: "caSorted", fallback: "ca_sorted_area" }) +
+    '<ul class="bklist" id="caStList">' + stationOrder(d, live).map(function(s){ return stationCard(d, s, programme); }).join("") + '</ul>';
+}
+/* the whole Stations tab body below its buttons / help line */
+function stationsBlock(d, live, gone, programme, noneKey){
+  return (live.length && typeof L !== "undefined" ? jcMapHtml("caMap", sLayer, { attrs: ' role="region" aria-label="' + esc(jcT("ca_map_label")) + '"' }) : '') +
+    (live.length ? '<div class="jcstack" id="caStBox">' + stationListHtml(d, live, programme) + '</div>' : '<p class="help" id="caNone">' + esc(jcT(noneKey)) + '</p>') +
+    (gone.length ? '<h2 class="group">' + esc(jcT("ca_archived_h")) + '</h2><ul class="bklist" id="caStGone">' + gone.map(function(s){ return stationCard(d, s, true); }).join("") + '</ul>' : '');
+}
+function stationsData(){
+  var programme = !!prog, d = programme ? prog : places, all = stationsOf(d);
+  return { d: d, programme: programme, live: all.filter(function(s){ return s.archived !== true; }), gone: programme ? all.filter(function(s){ return s.archived === true; }) : [] };
+}
+/* Find Me / Use Where I Am: re-sort the list under the map; the map stays as it is */
+function redrawStList(){
+  var box = el("caStBox");
+  if (!box || current !== "home" || tab !== "stations") return;
+  var x = stationsData(), r = jcFocusKeep();
+  box.innerHTML = stationListHtml(x.d, x.live, x.programme);
+  wireStationActs(box); wireStSort();
+  r();
+}
+function wireStSort(){ jcSortedWire({ onChange: redrawStList, onError: caMsg, alive: function(){ return current === "home" && tab === "stations"; } }); }
+function wireStationActs(root){
+  root = root || document;
+  function onClick(sel, fn){ Array.prototype.forEach.call(root.querySelectorAll(sel), function(b){ b.addEventListener("click", function(){ fn(b); }); }); }
+  onClick("[data-edit]", function(b){ openEditor(b.dataset.edit); });
+  onClick("[data-visit]", function(b){ openVisit(b.dataset.visit, { to: "home" }, true); });                    /* CC-4 */
+  onClick("[data-stlog]", function(b){ openStationLog(b.dataset.stlog); });
+}
+function openStationLog(id){ stLogId = id; show("stlog"); try { window.scrollTo(0, 0); } catch(e){} }
+function drawStations(){
+  if (typeof L === "undefined" || !el("caMap")) return;
+  var x = stationsData(), m = smap = jcBigMap("caMap", { cfg: cfg, layer: sLayer, onLayer: function(l){ sLayer = l; }, full: sfull });
+  jcFindMe(m, { alive: function(){ return smap === m; }, onPos: function(){ if (smap === m) redrawStList(); },
+    onError: function(code){ sfull.set(false); caMsg(code); } });
+  var col = jcMapColors(), pts = [];
+  x.live.forEach(function(s){
+    var title = stationTitle(s, x.programme);
+    pts.push([s.lat, s.lng]);
+    /* Leaflet sets string content as HTML: names are escaped */
+    L.circleMarker([s.lat, s.lng], { radius: 11, weight: 3, color: col.ink, fillColor: col.accent, fillOpacity: .95 }).addTo(m)
+      .bindTooltip('<span dir="auto">' + esc(title) + '</span>', { permanent: true, direction: "top", offset: [0, -12], className: "bklabel" })
+      .bindPopup(jcPopHtml({ head: esc(title), headAuto: true, lat: s.lat, lng: s.lng,
+        body: '<div class="meta" dir="auto">' + esc(areaName(x.d, s.area_id)) + '</div>' +
+          (x.programme && s.private === true ? '<div class="head"><span class="chip">' + esc(jcT("ca_private")) + '</span></div>' : ''),
+        open: x.programme ? { id: s.id, label: jcT("ca_l_history") } : null }), JC_POPUP);
+  });
+  jcMapPopups(m, x.programme ? function(id){ sfull.set(false); openStationLog(id); } : null);
+  jcFitPins(m, pts);
 }
 
 /* ---------- views ---------- */
@@ -123,13 +184,12 @@ var VIEWS = {
     if (!prog) {
       var pub = stationsOf(places);
       body = tab === "cats" ? catsHtml(pubCats, false) + '<div class="panel" id="caSoon"><p>' + esc(jcT("ca_soon")) + '</p></div>'
-        : '<p class="help">' + esc(jcT("ca_public_help")) + '</p>' +
-          (pub.length ? grouped(places, pub, false) : '<p class="help" id="caNone">' + esc(jcT("ca_none_public")) + '</p>');
+        : '<p class="help">' + esc(jcT("ca_public_help")) + '</p>' + stationsBlock(places, pub, [], false, "ca_none_public");
     } else body = tab === "areas" ? areasHtml() : tab === "cats" ? catsHtml(reg, true) : tab === "log" ? logTabHtml() : stationsHtml();
     el("view").innerHTML = head + jcTabsHtml("caTab_", keys, tab, function(k){ return jcT("ca_tab_" + k); }, jcModTitle("cats"), "caPanel") +
       '<div ' + jcTabPanel("caTab_", tab, "caPanel") + '>' + body + '</div>';
     jcTabsWire("caTab_", keys, function(k){ tab = k; renaming = null; draw(); });
-    if (!prog) { if (tab === "cats") wireCats(pubCats); return; }
+    if (!prog) { if (tab === "cats") wireCats(pubCats); else { wireStSort(); drawStations(); } return; }
     if (tab === "areas") wireAreas(); else if (tab === "cats") wireCats(reg); else if (tab === "log") wireLogTab(); else wireStations();
   },
   cat: function(){ catView(); },
@@ -204,21 +264,17 @@ var VIEWS = {
 };
 
 function stationsHtml(){
-  var all = stationsOf(prog), live = all.filter(function(s){ return s.archived !== true; }), gone = all.filter(function(s){ return s.archived === true; });
-  var off = busy ? ' disabled' : '';
-  return (canEdit() ? '<div class="row"><button class="btn" type="button" id="caAdd"' + off + '>' + esc(jcT("ca_add_station")) + '</button></div>' +
+  var x = stationsData(), off = busy ? ' disabled' : '';
+  return (canEdit() ? '<div class="acts"><button class="btn" type="button" id="caAdd"' + off + '>' + esc(jcT("ca_add_station")) + '</button></div>' +
       (areasOf(prog).filter(function(a){ return a.archived !== true; }).length ? '' : '<p class="help" id="caAreaFirst">' + esc(jcT("ca_area_first")) + '</p>') : '') +
-    (live.length ? grouped(prog, live, true) : '<p class="help" id="caNone">' + esc(jcT("ca_none")) + '</p>') +
-    (gone.length ? '<h2 class="group">' + esc(jcT("ca_archived_h")) + '</h2>' + gone.map(function(s){ return stationCard(prog, s, true); }).join("") : '');
+    stationsBlock(prog, x.live, x.gone, true, "ca_none");
 }
 function wireStations(){
   on("caAdd", function(){
     if (!areasOf(prog).filter(function(a){ return a.archived !== true; }).length) { tab = "areas"; draw(); return; }
     openEditor(null);
   });
-  each("[data-edit]", function(b){ openEditor(b.dataset.edit); });
-  each("[data-visit]", function(b){ openVisit(b.dataset.visit, { to: "home" }, true); });                       /* CC-4 */
-  each("[data-stlog]", function(b){ stLogId = b.dataset.stlog; show("stlog"); try { window.scrollTo(0, 0); } catch(e){} });
+  wireStationActs(); wireStSort(); drawStations();
 }
 function openEditor(id){
   var st = id ? stationsOf(prog).filter(function(x){ return x.id === id; })[0] : null;
@@ -296,6 +352,7 @@ function wireAreas(){
 function show(name){
   current = name;
   if (name !== "station") takeMap();
+  dropSmap();                                 /* DS-4c: the stations map goes with every redraw */
   jcMinisClear(caMinis);                      /* DS-4b: the activity lists' small maps (log.js) */
   if (name !== "catedit") ced = null;
   if (name !== "home") renaming = null;      /* review L6: a rename box never outlives the Areas screen */

@@ -16,7 +16,7 @@ Already done elsewhere: D7 dropdown height/chevron and D13 accent checkboxes (DS
 |---|---|---|---|
 | **4a** | Cats list + cat page | D1, D2, D3, D5, D6, `.care .note` Arabic, missing = red alarm | ~250 (mostly replacing code; cats.css shrinks) |
 | **4b** | Activity + forms | D4, D8, D9, D10, D11, D14, D7 pills, sighting mini maps, one map-link wording | ~300 (log.js card/list/forms rewritten; justify: one screen family, splitting further leaves half-converted forms) |
-| **4c** | Stations: nearest-first + Map tab | CC plan map REUSE row (retro) | ~120 |
+| **4c** | Stations: nearest-first + a map above the list (on the Stations tab, as Pets Strays) | CC plan map REUSE row (retro) | ~120 |
 
 ## Inventory (layers from `docs/architecture.md`)
 | Layer | Touched? | Check |
@@ -57,7 +57,7 @@ Already done elsewhere: D7 dropdown height/chevron and D13 accent checkboxes (DS
 | Visit cat picker `.caPick` | module-only tap-to-pick grid | Stays module-only (no 2nd use) | — |
 | Number / date fields | app.css field rule | REUSE (already) | — |
 | Station list nearest-first | `jcSortedHtml` / `jcSortedWire` | REUSE | 4c |
-| Station map | `jcMapHtml` / `jcBigMap` / `jcPopHtml` / `jcFitPins` | REUSE: a Map tab (stations as pins; private pins only for the programme, which only it receives) | 4c |
+| Station map | `jcMapHtml` / `jcBigMap` / `jcPopHtml` / `jcFitPins` | REUSE: a map above the list on the Stations tab, as Pets Strays (stations as pins; private pins only for the programme, which only it receives) — DEPART from "a Map tab", see 4c Progress | 4c |
 | Cat page Map tab | Pets has one | **DEPART**: a cat belongs to a station (Where facts + Directions), and located sightings get mini maps. No map tab | — |
 
 ## Screens to match
@@ -68,7 +68,7 @@ Already done elsewhere: D7 dropdown height/chevron and D13 accent checkboxes (DS
 | Cat page, Activity · Activity tab · station history | Pet Sightings `design/pet-sightings.jpg` | MATCH |
 | Cat editor · visit form · sighting form · Log activity | Edit pet `design/pet-edit.jpg` | MATCH (layout + controls) |
 | Activity cards with Hide / Link | Organizer Tools rows `design/admin.jpg` | MATCH (actions at the foot) |
-| Stations list + Map tab | Pets Strays list + Map | MATCH |
+| Stations list + map | Pets Strays list + map | MATCH |
 | Pets list / stray / sightings / edit (shared moves) | themselves before | MATCH, 0 px pixel diff |
 
 ## Impact map
@@ -99,7 +99,7 @@ Already done elsewhere: D7 dropdown height/chevron and D13 accent checkboxes (DS
 | 4 | Picking from any dropdown in the sighting form or cat editor doesn't redraw the form or move focus (the iPhone "won't close" bug) | e2e Chromium **and WebKit**: the same `select` element survives the change, `activeElement` unchanged; **Zee on the iPhone** | 4b |
 | 5 | Cat editor: pills for sex / life stage / ear tip / sterilisation, one caption per control, Photos first, Merge above one Save at the bottom; Save sends today's payload | side by side vs `pet-edit.jpg`; e2e payload | 4b |
 | 6 | Activity entries and a cat's sightings use the shared dated list: actions at the foot, mini map + "Open in Google Maps" on located sightings; paging / hide / link still work in place | side by side vs `pet-sightings.jpg` + `admin.jpg`; existing activity specs | 4b |
-| 7 | Stations nearest-first + a Map tab with pins; residents never get a private station | e2e (resident stub with no private rows → no private pin; programme sees chip + pin) + screenshot | 4c |
+| 7 | Stations nearest-first + a map with pins above the list; residents never get a private station | e2e (resident stub with no private rows → no private pin; programme sees chip + pin) + screenshot | 4c |
 | 8 | Pets is unchanged by the shared moves | pixel diff Pets list / stray / missing / sightings / edit = 0 px; pets.spec green | 4a, 4b |
 
 ## Premortem (§0.5)
@@ -108,7 +108,7 @@ Already done elsewhere: D7 dropdown height/chevron and D13 accent checkboxes (DS
 | 1 | Silent data corruption | **Yes**: rewired forms could drop or rename a field and the server would accept it (most are optional) | Done-when 3/5: field-by-field payload assertions for `jc_cat_save`, `jc_cat_visit_add`, `jc_cat_sighting_add` written **before** the forms change |
 | 2 | Silent zero-output | **Yes**: a shared helper returning `''` (for example `jcEntriesHtml` with no `empty`) shows a blank tab | always pass `empty`; specs assert cards / facts / entries by id, and the "none" lines |
 | 2b | Out-of-band drift | Low: CDN can pair new CSS with old JS for ~10 min | one commit per PR; Cats is not open to residents yet (testers only) |
-| 3 | Cost | Not exposed: Map tab tiles are free OSM/Esri, the same as Pets; mini maps stay lazy and capped at 10 | — |
+| 3 | Cost | Not exposed: stations map tiles are free OSM/Esri, the same as Pets; mini maps stay lazy and capped at 10 | — |
 | 4 | Contract drift | Not exposed: no RPC change | — |
 | 5 | Race / ordering | Low: D9 keeps the Where map wired while hidden; the station choice wins over a pin (as today's payload logic) | spec: pick a pin, then a station → payload has the station only |
 | 6 | Auth / RLS | Not exposed server-side. Client: residents' view rebuilt | the server never sends programme fields to residents; spec asserts no programme rows for residents |
@@ -118,7 +118,7 @@ Already done elsewhere: D7 dropdown height/chevron and D13 accent checkboxes (DS
 
 ## Open decisions for Zee (recommendation first)
 1. **A missing cat = red** (alarm box, red card border), as a missing pet. Today it's an amber chip. Recommend yes: design.md reserves red for missing.
-2. **Residents' Cats page gets tabs** (Cats · Stations, then Map in 4c) instead of two headed sections. Recommend yes.
+2. **Residents' Cats page gets tabs** (Cats · Stations; the map sits on Stations, 4c) instead of two headed sections. Recommend yes.
 3. **Map link wording:** "Open in Google Maps" where something was *seen*; "Directions" for a place you *go* (stations). Recommend yes.
 4. **No Map tab on a cat's page** (DEPART). Recommend yes.
 
@@ -141,3 +141,10 @@ Already done elsewhere: D7 dropdown height/chevron and D13 accent checkboxes (DS
   pet (the editor's was covered by D14); a draft is lost on Back, as on Edit pet. (2) Choosing a station while the pin map
   is open redraws the sighting form (a hidden pin map can't stay open) — the one D9 exception, rare. (3) string key
   `pt_on_map` renamed `map_open` (now shared). Review: `docs/qa/DS-4b-review-2026-11-19.md`.
+- **4c** (branch `ds-4c-cats-stations-map`): Stations tab (residents + programme) = the Pets Strays layout: the map of the
+  stations (the kit: Street / Satellite, Full Screen, Find Me; name labels; popup → Directions, and for the programme
+  History) above a nearest-first list (`jcSortedHtml` / `jcSortedWire`, Use Where I Am, distance line); stations as
+  `ul.bklist` list cards with Directions · Log a visit · History · Edit in `.acts` at the foot; archived last.
+  **DEPART (4c):** the plan said "a Map tab"; the reference screen (Pets Strays) has its map *inside* the tab above the
+  list, and coordinators already have four tabs — so the map sits on the Stations tab, no fifth tab. Done-when 7 reads
+  "a map with pins" accordingly. Residents get only public stations (the server sends no others; spec counts the pins).

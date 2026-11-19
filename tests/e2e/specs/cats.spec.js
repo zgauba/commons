@@ -191,7 +191,7 @@ test("a resident sees public stations only: no Station ID, notes, people or edit
   await page.locator("#caTab_stations").click();
   const card = page.locator(`.caStation[data-station="${S1}"]`);
   await expect(card).toContainText("Behind the souk");
-  await expect(page.locator("h2.group")).toHaveText(["Souk"]);
+  await expect(card.locator(".meta").first()).toHaveText("Souk");                           // DS-4c: area on the card
   await expect(card).not.toContainText("S-001");
   await expect(card.getByRole("link", { name: "Directions" })).toHaveAttribute("rel", "noopener noreferrer");
   await expect(page.locator("[data-edit], #caAdd, [data-private], .caPeople, .caNotes")).toHaveCount(0);
@@ -906,4 +906,46 @@ test("DS-4b: activity entries are the shared dated list — actions at the foot,
   await expect(page.locator("#caCatSeen")).toHaveText("Report seeing Caramel");            // D4: Pets' wording
   await expect(page.locator("#caCatLog h2")).toHaveCount(0);
   if (process.env.SHOT_DIR) await page.screenshot({ path: process.env.SHOT_DIR + "/ds4b-cat-activity.png", fullPage: true });
+});
+
+// DS-4c (docs/plans/DS-4-cats-rebuild.md, Done-when 7): the Stations tab is the Pets Strays layout — a map of the
+// stations above a nearest-first list; residents only ever get public stations (the server sends no others)
+test("DS-4c: residents' stations — a map with the public pins, a sorted-by line, list cards with Directions", async ({ page }) => {
+  await stubBackend(page, { rpc: member([]) });
+  await signIn(page);
+  await page.goto("cats/");
+  await page.locator("#caTab_stations").click();
+  await expect(page.locator("#caMap")).toHaveAttribute("aria-label", "Map of the feeding stations");
+  await expect(page.locator("#caMap .bklabel")).toHaveText(["Behind the souk"]);
+  await expect(page.locator("#caMap")).not.toContainText("S-0");                            // no Station ID for residents
+  await expect(page.locator("#caSorted")).toBeVisible();
+  await expect(page.locator("#caStList > li.caStation .acts").getByRole("link", { name: "Directions" })).toHaveCount(1);
+  if (process.env.SHOT_DIR) await page.screenshot({ path: process.env.SHOT_DIR + "/ds4c-resident-stations.png", fullPage: true });
+  // the popup: Directions only — no History button, no Station ID, no private chip (review M)
+  await page.locator("#caMap .leaflet-interactive").first().click({ force: true });
+  await expect(page.locator(".leaflet-popup")).toContainText("Behind the souk");
+  await expect(page.locator(".leaflet-popup").getByRole("link", { name: "Directions" })).toHaveCount(1);
+  await expect(page.locator(".leaflet-popup [data-popopen], .leaflet-popup .chip")).toHaveCount(0);
+  await expect(page.locator(".leaflet-popup")).not.toContainText("S-0");
+});
+
+test("DS-4c: the programme's stations — private pins too, popup opens the history; Use Where I Am sorts nearest first", async ({ page, context }) => {
+  await context.grantPermissions(["geolocation"]);
+  await context.setGeolocation({ latitude: 24.5402, longitude: 54.4402 });                  // next to S-002
+  const sink = { activity: [] };
+  await stubBackend(page, { rpc: logBackend(["cats"], sink) });
+  await signIn(page);
+  await page.goto("cats/");
+  await page.locator("#caTab_stations").click();
+  await expect(page.locator("#caMap .bklabel")).toHaveCount(2);
+  await expect(page.locator("#caMap .bklabel")).toContainText(["S-002 · Next door"]);
+  await page.locator("#sortHereBtn").click();
+  await expect(page.locator("#caStList > li").first()).toHaveAttribute("data-station", S2);
+  await expect(page.locator(`#caStList > li[data-station="${S2}"] .meta`).nth(1)).toContainText("≈");
+  await expect(page.locator(`#caStList > li[data-station="${S2}"] [data-private]`)).toHaveText("Private location");
+  await expect(page.locator(`#caStList > li[data-station="${S2}"] > :last-child`)).toHaveClass(/acts/);   // actions at the foot
+  if (process.env.SHOT_DIR) await page.screenshot({ path: process.env.SHOT_DIR + "/ds4c-programme-stations.png", fullPage: true });
+  await page.locator("#caMap .leaflet-interactive").first().click({ force: true });
+  await page.locator(".leaflet-popup [data-popopen]").click();
+  await expect(page.locator("h1")).toContainText("S-00");                                   // a station's history
 });
