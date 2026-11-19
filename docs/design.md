@@ -294,7 +294,7 @@ Cats today: sex (3), life stage (4), ear tip (3), sterilisation (3) → pills ·
 ### Text input
 | | |
 |---|---|
-| Status | **Shared** (one field rule in `app.css` for text / email / password / number / tel / date / time / datetime-local, `textarea`, `select`) |
+| Status | **Shared** (one field rule in `app.css` for text / email / password / number / tel / url / date / time / datetime-local, `textarea`, `select`). A new input type joins that rule's list — never module CSS (CC-5: `url` was missing and drew as a browser box) |
 | Native basis | `input` |
 | Variants / states | `:disabled` (opacity .6, shared with `select` / `textarea`) · focus ring |
 | Accessibility | 16px text; `dir="auto"` on free text |

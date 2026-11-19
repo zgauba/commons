@@ -216,6 +216,7 @@ var VIEWS = {
   cat: function(){ catView(); },
   visit: function(){ visitView(); },                 /* CC-4, log.js (loaded first) */
   sighting: function(){ sightingView(); },
+  vet: function(){ vetView(); },                     /* CC-5, vet.js (loaded first) */
   stlog: function(){ stationLogView(); },
   catedit: function(){ catEditView(); },
   station: function(){
@@ -498,12 +499,17 @@ function catView(){
     var health = pairs([
       ["ca_f_ear", join([lab("ca_ear_", CA_EAR, c.ear_tip), programme && c.ear_side ? lab("ca_side_", ["left", "right"], c.ear_side) : ""])],
       ["ca_fl_ster", join([lab("ca_ster_", CA_STER, c.sterilised), programme ? typed(c.sterilised_source) : ""])],
-      ["ca_f_tnvr", programme && c.tnvr !== "none" ? join([lab("ca_tnvr_", CA_TNVR, c.tnvr), dateText(c.tnvr_on), typed(c.tnvr_place)]) : ""]]);
+      ["ca_f_tnvr", programme && c.tnvr !== "none" ? join([lab("ca_tnvr_", CA_TNVR, c.tnvr), dateText(c.tnvr_on), typed(c.tnvr_place)]) : ""],
+      /* CC-5: residents see only "Vaccinated" (rabies up to date); the programme sees each vaccine below */
+      ["ca_vt_vaccinated", !programme && c.vaccinated === true ? jcT("ca_vt_vaccinated_yes") : ""]]);
+    var vacc = programme ? vetVaccinesHtml(c) : '';
     var where = pairs([["ca_f_area", str(c.area)], ["ca_f_station", st ? join([st.code, typed(st.landmark)]) : ""]]);
     /* the first group has no heading: it would repeat the About tab's name (D1) */
     body += (str(c.story) ? '<p class="desc" dir="auto" id="caStory">' + esc(c.story) + '</p>' : '') +
       (about.length ? jcFactsHtml(about, "caFacts") : '') +
-      (health.length ? '<h2 class="group">' + esc(jcT("ca_g_health")) + '</h2>' + jcFactsHtml(health, "caHealth") : '') +
+      (health.length || vacc ? '<h2 class="group">' + esc(jcT("ca_g_health")) + '</h2>' + (health.length ? jcFactsHtml(health, "caHealth") : '') + vacc +
+        (!programme && c.vaccinated === true ? '<p class="help" id="caVaccHelp">' + esc(jcT("ca_vt_doctor")) + '</p>' : '') : '') +
+      vetInvoicesHtml(c) +
       (where.length ? '<h2 class="group">' + esc(jcT("ca_g_where")) + '</h2>' + jcFactsHtml(where, "caWhere") : '') +
       (hist.length ? '<h2 class="group">' + esc(jcT("ca_history")) + '</h2><ul class="care" id="caHist">' + hist.map(function(x){
         var d = dateText(x.on) || dayOf(x.at), note = join([str(x.source), x.code && x.code !== c.code ? x.code : ""]);
