@@ -32,6 +32,19 @@ function jcAlarmHtml(id, text, bodyHtml){
   return '<div class="alarm" id="' + esc(id) + '"><b>' + esc(text) + '</b>' + (bodyHtml || '') + '</div>';
 }
 
+/* Choice pills (design.md §5): fieldset > legend + .opts > button[aria-pressed]. Text arguments are escaped here.
+   o: { id — on the fieldset; legend; items — [{ value, text }]; pressed — the pressed value;
+        attr — the attribute that carries each value, trusted (it may start with fixed attributes: 'data-pill="sex" data-v');
+        idPrefix — each button gets id="<idPrefix><value>"; off — ' disabled' or '';
+        afterHtml — trusted markup inside the fieldset after the pills (a dependent field) } */
+function jcPillsHtml(o){
+  return '<fieldset' + (o.id ? ' id="' + esc(o.id) + '"' : '') + '><legend>' + esc(o.legend) + '</legend><div class="opts">' +
+    o.items.map(function(it){
+      return '<button type="button"' + (o.idPrefix ? ' id="' + esc(o.idPrefix + it.value) + '"' : '') + ' ' + o.attr + '="' + esc(it.value) + '"' +
+        ' aria-pressed="' + (it.value === o.pressed) + '"' + (o.off || '') + '>' + esc(it.text) + '</button>';
+    }).join("") + '</div>' + (o.afterHtml || '') + '</fieldset>';
+}
+
 /* Facts: label → value pairs ([[label, value], …], both text) as dl.facts; id optional */
 function jcFactsHtml(pairs, id){
   return '<dl class="facts"' + (id ? ' id="' + esc(id) + '"' : '') + '>' + pairs.map(function(f){

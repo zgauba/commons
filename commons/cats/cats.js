@@ -217,7 +217,7 @@ function wireStations(){
     openEditor(null);
   });
   each("[data-edit]", function(b){ openEditor(b.dataset.edit); });
-  each("[data-visit]", function(b){ openVisit(b.dataset.visit, { to: "home" }); });                       /* CC-4 */
+  each("[data-visit]", function(b){ openVisit(b.dataset.visit, { to: "home" }, true); });                       /* CC-4 */
   each("[data-stlog]", function(b){ stLogId = b.dataset.stlog; show("stlog"); try { window.scrollTo(0, 0); } catch(e){} });
 }
 function openEditor(id){
@@ -464,10 +464,9 @@ function selHtml(id, lg, prefix, list, v, off){
   }).join("") + '</select>';
 }
 /* ≤ 5 fixed choices: Pets-style pills (D7; design.md §1 choice table), the legend is the caption */
-function pillsHtml(id, key, field, prefix, list, v, off){
-  return '<fieldset id="' + id + '"><legend>' + esc(jcT(key)) + '</legend><div class="opts">' + list.map(function(x){
-    return '<button type="button" data-pill="' + field + '" data-v="' + esc(x) + '" aria-pressed="' + (x === v) + '"' + off + '>' + esc(jcT(prefix + x)) + '</button>';
-  }).join("") + '</div></fieldset>';
+function pillsHtml(id, key, field, prefix, list, v, off, afterHtml){
+  return jcPillsHtml({ id: id, legend: jcT(key), attr: 'data-pill="' + field + '" data-v', pressed: v, off: off, afterHtml: afterHtml,
+    items: list.map(function(x){ return { value: x, text: jcT(prefix + x) }; }) });
 }
 function txtHtml(id, key, v, max, off, area){
   return '<label>' + esc(jcT(key)) + (area ? '<textarea id="' + id + '" maxlength="' + max + '" dir="auto"' + off + '></textarea>'
@@ -516,12 +515,12 @@ function catEditView(){
       '<label>' + esc(jcT("ca_f_area")) + '<select id="caCArea"' + off + '><option value="">' + esc(jcT("ca_none_opt")) + '</option>' +
         areas.map(function(a){ return '<option value="' + esc(a.id) + '"' + (a.id === f.area_id ? ' selected' : '') + '>' + esc(a.name) + '</option>'; }).join("") + '</select></label>' +
       '<label>' + esc(jcT("ca_f_station")) + '<select id="caCStation"' + off + '>' + edStationOpts(f) + '</select></label></fieldset>' +
-    pillsHtml("caCEar", "ca_f_ear", "ear_tip", "ca_ear_", CA_EAR, f.ear_tip, off).replace('</fieldset>',
+    pillsHtml("caCEar", "ca_f_ear", "ear_tip", "ca_ear_", CA_EAR, f.ear_tip, off,
       '<label id="caCSideBox"' + (f.ear_tip === "present" ? '' : ' hidden') + '>' + esc(jcT("ca_f_ear_side")) + '<select id="caCSide"' + off + '><option value="">—</option>' +
         ["left", "right"].map(function(x){ return '<option value="' + x + '"' + (x === f.ear_side ? ' selected' : '') + '>' + esc(jcT("ca_side_" + x)) + '</option>'; }).join("") +
-        '</select></label></fieldset>') +
-    pillsHtml("caCSter", "ca_ster_h", "sterilised", "ca_ster_", CA_STER, f.sterilised, off).replace('</fieldset>',
-      txtHtml("caCSterSrc", "ca_f_ster_source", f.sterilised_source, 120, off) + '</fieldset>') +
+        '</select></label>') +
+    pillsHtml("caCSter", "ca_ster_h", "sterilised", "ca_ster_", CA_STER, f.sterilised, off,
+      txtHtml("caCSterSrc", "ca_f_ster_source", f.sterilised_source, 120, off)) +
     '<fieldset><legend id="caCTnvrLg">' + esc(jcT("ca_f_tnvr")) + '</legend>' + selHtml("caCTnvr", "caCTnvrLg", "ca_tnvr_", CA_TNVR, f.tnvr, off) +
       dateHtml("caCTOn", "ca_f_tnvr_on", off) + txtHtml("caCTPlace", "ca_f_tnvr_place", f.tnvr_place, 120, off) + '</fieldset>' +
     '<fieldset><legend id="caCStatusLg">' + esc(jcT("ca_f_status")) + '</legend>' + selHtml("caCStatus", "caCStatusLg", "ca_st_", CA_STATUS, f.status, off) +

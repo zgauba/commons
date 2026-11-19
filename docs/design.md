@@ -324,9 +324,9 @@ Cats today: sex (3), life stage (4), ear tip (3), sterilisation (3) → pills ·
 ### Choice pills
 | | |
 |---|---|
-| Status | **Shared** (the Events and My Home overrides removed in DS-3a) |
+| Status | **Shared** (the Events and My Home overrides removed in DS-3a); builder `jcPillsHtml(o)` in `assets/blocks.js` (DS-4b, used by Cats). Pets / Organizer Tools / Events / My Home still hand-build the same markup — switch when next touched |
 | Native basis | `button` in a `fieldset` |
-| Markup | `fieldset > legend + .opts > button[aria-pressed]` |
+| Markup | `fieldset > legend + .opts > button[aria-pressed]` (+ optional dependent field inside the fieldset: `afterHtml`) |
 | Variants / states | Pressed = accent ring |
 | Accessibility | `aria-pressed`; 40px min |
 | Use / Don't | Per the choice table (§1) |

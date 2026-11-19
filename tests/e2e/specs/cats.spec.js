@@ -570,7 +570,8 @@ test("a volunteer logs a feeding visit at a station: station cats first, problem
   await page.locator(`[data-visit="${S1}"]`).click();
   await expect(page.locator("h1")).toHaveText("Log activity");                                // DS-4b: one Log activity screen
   await expect(page.locator("#caKind_visit")).toHaveAttribute("aria-pressed", "true");
-  await expect(page.locator("#caVSt")).toHaveValue(S1);
+  await expect(page.locator("#caVStLine")).toHaveText("S-001 · Behind the souk");             // from a station: named, not asked
+  await expect(page.locator("#caVSt")).toHaveCount(0);
   // Caramel's usual station is S-001 → offered; the kitten from Seef only behind "Show all cats"
   await expect(page.locator("[data-pick]")).toHaveCount(1);
   await page.locator("#caVAll").click();

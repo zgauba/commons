@@ -136,3 +136,8 @@ Already done elsewhere: D7 dropdown height/chevron and D13 accent checkboxes (DS
   caption, Merge above one Save, no Cancel (as Edit pet). Shared: `jcMiniHtml` / `jcMinisDraw` / `jcMinisClear`,
   `.ptmini` CSS, `jcMapLink` (Pets + Organizer Tools switched over; `pt_on_map` → `map_open`), `jcEntriesHtml` optional
   heading + `liAttrs`. Pets 0 px (10 screens EN + AR).
+  Review fixes: a visit opened from a station names it (no dropdown), as the plan's D10 row; shared `jcPillsHtml`.
+  **DEPARTs recorded at review (4b):** (1) the visit and sighting forms lose their Cancel button — back arrow only, as Edit
+  pet (the editor's was covered by D14); a draft is lost on Back, as on Edit pet. (2) Choosing a station while the pin map
+  is open redraws the sighting form (a hidden pin map can't stay open) — the one D9 exception, rare. (3) string key
+  `pt_on_map` renamed `map_open` (now shared). Review: `docs/qa/DS-4b-review-2026-11-19.md`.
