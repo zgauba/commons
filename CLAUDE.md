@@ -37,7 +37,7 @@ ONE repo, served by GitHub Pages as the user site, holding three things:
 
 **Halloween site (`jubail-halloween/`):** legacy but live; vanilla JS, string concat (no template literals), no build. Pin encoding is orthogonal: fill = availability, ring = entrance, glyph = treats type. Copy says "out of treats". Superseded by `commons/` — no structural investment here.
 
-**Commons (`commons/`):** the rebuild. Per-community config (villages, map center, branding, WhatsApp links) + per-module feature flags (events / bookings / pets — flags are also the compliance kill switch for the booking module). EN/AR strings dictionary + RTL. Identity model: full accounts; any further PII is per-feature and only when necessary. Booking module carries "official JICM bookings take precedence" on the booking screen (MCD §15.10).
+**Commons (`commons/`):** the rebuild. Per-community config (villages, map center, branding, WhatsApp links) + per-module feature flags (events / bookings / pets — flags are also the compliance kill switch for the booking module). EN/AR strings dictionary + RTL. Identity model: full accounts; any further PII is per-feature and only when necessary. Booking module carries "official JICM bookings take precedence" on the booking screen (MCD §15.10). **Design system:** read `docs/design.md` before building or restyling any screen (being written in DS-2, see `docs/plans/DS-design-system.md`); every new screen names the existing screen it must match. Module CSS never restyles bare elements (`select`, `input`, `textarea`, `label`, `button`); use the shared classes.
 
 ## Conventions
 

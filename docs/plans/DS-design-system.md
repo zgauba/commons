@@ -15,7 +15,7 @@ nothing checked (review: `docs/qa/cats-design-review-2026-11-19.md`). Fix the pr
 ## Steps
 | Step | What | Needs from Zee |
 |---|---|---|
-| DS-1 | **Protocols** (list below) | go |
+| DS-1 | **Protocols** (list below) | done 2026-11-19 |
 | DS-2 | **`docs/design.md`:** one entry per component (shared function, classes, when to use, a11y, reference screenshot) + a "never" list | review it |
 | DS-3 | **Extract shared pieces** from Pets: hero header, card grid, facts list, sightings block; shared dropdown + checkbox styles; tap-to-zoom in the photo viewer | merge |
 | DS-4 | **Rebuild Cats** on them (review D1–D14), incl. one "Log activity" button and the dropdown fix (iPhone); UI review Cats vs Pets | merge |
