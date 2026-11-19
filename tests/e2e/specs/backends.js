@@ -519,6 +519,7 @@ function petsBackend(opts = {}) {
     return { id: p.id, kind: p.kind, species: p.species, name: p.name, description: p.description, wanderer: p.wanderer,
       microchipped: p.microchipped, missing: p.missing, missing_since: p.missing_since, last_seen_note: p.last_seen_note,
       care_state: p.care_state, photo_path: p.photo_path, mine,
+      missing_by_team: mine ? !!p.missing_by_team : null,                    // only the household learns the team marked it
       home: h && !h.noHome ? { village: h.village, type: h.type, building: h.building, number: h.number } : null,   // type: R5b-1b server (absent = older server)
       territory: p.territory, territory_lat: p.territory_lat, territory_lng: p.territory_lng, care: p.kind === "stray" ? p.care : null,
       // R5b-2b-0: the server decides who gets these (jc_pet_sight_from); a test sets them per pet as that viewer would get them
@@ -575,6 +576,20 @@ function petsBackend(opts = {}) {
       p.missing = a.p_missing;
       p.missing_since = a.p_missing ? (p.missing_since || "2026-11-11T06:00:00Z") : null;
       p.last_seen_note = a.p_missing ? a.p_note : null;
+      p.missing_by_team = false;                                             // a household write is theirs
+      return ok(card(p));
+    },
+    // Pets admins mark a neighbour's pet missing / found (jc_assert_admin('pets'); owned + active only)
+    jc_admin_pet_missing_set: (a) => {
+      const sc = st.me.admin_scopes || [];
+      if (!sc.includes("pets") && !sc.includes("community")) return raise("NOT_ADMIN");
+      const p = find(a.p_pet);
+      if (!p || p.kind !== "owned" || p.status === "archived") return raise("NOT_FOUND");
+      (st.adminMissing = st.adminMissing || []).push(a);
+      p.missing = a.p_missing;
+      p.missing_since = a.p_missing ? (p.missing_since || "2026-11-11T06:00:00Z") : null;
+      p.last_seen_note = a.p_missing ? a.p_note : null;
+      p.missing_by_team = a.p_missing;
       return ok(card(p));
     },
     jc_pet_sighting_add: (a) => {

@@ -376,6 +376,9 @@ Pets / community admin needs to do it for an owner who phones or messages instea
 gates every owner edit. Buttons on the pet page (admins) and in Organizer Tools → Pets. Open: does the owner see who
 marked it? **Yes (Zee 2026-11-19): the owner sees "Marked missing by the Pets team".** Needs `/plan-change` +
 `/db-rehearse` ("apply" word). Plan: `docs/plans/DS-design-system.md` (after DS-4).
+**Built 2026-11-19**: DB #180 (`20261119140000_pets_admin_missing`, applied live, 1792 checks; marking missing rate-limited
+20 / h per admin + 60 / h per community) + app PR `pets-admin-missing-app` (pet page only: a "Pets team" panel on a
+neighbour's pet; Organizer Tools links to the pet page). Reviews `docs/qa/pets-admin-missing-{db,app}-review-2026-11-19.md`.
 
 ### Cats look and feel — match Pets  ·  app only  ·  review 2026-11-19 (`docs/qa/cats-design-review-2026-11-19.md`)
 Zee: Cats doesn't look like the rest of the site. Findings + fix list in the review file; the cat page is rebuilt on
