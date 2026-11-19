@@ -206,11 +206,68 @@ test("hostile note / house number rendered as text (list + map tooltip)", async 
     await page.locator("#map .leaflet-marker-icon").nth(1).dispatchEvent("click");   // the pin itself, even mid-zoom (flaked under load)
     await expect(page.locator(".leaflet-popup-content")).toContainText("<svg");
     await expect(page.locator(".leaflet-popup-content")).toContainText("<img");
+    await page.evaluate(() => map.setZoom(18, { animate: false }));             // the house-number labels show
+    await expect(page.locator("#map .leaflet-tooltip.bklabel").filter({ hasText: "<svg" })).toBeVisible();
     await page.locator("#tab-list").click();
     await expect(page.locator(".entries .note").filter({ hasText: "<img" })).toHaveCount(1);
     expect(await page.evaluate(() => window.__pwned)).toBeUndefined();
     expect(await page.locator("#view img, #view svg[onload]").count()).toBe(0);
   } finally { ENTRIES.pop(); }
+});
+
+// Neighbour request 2026-11-19: zoomed in close, each home pin carries its house number (the Courts label look);
+// further out they would pile up, so none show. Labels never block a tap on the pin under them.
+test("map: house numbers on the pins from zoom 18 in, none further out; pins still tap", async ({ page }) => {
+  const eb = eventsBackend();
+  ENTRIES.push({ id: "apt", mine: false, village: "ain-al-maha", type: "apartment", building: "B2",
+    number: "5", lat: 24.5312, lng: 54.4312, payload: {}, note: null });
+  try {
+    await stubBackend(page, { rpc: eb.rpc });
+    await signIn(page);
+    await page.goto("events/?id=" + LIVE_ID);
+    const labels = page.locator("#map .leaflet-tooltip.bklabel");
+    await expect(labels).toHaveCount(2);                                         // one per pinned home (e2 has no pin)
+    await page.evaluate(() => map.setZoom(17, { animate: false }));
+    await expect(page.locator("#map")).toHaveClass(/nolabels/);
+    await expect(labels.first()).toBeHidden();
+    await page.evaluate(() => map.setZoom(18, { animate: false }));
+    await expect(page.locator("#map")).not.toHaveClass(/nolabels/);
+    await expect(labels.filter({ hasText: /^3$/ })).toBeVisible();              // a villa: the bare number
+    await expect(labels.filter({ hasText: "Apt 5, B2" })).toBeVisible();        // an apartment keeps its building
+    // above its pin and centred on it, never over it (labels drawn while hidden were measured 0×0 and sat on the pin)
+    const pin = await page.locator("#map .leaflet-marker-icon").first().boundingBox();
+    const tip = await labels.filter({ hasText: /^3$/ }).boundingBox();
+    expect(tip.y + tip.height).toBeLessThanOrEqual(pin.y + 1);
+    expect(Math.abs((tip.x + tip.width / 2) - (pin.x + pin.width / 2))).toBeLessThan(2);
+    await page.locator("#map .leaflet-marker-icon").first().click();             // a real tap, labels on
+    await expect(page.locator(".leaflet-popup-content")).toContainText("Villa 3");
+    await page.evaluate(() => map.setZoom(16, { animate: false }));
+    await expect(labels.first()).toBeHidden();
+    // the event-night refresh redraws the pins while zoomed out (labels made hidden, measured 0×0); zooming in places them
+    // (as the app does: the refresh waits for an open popup to close before it redraws)
+    await page.evaluate(() => { map.closePopup(); drawHomes(data.entries); map.setZoom(18, { animate: false }); });
+    await expect(labels).toHaveCount(2);                                         // the old labels fade out (Leaflet, 200 ms): no pile-up
+    const pin2 = await page.locator("#map .leaflet-marker-icon").first().boundingBox();
+    const tip2 = await labels.filter({ hasText: /^3$/ }).boundingBox();
+    expect(tip2.y + tip2.height).toBeLessThanOrEqual(pin2.y + 1);
+    expect(Math.abs((tip2.x + tip2.width / 2) - (pin2.x + pin2.width / 2))).toBeLessThan(2);
+  } finally { ENTRIES.pop(); }
+});
+
+test("map in Arabic: each house number sits centred above its own pin (RTL shifted every label left)", async ({ page }) => {
+  const eb = eventsBackend();
+  await stubBackend(page, { rpc: eb.rpc });
+  await page.addInitScript(() => { try { localStorage.setItem("jc_lang", "ar"); } catch (e) {} });
+  await signIn(page);
+  await page.goto("events/?id=" + LIVE_ID);
+  await expect(page.locator("#map .leaflet-marker-icon").first()).toBeVisible();   // the map is drawn
+  await page.evaluate(() => map.setZoom(18, { animate: false }));
+  const label = page.locator("#map .leaflet-tooltip.bklabel").first();
+  await expect(label).toBeVisible();
+  const pin = await page.locator("#map .leaflet-marker-icon").first().boundingBox();
+  const tip = await label.boundingBox();
+  expect(Math.abs((tip.x + tip.width / 2) - (pin.x + pin.width / 2))).toBeLessThan(2);
+  expect(tip.y + tip.height).toBeLessThanOrEqual(pin.y + 1);
 });
 
 test("My Home 'Our Year' lists joined events; hidden while Events is off", async ({ page }) => {

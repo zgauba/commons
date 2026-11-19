@@ -38,6 +38,9 @@ body.mapfull{overflow:hidden}
 .leaflet-tooltip-top.bklabel::before{border-top-color:var(--jc-line)}
 /* names hidden on request (the Strays map's Hide Names button) — the page toggles .nolabels on the map box */
 .nolabels .leaflet-tooltip.bklabel{display:none}
+/* Leaflet places tooltips by transform from left:0, but its CSS never sets left / top: in Arabic (dir=rtl) the box
+   starts from the right instead and every pin label sat to the left of its pin (Events labels plan, 2026-11-19) */
+.leaflet-tooltip{left:0; top:0}
 /* the map key in the "Map Labels" window (Events, Strays): one wrapping row per kind of mark (5a.1) */
 .legend{display:flex; flex-direction:column; gap:5px}
 .legend .row{display:flex; flex-wrap:wrap; gap:5px}
