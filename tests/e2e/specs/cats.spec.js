@@ -606,7 +606,8 @@ test("Activity tab: entries, chips ask the server, older pages send the exact cu
   await expect(page.locator(`.caLog[data-log="${SI1}"] [data-unid]`)).toHaveText("Not identified yet");
   if (process.env.SHOT_DIR) await page.screenshot({ path: process.env.SHOT_DIR + "/cats-activity.png", fullPage: true });
   await page.locator("[data-lmore]").click();
-  expect(sink.activity.at(-1)).toEqual({ p_station: null, p_cat: null, p_kind: null, p_before: ITEMS[1].at, p_before_id: SI1 });
+  // the stubbed server answers asynchronously: wait for the request rather than reading it right after the click (CI race)
+  await expect.poll(() => sink.activity.at(-1)).toEqual({ p_station: null, p_cat: null, p_kind: null, p_before: ITEMS[1].at, p_before_id: SI1 });
   await page.locator("#caLk_problem").click();
   await expect(page.locator(".caLog")).toHaveCount(1);
   expect(sink.activity.at(-1).p_kind).toBe("problem");
