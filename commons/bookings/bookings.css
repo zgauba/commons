@@ -1,13 +1,4 @@
-/* R4c — Courts (residents). Same shell as events/; the shared admin list look, copied (no admin.css here). */
-main{display:flex; flex-direction:column; gap:12px}
-.chip{display:inline-block; font-size:11.5px; line-height:1.5; border:1px solid var(--jc-line); border-radius:999px; padding:0 8px; color:var(--jc-muted)}
-.bklist{list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:8px}
-.bklist li{background:var(--jc-surface); border:1px solid var(--jc-line); border-radius:var(--jc-radius); padding:12px 14px;
-  display:flex; flex-direction:column; gap:6px; font-size:14px}
-.bklist b{font-size:15px}
-.bklist .meta{color:var(--jc-muted); font-size:13px; overflow-wrap:anywhere}
-.bklist .acts{display:flex; flex-wrap:wrap; gap:8px; align-items:center}
-.bklist .head{display:flex; flex-wrap:wrap; align-items:center; gap:6px}
+/* R4c — Courts (residents). Page shell, list cards and chips: shared, in assets/app.css (DS-3b). */
 .bklist .time{font-variant-numeric:tabular-nums}
 .bklist li.s-past .time{color:var(--jc-muted)}
 .bklist li.cancelled{border-color:var(--jc-warn)}
@@ -18,11 +9,6 @@ main{display:flex; flex-direction:column; gap:12px}
 .strip button b{display:block; font-size:16px}
 .strip button[aria-pressed="true"]{border-color:var(--jc-accent); box-shadow:inset 0 0 0 1px var(--jc-accent)}
 .sheet-in{border-top:1px solid var(--jc-line); padding-top:8px; display:flex; flex-direction:column; gap:8px}
-/* Zee 2026-11-09: even spacing between everything on both screens (the banner touched the day strip) */
-#view{display:flex; flex-direction:column; gap:12px}
-#view > h1, #view > p, #view > .subtabs{margin:0}
-#view > .subtabs + .msg{margin-top:-4px}
-[role="tabpanel"]{display:flex; flex-direction:column; gap:12px}
 /* the Map tab: the shared map look lives in assets/mapui.css (same classes as the event map) */
 /* the court name on its pin: .bklabel lives in assets/mapui.css (shared with the Strays map) */
 .bkhead{display:flex; flex-direction:column; gap:4px}

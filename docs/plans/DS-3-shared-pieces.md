@@ -47,6 +47,12 @@ per-module look — (1) Edit pet checkbox rows ~3px tighter (no browser margin r
 checkbox text 400 → 600, Pets' weight; (3) Organizer Tools banner box 60 → 80px (the shared minimum); (4) My Home
 feedback box ~15px taller (`rows="4"`). Done-when #1 reads with these.
 
+**Agreed DEPARTs (Zee, 2026-11-19, from the 3b plan-conformance review):** (A) Pets keeps its own `.acts` rule for the
+button rows in the alarm / seen-out / share boxes (same body as the shared `.bklist .acts`) — it moves with the state
+boxes when Cats needs them (DS-4); a global `.acts` now would restyle the Cats report form and Organizer Tools rows.
+(B) Organizer Tools' care-log rows (`admin.js` ~830, `ul.sulist`) repeat the `jcEntriesHtml` markup — switched over with
+the Organizer Tools cleanup, not in 3b.
+
 ## Done when
 | # | Check | Proof | PR |
 |---|---|---|---|
@@ -70,3 +76,9 @@ a side-by-side. Extra: loosening the guard by accident → four-case tests befor
   (Chromium); screenshots: pets list + stray page pixel-identical; Edit pet = accent checkbox, rows 3px tighter;
   Organizer Tools = 46px dropdowns with chevron (left in Arabic), accent checks / radios, checkbox text 400 → 600
   (Pets' weight); feedback box ~15px taller (`rows="4"`).
+- **3b** (branch `ds-3b-page-pieces`): page shell (`main.jcpage`, `.jcstack`), `.bklist`, `.head`, photo cards, hero,
+  facts → `app.css`; `assets/blocks.js` (`jcMetaHtml`, `jcCardHtml`, `jcHeroHtml`, `jcFactsHtml`, `jcEntriesHtml`); Pets
+  switched over; Courts / Cats drop their shell + list copies. Pixel diff vs main: Pets list, stray, sightings, missing,
+  Rex, Courts list / day / My Bookings, Cats = **0 px**; Arabic stray page = only the facts line (fixed). Dup 15 → 12.
+  Found, not in scope: a Latin care note (`.care .note`) sits flush left in Arabic → DS-4 (reworks care rows, D5).
+

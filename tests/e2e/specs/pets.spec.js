@@ -1144,3 +1144,19 @@ test("Pets search: by name, within the chip; missing stays on top; opens a pet; 
   await expect(page).toHaveURL(new RegExp("pet=" + ID(7)));
   expect(calls.slice(n).filter((c) => c.name === "jc_pets_list")).toEqual([]);
 });
+
+// DS-3b (docs/plans/DS-3-shared-pieces.md): the pet page is built from the shared pieces (blocks.js), and in Arabic a
+// Latin fact value ("Behind the mosque") lines up on the right with the Arabic labels, as the name does
+test("DS-3b: the pet page uses the shared hero / facts / entries; Arabic facts line up right", async ({ page }) => {
+  const b = backend();
+  await open(page, b, { q: "?pet=" + ID(3), lang: "ar" });
+  await expect(page.locator("html")).toHaveAttribute("dir", "rtl");
+  await expect(page.locator(".pthero .ptwho h1")).toHaveAttribute("dir", "auto");
+  const dds = await page.locator("#ptFacts dd").evaluateAll((els) => els.map((e) => [e.textContent, getComputedStyle(e).textAlign]));
+  expect(dds.some(([t]) => /mosque/.test(t))).toBe(true);
+  for (const [, a] of dds) expect(a).toBe("right");
+  await expect(page.locator("#ptLog")).toHaveClass("bklist");
+  await expect(page.locator("main")).toHaveClass("jcpage");
+  const gap = await page.locator("[role=tabpanel]").evaluate((e) => getComputedStyle(e).rowGap);
+  expect(gap).toBe("12px");
+});
