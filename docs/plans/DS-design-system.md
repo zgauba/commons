@@ -16,10 +16,25 @@ nothing checked (review: `docs/qa/cats-design-review-2026-11-19.md`). Fix the pr
 | Step | What | Needs from Zee |
 |---|---|---|
 | DS-1 | **Protocols** (list below) | done 2026-11-19 |
-| DS-2 | **`docs/design.md`:** one entry per component (shared function, classes, when to use, a11y, reference screenshot) + a "never" list | written 2026-11-19 — Zee to review |
-| DS-3 | **Extract shared pieces** from Pets: hero header, card grid, facts list, sightings block; shared dropdown + checkbox styles; tap-to-zoom in the photo viewer | merge |
-| DS-4 | **Rebuild Cats** on them (review D1–D14), incl. one "Log activity" button and the dropdown fix (iPhone); UI review Cats vs Pets | merge |
-| DS-5 | **CI guard:** module CSS may not style bare `select` / `input` / `textarea` / `label` / `button` | merge |
+| DS-2 | **`docs/design.md`:** fixed per-component template (shadcn-html shape: status, native basis, markup, variants, a11y, wiring, use/don't, reference) + choice-control rule + "never" list + promotion process | written 2026-11-19 — Zee to review |
+| DS-5 | **Enforcement — runs BEFORE DS-3** (Zee 2026-11-19: "ensure proper checks are in place so plans and protocols are followed"), so DS-3/DS-4 are the first PRs it checks. Scope below | `/plan-change`, then merge |
+| DS-3 | **Extract shared pieces** from Pets: page shell, hero header, card grid, list cards, facts list (+ Arabic alignment fix), sightings block; shared textarea / select / date / checkbox styles (remove the 5 + 2 + 3 module copies and the `.opts` overrides in events/home); tap-to-zoom in the photo viewer | merge |
+| DS-4 | **Rebuild Cats** on them (review D1–D14), incl. one "Log activity" button, the dropdown fix (iPhone), pills for sex / life stage / ear tip / sterilisation; UI review Cats vs Pets | merge |
+
+## DS-5 — enforcement scope
+The Cats failure: the plan said "reuse the pet page", the build didn't, nothing compared the two. Checks that only
+test *presence* of a table can be filled with junk, so the core check compares the **plan to the diff**.
+
+| # | Check | Catches | Where | Applies to |
+|---|---|---|---|---|
+| E1 | **Plan-conformance review** in `/ship-pr`: the reviewer gets the plan's Prior Art, Screens to match and Done-when tables and the diff, and reports every row FOLLOWED / NOT FOLLOWED (with file:line). Any NOT FOLLOWED without an agreed DEPART = not merge-ready | Plan says REUSE, build re-invents (the Cats failure) | `~/.claude/skills/ship-pr` (global) | All projects |
+| E2 | **`plan-followed.yml` CI**: a PR touching `commons/` screens must have, in its body, the Check \| Proof \| Pass/Fail table and a Screens-to-match table (or the label `plan-not-needed` for copy-only changes, as `review-not-needed`) | Skipping `/plan-change` or `/ship-pr` entirely | this repo | Commons (works for Manus too) |
+| E3 | **Bare-element guard** (CI grep) — starts with a baseline list of today's offenders that may only shrink; DS-3 empties it | New module CSS restyling shared controls | this repo | Commons |
+| E4 | **Duplicate-rule guard** (CI script) — identical declaration blocks in 2+ CSS files fail; same shrink-only baseline | Copy-paste between modules | this repo | Commons |
+| E5 | *(optional)* global hook on `gh pr create`: warn if the body lacks the Done-when table | Same as E2, earlier, in every project | `~/.claude` hook | All projects |
+
+Limit: none of these judge *quality*. E1's reviewer and the side-by-side screenshot are the judgment layer; CI only
+guarantees the steps weren't skipped.
 
 ## DS-1 — the protocol edits
 | File | Change |
