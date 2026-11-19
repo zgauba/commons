@@ -81,4 +81,11 @@ a side-by-side. Extra: loosening the guard by accident → four-case tests befor
   switched over; Courts / Cats drop their shell + list copies. Pixel diff vs main: Pets list, stray, sightings, missing,
   Rex, Courts list / day / My Bookings, Cats = **0 px**; Arabic stray page = only the facts line (fixed). Dup 15 → 12.
   Found, not in scope: a Latin care note (`.care .note`) sits flush left in Arabic → DS-4 (reworks care rows, D5).
+- **3c** (branch `ds-3c-viewer-zoom`): shared viewer zoom — Zoom In / Zoom Out button (EN + AR strings) and double-tap =
+  2.5× toward the tapped point; drag pans, clamped to the photo's edge; while zoomed a drag never steps and a tap never
+  closes; next / previous starts unzoomed; the browser's own image drag is blocked (it cancelled the pan). Real pinch is
+  not built (a second finger still only cancels a swipe). `photo-viewer.spec` zoom test EN + AR passes on Chromium and WebKit.
+  Review fixes: zoom waits for the photo to load; one "Zoom" label with `aria-pressed` (not a flipping label); arrow
+  keys pan while zoomed; the pan limit is the visible area (the photo always covers the screen); pinch / mouse-release
+  edge cases.
 
