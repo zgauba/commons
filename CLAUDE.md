@@ -23,6 +23,7 @@ ONE repo, served by GitHub Pages as the user site, holding three things:
 ## Workflow rules
 
 - **Reviews are saved in the repo, on the PR branch, before merge.** Every reviewer agent's report → `docs/qa/<name>-review-<YYYY-MM-DD>.md` (findings + disposition). CI (`review-saved.yml`) fails any PR touching `commons/` or `supabase/` without one; label `review-not-needed` only for trivial copy changes.
+- **PR bodies carry the plan headings** (DS-5, 2026-11-19): a PR touching `commons/` needs `## Done when` (Check | Proof | Pass/Fail table), `## Screens to match` (or "No screen changes") and `## Plan conformance` (or "No plan: <reason>"); `supabase/`-only needs `## Done when`. CI `plan-followed.yml` enforces; label `plan-not-needed` only for copy-only changes. `/ship-pr` writes them.
 - **Verification is tiered** (see `/ship-pr` step 1b). Cosmetic changes under `commons/` still save a short review note to `docs/qa/<name>-review-<YYYY-MM-DD>.md` (what changed, screenshots looked at, test counts) so `review-saved.yml` passes without a reviewer agent.
 - **Branches + PRs, even solo** — standing exception: live-event-day hotfixes go straight to `main` (deployed sites auto-reload in users' hands ~2 min after CDN refresh).
 - **Live infra wins over docs.** Update the doc when they disagree.
