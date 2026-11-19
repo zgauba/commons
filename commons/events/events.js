@@ -859,6 +859,17 @@ function renderMap(entries){
                               { permanent: true, direction: "top", offset: [0, -12], className: "bklabel" });
   } else if (!venue) {
     drawHomes(entries);
+    /* house numbers only when zoomed in close: further out they pile up (the kit's .nolabels hides them) */
+    var box = el("map"), numbers = function(){
+      if (!box || map !== m) return;
+      var hide = m.getZoom() < EV_NUMBER_ZOOM;
+      if (box.classList.contains("nolabels") === hide) return;
+      box.classList.toggle("nolabels", hide);
+      /* a label placed while hidden was measured as 0×0 and sits on its pin: place it again now it has a size */
+      if (!hide && homeLayer) homeLayer.eachLayer(function(l){ var t = l.getTooltip(); if (t) t.update(); });
+    };
+    m.on("zoomend", numbers);
+    numbers();
   }
   /* a neighbor's "They're Out" button lives in the popup; a refresh waits for the popup to close */
   jcMapPopups(m, null, {
@@ -879,6 +890,11 @@ function renderMap(entries){
   jcFitPins(m, pts, 18);                    /* the one place: closer in */
 }
 
+/* Pin labels show from this zoom in. Not JC_LABEL_ZOOM (17): there villa pins already touch (plan 2026-11-19) */
+var EV_NUMBER_ZOOM = 18;
+/* "206" on a villa or townhouse; an apartment keeps its building ("Apt 3, B2"), a bare "3" is ambiguous */
+function numberLabel(e){ return e.type === "apartment" ? jcHomeLabel(e) : String(e.number); }
+
 /* the homes' pins, in their own layer so a refresh redraws them without moving the map */
 function drawHomes(entries){
   if (!map) return;
@@ -887,6 +903,8 @@ function drawHomes(entries){
     if (!hasPos(e)) return;
     /* your own home on top of its neighbours */
     L.marker([e.lat, e.lng], { icon: pinIcon(e), zIndexOffset: e.mine ? 1000 : 0, keyboard: true, title: jcHomeLabel(e) })
+      /* the house number, styled as the Courts names; Leaflet sets string content as HTML, so it is escaped */
+      .bindTooltip('<span dir="auto">' + esc(numberLabel(e)) + '</span>', { permanent: true, direction: "top", offset: [0, -16], className: "bklabel" })
       .addTo(homeLayer).bindPopup(function(){ return popupHtml(e); }, JC_POPUP);   /* rebuilt on open: distance stays current */
   });
 }

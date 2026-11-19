@@ -322,7 +322,21 @@ Make residents' pet pages richer and more fun now that strays leave Pets. Sequen
   permanent label; zoomed out, no labels (they'd pile up). The number is already sent and shown in the List
   (`jcHomeLabel`), so no new data. Match the Courts / venue pin label look (`bklabel`). Needs a light `/plan-change`
   (Localized): check Arabic digits, clustering at zoom ≥ 18, and the Halloween-night pin colours stay readable.
-  Queued after DS-4.
+  **Built 2026-11-19** (PR `events-house-number-labels`; review `docs/qa/events-house-number-labels-review-2026-11-19.md`):
+  labels from zoom 18; apartments keep their building ("Apt 5, B2"); also fixed every map's Arabic pin labels sitting
+  left of their pins. Zoom 18 not yet checked on real home spacing: Zee tests on the phone, adjust if needed.
+
+### Cats: cats and stations on one map  ·  idea (Zee, 2026-11-19)
+- Cats have no coordinates of their own; a cat's place is its home station (`jc_cats.station_id`), and only the
+  programme receives `station_id` (`jc_cat_json` full). Residents get the area name only.
+- Programme (app only): each station pin on the Stations map shows how many cats call it home, and its popup lists
+  them (missing in red, tap → cat page). One map, not a second one on the Cats tab.
+- Optional: a missing cat's last pinned sighting as its own pin. Needs a per-cat last-sighting position: DB change.
+- Residents: would need `station_id` for public stations only. DB change, and a call on whether "this cat lives
+  at this station" should be public. Not decided.
+- Needs `/plan-change` (Localized for the programme part).
+- **Decided (Zee, 2026-11-19):** build the programme version (station pins carry their cats, one map). Missing
+  cat's last sighting and the resident version stay ideas. Queued after the events house-number labels.
 
 ### Events: per-event organizers draft, admin approves  ·  idea (2026-11-17)
 - Per-event organizers already exist (T5.2b: invite link, then they run that one event). They can't **create** or
