@@ -3,17 +3,9 @@
 .panel p{margin:0}
 .caStation .row{align-items:center; gap:12px}
 #caWho{gap:14px}
-/* CC-3: the cat register — a cat card is one button (photo + name + chips), the photo row on a cat's page */
-.panel.caCat{display:flex; flex-direction:row; align-items:center; justify-content:flex-start; gap:12px; width:100%;
-  text-align:start; font:inherit; color:var(--jc-ink); cursor:pointer}
-.caCatTxt{display:flex; flex-direction:column; align-items:flex-start; gap:2px; min-width:0; flex:1 1 auto}
-.caCatTop{display:flex; flex-wrap:wrap; align-items:center; gap:6px}
-.caCatTxt b{overflow-wrap:anywhere}
-.caPhotos{display:flex; flex-wrap:wrap; gap:8px; align-items:flex-end; margin-bottom:10px}
-.caPhotos .ptview.big, .caPhotos .ptph.big{flex:1 0 100%; max-width:420px}
+/* CC-3: the photo row in the cat editor (cards, hero, facts, story: shared, DS-4a) */
+.caPhotos{display:flex; flex-wrap:wrap; gap:8px; align-items:flex-end}
 .caPhotoEd{display:flex; flex-direction:column; align-items:center; gap:4px}
-.caStory{margin:8px 0; white-space:pre-line}
-.caFacts{margin:8px 0}
 .caMergedRow .row{margin-top:6px}
 .caAreaName{font-size:16px; overflow-wrap:anywhere}
 /* CC-4: the visit form's cat picker (tap a picture to select) and the history entries */
