@@ -217,7 +217,7 @@ function wireStations(){
     openEditor(null);
   });
   each("[data-edit]", function(b){ openEditor(b.dataset.edit); });
-  each("[data-visit]", function(b){ openVisit(b.dataset.visit, "home"); });                       /* CC-4 */
+  each("[data-visit]", function(b){ openVisit(b.dataset.visit, { to: "home" }); });                       /* CC-4 */
   each("[data-stlog]", function(b){ stLogId = b.dataset.stlog; show("stlog"); try { window.scrollTo(0, 0); } catch(e){} });
 }
 function openEditor(id){
@@ -296,6 +296,7 @@ function wireAreas(){
 function show(name){
   current = name;
   if (name !== "station") takeMap();
+  jcMinisClear(caMinis);                      /* DS-4b: the activity lists' small maps (log.js) */
   if (name !== "catedit") ced = null;
   if (name !== "home") renaming = null;      /* review L6: a rename box never outlives the Areas screen */
   jcHelp(name === "home" ? "cats" : null);
@@ -456,10 +457,17 @@ function openCatEditor(id){
   show("catedit");
   try { window.scrollTo(0, 0); } catch(e){}
 }
-function selHtml(id, key, prefix, list, v, off){
-  return '<label>' + esc(jcT(key)) + '<select id="' + id + '"' + off + '>' + list.map(function(x){
+/* a dropdown for a fixed list of 6+ (TNVR stage, status): its only caption is the fieldset's legend (D8) */
+function selHtml(id, lg, prefix, list, v, off){
+  return '<select id="' + id + '" aria-labelledby="' + lg + '"' + off + '>' + list.map(function(x){
     return '<option value="' + esc(x) + '"' + (x === v ? ' selected' : '') + '>' + esc(jcT(prefix + x)) + '</option>';
-  }).join("") + '</select></label>';
+  }).join("") + '</select>';
+}
+/* ≤ 5 fixed choices: Pets-style pills (D7; design.md §1 choice table), the legend is the caption */
+function pillsHtml(id, key, field, prefix, list, v, off){
+  return '<fieldset id="' + id + '"><legend>' + esc(jcT(key)) + '</legend><div class="opts">' + list.map(function(x){
+    return '<button type="button" data-pill="' + field + '" data-v="' + esc(x) + '" aria-pressed="' + (x === v) + '"' + off + '>' + esc(jcT(prefix + x)) + '</button>';
+  }).join("") + '</div></fieldset>';
 }
 function txtHtml(id, key, v, max, off, area){
   return '<label>' + esc(jcT(key)) + (area ? '<textarea id="' + id + '" maxlength="' + max + '" dir="auto"' + off + '></textarea>'
@@ -471,65 +479,77 @@ function dateHtml(id, key, off){
 }
 var CA_IDS = { name: "caCName", old_id: "caCOld", coat: "caCCoat", story: "caCStory", status_source: "caCStSrc",
                sterilised_source: "caCSterSrc", tnvr_place: "caCTPlace", status_on: "caCStOn", tnvr_on: "caCTOn" };
+function edStationOpts(f){
+  var list = prog ? stationsOf(prog).filter(function(s){ return (s.archived !== true || s.id === f.station_id) && (!f.area_id || s.area_id === f.area_id); }) : [];
+  return '<option value="">' + esc(jcT("ca_none_opt")) + '</option>' + list.map(function(s){
+    return '<option value="' + esc(s.id) + '"' + (s.id === f.station_id ? ' selected' : '') + '>' + esc([s.code, s.landmark].filter(Boolean).join(" · ")) + '</option>';
+  }).join("");
+}
+/* DS-4b (D14): the Edit pet layout — Photos first, then About · Where · Health · Status · Record, Merge, and one Save
+   at the bottom of everything. Every field, id and the saved payload are as before (spec: exact payload) */
 function catEditView(){
   if (!ced || !reg) return show("home");
   var e = ced, f = e.f, c = e.id ? catFind(reg, e.id) : null, off = busy || e.shrinking ? ' disabled' : '';
   if (e.id && (!c || merged(c))) return show("home");
   jcBack(function(){ if (c) { catId = c.id; show("cat"); } else show("home"); });
   var areas = prog ? areasOf(prog).filter(function(a){ return a.archived !== true || a.id === f.area_id; }) : [];
-  var stations = prog ? stationsOf(prog).filter(function(s){ return (s.archived !== true || s.id === f.station_id) && (!f.area_id || s.area_id === f.area_id); }) : [];
   var own = c ? strs(c.own_photos) : [], extra = c ? strs(c.photos).length - own.length : 0;
   var others = catsList(reg).filter(function(x){ return !merged(x) && (!c || x.id !== c.id); });
   el("view").innerHTML = '<h1 dir="auto">' + esc(c ? jcFmt("ca_edit_cat", { c: c.code }) : jcT("ca_new_cat")) + '</h1>' + msgBox() +
     '<p class="help" id="caCatPriv">' + esc(jcT("ca_cat_private")) + ' ' + esc(jcT("ca_text_hint")) + '</p>' +
     '<form class="panel" id="caCatForm" novalidate>' +
-    txtHtml("caCName", "ca_f_name", f.name, 40, off) + txtHtml("caCOld", "ca_f_old_id", f.old_id, 40, off) +
-    txtHtml("caCCoat", "ca_f_coat", f.coat, 120, off) +
-    selHtml("caCSex", "ca_f_sex", "ca_sex_", CA_SEX, f.sex, off) + selHtml("caCLife", "ca_f_life", "ca_life_", CA_LIFE, f.life_stage, off) +
-    '<label>' + esc(jcT("ca_f_area")) + '<select id="caCArea"' + off + '><option value="">' + esc(jcT("ca_none_opt")) + '</option>' +
-      areas.map(function(a){ return '<option value="' + esc(a.id) + '"' + (a.id === f.area_id ? ' selected' : '') + '>' + esc(a.name) + '</option>'; }).join("") + '</select></label>' +
-    '<label>' + esc(jcT("ca_f_station")) + '<select id="caCStation"' + off + '><option value="">' + esc(jcT("ca_none_opt")) + '</option>' +
-      stations.map(function(s){ return '<option value="' + esc(s.id) + '"' + (s.id === f.station_id ? ' selected' : '') + '>' +
-        esc([s.code, s.landmark].filter(Boolean).join(" · ")) + '</option>'; }).join("") + '</select></label>' +
-    '<label class="check"><input type="checkbox" id="caCConf"' + (f.confirmed ? ' checked' : '') + off + '> <span>' + esc(jcT("ca_f_confirmed")) + '</span></label>' +
-    txtHtml("caCStory", "ca_f_story", f.story, 1000, off, true) + '<p class="help">' + esc(jcT("ca_story_help")) + ' ' + esc(jcT("ca_text_hint")) + '</p>' +
-    '<fieldset><legend>' + esc(jcT("ca_f_status")) + '</legend>' + selHtml("caCStatus", "ca_f_status", "ca_st_", CA_STATUS, f.status, off) +
-      dateHtml("caCStOn", "ca_f_status_on", off) + txtHtml("caCStSrc", "ca_f_status_source", f.status_source, 120, off) + '</fieldset>' +
-    '<fieldset><legend>' + esc(jcT("ca_f_ear")) + '</legend>' + selHtml("caCEar", "ca_f_ear", "ca_ear_", CA_EAR, f.ear_tip, off) +
-      (f.ear_tip === "present" ? '<label>' + esc(jcT("ca_f_ear_side")) + '<select id="caCSide"' + off + '><option value="">—</option>' +
-        ["left", "right"].map(function(x){ return '<option value="' + x + '"' + (x === f.ear_side ? ' selected' : '') + '>' + esc(jcT("ca_side_" + x)) + '</option>'; }).join("") +
-        '</select></label>' : '') +
-      '</fieldset><fieldset><legend>' + esc(jcT("ca_ster_h")) + '</legend>' +
-      selHtml("caCSter", "ca_f_ster", "ca_ster_", CA_STER, f.sterilised, off) + txtHtml("caCSterSrc", "ca_f_ster_source", f.sterilised_source, 120, off) + '</fieldset>' +
-    '<fieldset><legend>' + esc(jcT("ca_f_tnvr")) + '</legend>' + selHtml("caCTnvr", "ca_f_tnvr", "ca_tnvr_", CA_TNVR, f.tnvr, off) +
-      dateHtml("caCTOn", "ca_f_tnvr_on", off) + txtHtml("caCTPlace", "ca_f_tnvr_place", f.tnvr_place, 120, off) + '</fieldset>' +
-    '<div class="row"><button class="btn" type="submit" id="caCatSave"' + off + '>' + esc(jcT("ct_save")) + '</button>' +
-    '<button class="btn ghost" type="button" id="caCatCancel"' + off + '>' + esc(jcT("ct_cancel")) + '</button></div></form>' +
-    '<fieldset class="panel" id="caPhotoBox"><legend>' + esc(jcT("ca_photos")) + '</legend>' + (c
-      ? '<div class="caPhotos">' + own.map(function(p, i){
+    '<fieldset id="caPhotoBox"><legend>' + esc(jcT("ca_photos")) + '</legend>' + (c
+      ? (own.length ? '<div class="caPhotos">' + own.map(function(p, i){
           return '<span class="caPhotoEd">' + jcPetPhotoHtml({ photo_path: p }, 22, "thumb", { view: own }) +
             '<button class="mini" type="button" data-phrm="' + esc(p) + '"' + off + '>' + esc(jcFmt("ca_photo_remove", { n: i + 1 })) + '</button></span>';
-        }).join("") + '</div>' +
+        }).join("") + '</div>' : '') +
         (extra > 0 ? '<p class="help">' + esc(jcFmt("ca_photo_merged", { n: extra })) + '</p>' : '') +
         (own.length < 4 ? '<input type="file" id="caPhotoIn" class="sr-only" accept="image/*"' + off + '>' +
-          '<div class="row"><label class="btn ghost" id="caPhotoPick" for="caPhotoIn">' + esc(jcT("ca_photo_add")) + '</label></div>' : '') +
+          '<div class="acts"><label class="btn ghost" id="caPhotoPick" for="caPhotoIn">' + esc(jcT("ca_photo_add")) + '</label></div>' : '') +
         '<p class="help" id="caPhotoHelp" role="status">' + esc(jcT(e.shrinking ? "working" : "ca_photos_help")) + '</p>'
       : '<p class="help" id="caPhotoHelp">' + esc(jcT("ca_photos_after")) + '</p>') + '</fieldset>' +
-    (c && others.length ? '<fieldset class="panel" id="caMergeBox"><legend>' + esc(jcT("ca_merge")) + '</legend>' +
+    txtHtml("caCName", "ca_f_name", f.name, 40, off) + txtHtml("caCCoat", "ca_f_coat", f.coat, 120, off) +
+    pillsHtml("caCSex", "ca_f_sex", "sex", "ca_sex_", CA_SEX, f.sex, off) +
+    pillsHtml("caCLife", "ca_f_life", "life_stage", "ca_life_", CA_LIFE, f.life_stage, off) +
+    txtHtml("caCStory", "ca_f_story", f.story, 1000, off, true) + '<p class="help">' + esc(jcT("ca_story_help")) + ' ' + esc(jcT("ca_text_hint")) + '</p>' +
+    '<fieldset id="caCWhere"><legend>' + esc(jcT("ca_g_where")) + '</legend>' +
+      '<label>' + esc(jcT("ca_f_area")) + '<select id="caCArea"' + off + '><option value="">' + esc(jcT("ca_none_opt")) + '</option>' +
+        areas.map(function(a){ return '<option value="' + esc(a.id) + '"' + (a.id === f.area_id ? ' selected' : '') + '>' + esc(a.name) + '</option>'; }).join("") + '</select></label>' +
+      '<label>' + esc(jcT("ca_f_station")) + '<select id="caCStation"' + off + '>' + edStationOpts(f) + '</select></label></fieldset>' +
+    pillsHtml("caCEar", "ca_f_ear", "ear_tip", "ca_ear_", CA_EAR, f.ear_tip, off).replace('</fieldset>',
+      '<label id="caCSideBox"' + (f.ear_tip === "present" ? '' : ' hidden') + '>' + esc(jcT("ca_f_ear_side")) + '<select id="caCSide"' + off + '><option value="">—</option>' +
+        ["left", "right"].map(function(x){ return '<option value="' + x + '"' + (x === f.ear_side ? ' selected' : '') + '>' + esc(jcT("ca_side_" + x)) + '</option>'; }).join("") +
+        '</select></label></fieldset>') +
+    pillsHtml("caCSter", "ca_ster_h", "sterilised", "ca_ster_", CA_STER, f.sterilised, off).replace('</fieldset>',
+      txtHtml("caCSterSrc", "ca_f_ster_source", f.sterilised_source, 120, off) + '</fieldset>') +
+    '<fieldset><legend id="caCTnvrLg">' + esc(jcT("ca_f_tnvr")) + '</legend>' + selHtml("caCTnvr", "caCTnvrLg", "ca_tnvr_", CA_TNVR, f.tnvr, off) +
+      dateHtml("caCTOn", "ca_f_tnvr_on", off) + txtHtml("caCTPlace", "ca_f_tnvr_place", f.tnvr_place, 120, off) + '</fieldset>' +
+    '<fieldset><legend id="caCStatusLg">' + esc(jcT("ca_f_status")) + '</legend>' + selHtml("caCStatus", "caCStatusLg", "ca_st_", CA_STATUS, f.status, off) +
+      dateHtml("caCStOn", "ca_f_status_on", off) + txtHtml("caCStSrc", "ca_f_status_source", f.status_source, 120, off) + '</fieldset>' +
+    txtHtml("caCOld", "ca_f_old_id", f.old_id, 40, off) +
+    '<label class="check"><input type="checkbox" id="caCConf"' + (f.confirmed ? ' checked' : '') + off + '> <span>' + esc(jcT("ca_f_confirmed")) + '</span></label>' +
+    (c && others.length ? '<fieldset id="caMergeBox"><legend>' + esc(jcT("ca_merge")) + '</legend>' +
       '<p class="help">' + esc(jcT("ca_merge_help")) + '</p>' +
       '<label>' + esc(jcT("ca_merge_into")) + '<select id="caMergeTo"' + off + '><option value="">' + esc(jcT("ca_pick")) + '</option>' +
         others.map(function(x){ return '<option value="' + esc(x.id) + '"' + (x.id === e.merge_into ? ' selected' : '') + '>' +
           esc([x.code, x.name, x.old_id].filter(Boolean).join(" · ")) + '</option>'; }).join("") + '</select></label>' +
-      '<div class="row"><button class="btn ghost" type="button" id="caMergeBtn"' + off + '>' + esc(jcT("ca_merge_btn")) + '</button></div></fieldset>' : '');
+      '<div class="acts"><button class="btn ghost" type="button" id="caMergeBtn"' + off + '>' + esc(jcT("ca_merge_btn")) + '</button></div></fieldset>' : '') +
+    '<button class="btn" type="submit" id="caCatSave"' + off + '>' + esc(jcT("ct_save")) + '</button></form>';
   /* values, not markup */
   Object.keys(CA_IDS).forEach(function(k){ var i = el(CA_IDS[k]); if (!i) return; i.value = f[k] || ""; i.addEventListener("input", function(){ f[k] = i.value; }); });
-  [["caCSex", "sex"], ["caCLife", "life_stage"], ["caCStatus", "status"], ["caCSter", "sterilised"], ["caCTnvr", "tnvr"], ["caCSide", "ear_side"], ["caCStation", "station_id"]].forEach(function(p){
+  [["caCTnvr", "tnvr"], ["caCSide", "ear_side"], ["caCStatus", "status"], ["caCStation", "station_id"]].forEach(function(p){
     var i = el(p[0]); if (i) i.addEventListener("change", function(){ f[p[1]] = i.value; });
   });
-  el("caCArea").addEventListener("change", function(){ f.area_id = el("caCArea").value; f.station_id = ""; draw(); if (el("caCArea")) el("caCArea").focus(); });
-  el("caCEar").addEventListener("change", function(){ f.ear_tip = el("caCEar").value; if (f.ear_tip !== "present") f.ear_side = ""; draw(); if (el("caCEar")) el("caCEar").focus(); });
+  /* pills: change in place (no redraw); ear tip shows / hides "Which ear" */
+  each("[data-pill]", function(b){
+    var k = b.dataset.pill;
+    f[k] = b.dataset.v;
+    Array.prototype.forEach.call(document.querySelectorAll('[data-pill="' + k + '"]'), function(x){ x.setAttribute("aria-pressed", String(x === b)); });
+    if (k === "ear_tip") { if (f.ear_tip !== "present") { f.ear_side = ""; el("caCSide").value = ""; } el("caCSideBox").hidden = f.ear_tip !== "present"; }
+  });
+  /* D9: a new area rebuilds only the station list — never the form, never a re-focus (iPhone re-opens the picker) */
+  el("caCArea").addEventListener("change", function(){ f.area_id = el("caCArea").value; f.station_id = ""; el("caCStation").innerHTML = edStationOpts(f); });
   el("caCConf").addEventListener("change", function(){ f.confirmed = el("caCConf").checked; });
-  on("caCatCancel", function(){ if (c) { catId = c.id; show("cat"); } else show("home"); });
   el("caCatForm").addEventListener("submit", function(ev){
     ev.preventDefault();
     if (busy || e.shrinking) return;

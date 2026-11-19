@@ -40,13 +40,14 @@ function jcFactsHtml(pairs, id){
 }
 
 /* Dated-entry list (sightings, care log, activity): a group label, then one card per entry, newest first as given.
-   o: { heading; id — on the list, or on the empty line; items — [{ meta: "when · by me" text, bodyHtml }];
+   o: { heading — none: no label (a tab whose name it would repeat, D1); id — on the list, or on the empty line;
+        items — [{ meta: "when · by me" text, bodyHtml, liAttrs — trusted attributes on the li }];
         empty — text shown instead of the list (omit: nothing at all when empty, not even the heading);
-        afterHtml — under the list (e.g. how long entries are kept) } */
+        emptyAttrs — trusted attributes on the empty line; afterHtml — under the list (e.g. how long entries are kept) } */
 function jcEntriesHtml(o){
-  var h = '<h2 class="group">' + esc(o.heading) + '</h2>', id = o.id ? ' id="' + esc(o.id) + '"' : '';
-  if (!o.items.length) return o.empty == null ? '' : h + '<p class="help"' + id + '>' + esc(o.empty) + '</p>';
+  var h = o.heading ? '<h2 class="group">' + esc(o.heading) + '</h2>' : '', id = o.id ? ' id="' + esc(o.id) + '"' : '';
+  if (!o.items.length) return o.empty == null ? '' : h + '<p class="help"' + id + (o.emptyAttrs ? ' ' + o.emptyAttrs : '') + '>' + esc(o.empty) + '</p>';
   return h + '<ul class="bklist"' + id + '>' + o.items.map(function(it){
-    return '<li><div class="meta">' + esc(it.meta) + '</div>' + (it.bodyHtml || '') + '</li>';
+    return '<li' + (it.liAttrs ? ' ' + it.liAttrs : '') + '><div class="meta">' + esc(it.meta) + '</div>' + (it.bodyHtml || '') + '</li>';
   }).join("") + '</ul>' + (o.afterHtml || '');
 }

@@ -14,8 +14,4 @@
   background:var(--jc-surface-2); border:2px solid var(--jc-line); border-radius:12px; cursor:pointer; min-height:44px}
 .caPick span{overflow-wrap:anywhere; text-align:center}
 .caPick[aria-pressed="true"]{border-color:var(--jc-accent); background:var(--jc-surface)}
-.caLog{display:flex; flex-direction:column; gap:6px}
 .caLog[data-hidden]{opacity:.7}
-.caLog .row, .caLogCats{flex-wrap:wrap; align-items:center; gap:8px}
-.caLog .caLinkRow{align-items:flex-end}
-.caLinkLab{display:flex; flex-direction:column; gap:4px; flex:1 1 180px}

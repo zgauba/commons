@@ -439,7 +439,7 @@ test("a coordinator adds a cat: name or coat required, the server gets the form,
   await page.locator("#caCOld").fill("JB-12");
   await page.locator("#caCArea").selectOption(A_SOUK);
   await page.locator("#caCStation").selectOption(S1);
-  await page.locator("#caCEar").selectOption("present");
+  await page.locator('[data-pill="ear_tip"][data-v="present"]').click();              // DS-4b: pills (D7)
   await page.locator("#caCSide").selectOption("right");
   await page.locator("#caCStatus").selectOption("foster");
   await page.locator("#caCStOn").fill("2026-11-12");
@@ -478,7 +478,7 @@ test("a coordinator edits, removes a photo, merges a duplicate and undoes a merg
   await page.locator(`[data-cat="${K2}"]`).click();
   await page.locator("#caEditCat").click();
   await expect(page.locator("h1")).toHaveText("Edit C-002");
-  await expect(page.locator("#caCSide")).toHaveCount(0);                                        // no ear tip, no side
+  await expect(page.locator("#caCSide")).toBeHidden();                                          // no ear tip, no side
   await page.locator("#caCConf").check();
   await page.locator("#caCatSave").click();
   await expect(page.locator("#msg")).toHaveText("Saved.");
@@ -529,7 +529,7 @@ test("a photo the phone can't read is said in words; Stations / Areas writes ref
   await page.locator("#caEditCat").click();
   await page.locator("#caPhotoIn").setInputFiles({ name: "x.jpg", mimeType: "image/jpeg", buffer: Buffer.from("not a photo") });
   await expect(page.locator("#msg")).toHaveText("That photo couldn't be read. Try another one.");
-  await page.locator("#caCatCancel").click();
+  await page.locator("#jcBackBtn").click();                                                    // DS-4b: no Cancel (as Edit pet)
   await page.locator("#jcBackBtn").click();
   await page.locator("#caTab_areas").click();
   const before = regCalls;
@@ -568,7 +568,9 @@ test("a volunteer logs a feeding visit at a station: station cats first, problem
   await page.goto("cats/");
   await page.locator("#caTab_stations").click();
   await page.locator(`[data-visit="${S1}"]`).click();
-  await expect(page.locator("h1")).toHaveText("Log a visit");
+  await expect(page.locator("h1")).toHaveText("Log activity");                                // DS-4b: one Log activity screen
+  await expect(page.locator("#caKind_visit")).toHaveAttribute("aria-pressed", "true");
+  await expect(page.locator("#caVSt")).toHaveValue(S1);
   // Caramel's usual station is S-001 → offered; the kitten from Seef only behind "Show all cats"
   await expect(page.locator("[data-pick]")).toHaveCount(1);
   await page.locator("#caVAll").click();
@@ -640,7 +642,7 @@ test("a sighting from the cat's page: the cat is chosen, a station or a place is
   await page.locator("#caCatSeen").click();
   await expect(page.locator("#caSCat")).toHaveValue(K1);
   if (process.env.SHOT_DIR) await page.screenshot({ path: process.env.SHOT_DIR + "/cats-sighting-form.png", fullPage: true });
-  await expect(page.locator("#caSDesc")).toHaveCount(0);
+  await expect(page.locator("#caSDesc")).toBeHidden();
   await page.locator("#caSSave").click();
   await expect(page.locator("#msg")).toHaveText("Say where: a station, a pin on the map or an area.");
   await page.locator("#caSSt").selectOption(S1);
@@ -657,7 +659,8 @@ test("an unidentified sighting needs a description; residents get no Activity ta
   await signIn(page);
   await page.goto("cats/");
   await page.locator("#caTab_log").click();
-  await page.locator("#caAddSight").click();
+  await page.locator("#caLogAct").click();
+  await page.locator("#caKind_sighting").click();
   await page.locator("#caSSt").selectOption(S2);
   await page.locator("#caSSave").click();
   await expect(page.locator("#msg")).toHaveText("Choose the cat, or describe it.");
@@ -707,7 +710,7 @@ for (const lang of ["en", "ar"]) {
     await page.goto("cats/");
     await page.locator("#caAddCat").click();
     await expect(page.locator("#caCArea")).toBeVisible();
-    const sel = await page.locator("#caCatForm select, form select").evaluateAll((els) => els.map((e) => {
+    const sel = await page.locator("#caCatForm select, form select").evaluateAll((els) => els.filter((e) => e.offsetParent).map((e) => {
       const s = getComputedStyle(e);
       return { h: e.getBoundingClientRect().height, img: s.backgroundImage, pos: s.backgroundPosition, app: s.appearance };
     }));
@@ -794,4 +797,112 @@ test("DS-4a review: a cat opened from an Activity entry starts on About; search 
   await expect(page.locator(`#caMissing [data-cat="${K2}"]`)).toHaveCount(1);
   await page.locator(`#caMissing [data-cat="${K2}"]`).click();
   await expect(page.locator("#caAlarm")).toBeVisible();
+});
+
+// DS-4b (docs/plans/DS-4-cats-rebuild.md, Done-when 3–6)
+test("DS-4b: one Log activity — a visit asks for its station; switching kinds keeps it; the cats to tap follow the station", async ({ page }) => {
+  const sink = { activity: [] };
+  await stubBackend(page, { rpc: logBackend(["cats_vol"], sink) });
+  await signIn(page);
+  await page.goto("cats/");
+  await page.locator("#caTab_log").click();
+  await expect(page.locator("#caLogAct")).toHaveText("Log activity");
+  await expect(page.locator("#caAddSight, [data-visit]")).toHaveCount(0);                  // D10: one entry point on the tab
+  await page.locator("#caLogAct").click();
+  await expect(page.locator("#caKind_visit")).toHaveAttribute("aria-pressed", "true");
+  await expect(page.locator("#caVSt")).toHaveValue("");
+  await expect(page.locator("[data-pick]")).toHaveCount(0);                                 // no station: nothing offered yet
+  await page.locator("#caVSave").click();
+  await expect(page.locator("#msg")).toHaveText("Choose the station.");
+  await page.locator("#caVSt").selectOption(S1);
+  await expect(page.locator("[data-pick]")).toHaveCount(1);                                 // Caramel's station: Caramel first
+  await page.locator("#caKind_sighting").click();
+  await expect(page.locator("#caSightForm")).toBeVisible();
+  await expect(page.locator("#caSSt")).toHaveValue(S1);                                    // the station carries over
+  await expect(page.locator("#caSPlaceBox")).toBeHidden();
+  await page.locator("#caKind_visit").click();
+  await expect(page.locator("#caVSt")).toHaveValue(S1);
+  await page.locator("#caVSave").click();
+  await expect(page.locator("#msg")).toHaveText("Visit saved.");
+  expect(sink.visit.p_station).toBe(S1);
+  await expect(page.locator("#caTab_log")).toHaveAttribute("aria-selected", "true");      // back on Activity
+});
+
+// D9 (Zee's iPhone): picking from a dropdown must not redraw the form or move focus — the same select element survives
+for (const [name, open, sel, val] of [
+  ["sighting: which cat", async (p) => { await p.locator("#caTab_log").click(); await p.locator("#caLogAct").click(); await p.locator("#caKind_sighting").click(); }, "#caSCat", K1],
+  ["sighting: at a station", async (p) => { await p.locator("#caTab_log").click(); await p.locator("#caLogAct").click(); await p.locator("#caKind_sighting").click(); }, "#caSSt", S1],
+  ["sighting: area", async (p) => { await p.locator("#caTab_log").click(); await p.locator("#caLogAct").click(); await p.locator("#caKind_sighting").click(); }, "#caSArea", A_SOUK],
+  ["visit: station", async (p) => { await p.locator("#caTab_log").click(); await p.locator("#caLogAct").click(); }, "#caVSt", S1],
+  ["cat editor: area", async (p) => { await p.locator(`[data-cat="${K1}"]`).click(); await p.locator("#caEditCat").click(); }, "#caCArea", A_SEEF],
+]) {
+  test(`DS-4b D9: ${name} — no redraw, no re-focus`, async ({ page }) => {
+    const sink = { activity: [] };
+    await stubBackend(page, { rpc: logBackend(["cats"], sink) });
+    await signIn(page);
+    await page.goto("cats/");
+    await open(page);
+    await page.locator(sel).evaluate((e) => { window.__sel = e; e.dataset.mark = "1"; });
+    await page.locator(sel).selectOption(val);
+    await page.locator("#caSNote, #caVNote, #caCName").first().focus();                  // focus elsewhere, then check nothing pulls it back
+    await page.waitForTimeout(200);
+    expect(await page.locator(sel).evaluate((e) => e === window.__sel && e.dataset.mark === "1")).toBe(true);
+    expect(await page.evaluate((s) => document.activeElement === document.querySelector(s), sel)).toBe(false);
+  });
+}
+
+test("DS-4b: cat editor — pills for sex / life stage / ear tip / sterilisation, one caption per control, Photos first, Save last", async ({ page }) => {
+  const rpc = member(["cats"]);
+  let sent = null;
+  rpc.jc_cat_save = (a) => { sent = a; return ok(regFor(true)); };
+  await stubBackend(page, { rpc });
+  await signIn(page);
+  await page.goto("cats/");
+  await page.locator(`[data-cat="${K1}"]`).click();
+  await page.locator("#caEditCat").click();
+  for (const id of ["#caCSex", "#caCLife", "#caCEar", "#caCSter"]) await expect(page.locator(id + " .opts button")).not.toHaveCount(0);
+  await expect(page.locator('[data-pill="sex"][aria-pressed="true"]')).toHaveText("Male");
+  await expect(page.locator("#caCatForm > fieldset").first()).toHaveAttribute("id", "caPhotoBox");
+  await expect(page.locator("#caCatForm > :last-child")).toHaveAttribute("id", "caCatSave");
+  await expect(page.locator("#caMergeBox ~ #caCatSave")).toHaveCount(1);                   // D14: merge above Save
+  // D8: no control has two captions saying the same word
+  const doubled = await page.locator("#caCatForm fieldset").evaluateAll((fs) => fs.filter((f) => {
+    const lg = f.querySelector(":scope > legend"); if (!lg) return false;
+    return Array.from(f.querySelectorAll(":scope > label")).some((l) => l.firstChild && l.firstChild.textContent.trim() === lg.textContent.trim());
+  }).length);
+  expect(doubled).toBe(0);
+  await page.locator('[data-pill="ear_tip"][data-v="absent"]').click();
+  await expect(page.locator("#caCSide")).toBeHidden();
+  await page.locator('[data-pill="life_stage"][data-v="senior"]').click();
+  await page.locator("#caCatSave").click();
+  await expect(page.locator("#msg")).toHaveText("Saved.");
+  expect(sent.p_fields).toEqual({ name: "Caramel", old_id: "JB-07", coat: "Orange tabby", story: "Very gentle, loves cuddles.",
+    status_source: "Lead feeder", sterilised_source: "Clinic card", tnvr_place: "Souk station", sex: "male", life_stage: "senior",
+    status: "community", ear_tip: "absent", sterilised: "yes", tnvr: "returned", ear_side: null, status_on: "2026-11-15", tnvr_on: "2026-10-20",
+    area_id: A_SOUK, station_id: S1, confirmed: true });
+  if (process.env.SHOT_DIR) { await page.locator("#caEditCat").click(); await page.screenshot({ path: process.env.SHOT_DIR + "/ds4b-cat-editor.png", fullPage: true }); }
+});
+
+test("DS-4b: activity entries are the shared dated list — actions at the foot, a mini map and 'Open in Google Maps' on a located sighting", async ({ page }) => {
+  const sink = { activity: [] };
+  await stubBackend(page, { rpc: logBackend(["cats"], sink) });
+  await signIn(page);
+  await page.goto("cats/");
+  await page.locator("#caTab_log").click();
+  await expect(page.locator("#caLogList ul.bklist > li.caLog")).toHaveCount(2);
+  await expect(page.locator("#caLogList h2")).toHaveCount(0);                                // D1: no heading repeating "Activity"
+  const si = page.locator(`.caLog[data-log="${SI1}"]`);
+  await expect(si.locator(".meta").first()).toContainText("Sighting");
+  await expect(si.locator(".ptmini[role=img]")).toHaveCount(1);
+  await expect(si.getByRole("link", { name: "Open in Google Maps" })).toHaveAttribute("href", /query=24\.54%2C54\.44/);
+  await expect(si.locator("> :last-child")).toHaveClass(/acts/);                          // D11: Link · Hide at the foot
+  await expect(si.locator(".acts [data-llink]")).toHaveCount(1);
+  await expect(si.locator(".acts [data-lhide]")).toHaveCount(1);
+  if (process.env.SHOT_DIR) await page.screenshot({ path: process.env.SHOT_DIR + "/ds4b-activity.png", fullPage: true });
+  await page.locator("#caTab_cats").click();
+  await page.locator(`[data-cat="${K1}"]`).click();
+  await page.locator("#caPg_log").click();
+  await expect(page.locator("#caCatSeen")).toHaveText("Report seeing Caramel");            // D4: Pets' wording
+  await expect(page.locator("#caCatLog h2")).toHaveCount(0);
+  if (process.env.SHOT_DIR) await page.screenshot({ path: process.env.SHOT_DIR + "/ds4b-cat-activity.png", fullPage: true });
 });
