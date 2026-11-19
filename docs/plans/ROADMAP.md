@@ -203,6 +203,9 @@ Requirements (draft)". She needs **colony and case management**, not a directory
   It would be public solicitation from Zee's app, store bank screenshots, and show unverified amounts. Exploring it
   later needs, first: legal advice on UAE donation rules, Jubail management's approval, and possibly a licensed
   charity to handle it. Told to the volunteers' group the same day.
+  **Exception (Zee 2026-11-19, CC-5):** a coordinator may mark a vet visit's invoice as **shared**; residents then see
+  that invoice's number and Drive link on the cat (date and what was done, never the clinic or names). Still no
+  amounts, appeals or payments in Commons; the document's own Drive sharing decides who can open it.
 - **Invoices and vet documents live in the programme's own Google Drive folder**, not in Commons. Commons stores a
   link to the file on the vet visit. Proposed to the programme: a programme-owned Google account (not a volunteer's
   personal one), sharing restricted to specific people (never "anyone with the link"), and a file-naming rule (cat

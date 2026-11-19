@@ -70,7 +70,9 @@ declare
     -- CC-4 (Cats visits + sightings)
     'jc_cat_visit_add', 'jc_cat_sighting_add', 'jc_cat_activity', 'jc_cat_log_hide', 'jc_cat_sighting_link',
     -- Pets admins mark missing
-    'jc_admin_pet_missing_set'];
+    'jc_admin_pet_missing_set',
+    -- CC-5 (Cats vet log)
+    'jc_cat_vet_add'];
 begin
   -- Pre-launch suite: fixtures are written into 'jubail' and rolled back. Refuse to run
   -- once real residents exist — post-launch tests must move to a test community.
