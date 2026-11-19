@@ -399,7 +399,7 @@ test("a volunteer reads the full record (old ID, station, TNVR, history) but get
   await expect(page.locator("#caTab_cats")).toHaveAttribute("aria-selected", "true");
   await expect(page.locator("#caAddCat, [data-unmerge]")).toHaveCount(0);
   await page.locator("#caQ").fill("JB-07");                                                    // old ID is searchable
-  await expect(page.locator(".ptcard")).toHaveCount(1);
+  await expect(page.locator("#caCats .ptcard")).toHaveCount(1);                                // (the missing group stays on top)
   await page.locator(`[data-cat="${K1}"]`).click();
   await expect(page.locator("#caPage")).toContainText("JB-07");
   await expect(page.locator("#caPage")).toContainText(/S-001 · \u2068?Behind the souk/);
@@ -744,7 +744,8 @@ test("DS-4a: cats are photo cards with no heading repeating the tab; a missing c
   await signIn(page);
   await page.goto("cats/");
   await expect(page.locator("#caPanel ul.ptgrid li")).toHaveCount(2);
-  await expect(page.locator("#caPanel h2")).toHaveCount(0);                                  // D1
+  await expect(page.locator("#caPanel h2")).toHaveText(["Missing now"]);                     // D1: group labels only
+  await expect(page.locator(`#caMissing.wide [data-cat="${K2}"]`)).toHaveCount(1);           // pinned on top, as on Pets
   await expect(page.locator(`li[data-catli="${K2}"]`)).toHaveClass(/missing/);
   await expect(page.locator(`[data-cat="${K2}"] .chip.miss`)).toHaveText("Missing");
   if (process.env.SHOT_DIR) await page.screenshot({ path: process.env.SHOT_DIR + "/ds4a-cats-list.png", fullPage: true });

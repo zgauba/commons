@@ -335,17 +335,24 @@ function catCard(c){
 function catMatches(c){
   return jcMatches(catQ, [c.name, c.code, c.old_id, c.coat, c.area].map(function(x){ return typeof x === "string" ? x : ""; }));
 }
+function live(d){ return catsList(d).filter(function(c){ return !merged(c); }); }
+/* the cards under the search: every cat not missing (missing ones are pinned on top, as on Pets) */
 function catsListHtml(d){
-  var live = catsList(d).filter(function(c){ return !merged(c); });
-  if (!live.length) return '<p class="help" id="caCatsNone">' + esc(jcT("ca_cats_none")) + '</p>';
-  var hit = live.filter(catMatches);
-  return hit.length ? '<ul class="ptgrid">' + hit.map(catCard).join("") + '</ul>' : '<p class="help" id="caCatsNone">' + esc(jcT("ca_cats_nomatch")) + '</p>';
+  var rest = live(d).filter(function(c){ return c.status !== "missing"; });
+  if (!live(d).length) return '<p class="help" id="caCatsNone">' + esc(jcT("ca_cats_none")) + '</p>';
+  var hit = rest.filter(catMatches);
+  return hit.length ? '<ul class="ptgrid">' + hit.map(catCard).join("") + '</ul>'
+    : rest.length ? '<p class="help" id="caCatsNone">' + esc(jcT("ca_cats_nomatch")) + '</p>' : '';
 }
 function catsHtml(d, programme){
   if (!d) return '';
   var gone = programme && canEditCats() ? catsList(d).filter(merged) : [], off = busy ? ' disabled' : '';
+  var missing = live(d).filter(function(c){ return c.status === "missing"; });
+  /* Pets' list order: the urgent group, then search, then the cards (design.md §3) */
   return '<p class="help">' + esc(jcT("ca_cats_help")) + '</p>' +
     (programme && canEditCats() ? '<div class="row"><button class="btn" type="button" id="caAddCat"' + off + '>' + esc(jcT("ca_add_cat")) + '</button></div>' : '') +
+    (missing.length ? '<h2 class="group" id="caMissingHead">' + esc(jcT("ca_missing_h")) + '</h2>' +
+      '<ul class="ptgrid wide" id="caMissing">' + missing.map(catCard).join("") + '</ul>' : '') +
     (catsList(d).length ? jcSearchHtml({ id: "caQ", placeholder: jcT("ca_search"), value: catQ }) : '') +
     '<div id="caCats">' + catsListHtml(d) + '</div>' +
     (gone.length ? '<h2 class="group">' + esc(jcT("ca_merged_h")) + '</h2>' + gone.map(function(c){
@@ -354,13 +361,16 @@ function catsHtml(d, programme){
         '<div class="row"><button class="mini" type="button" data-unmerge="' + esc(c.id) + '"' + off + '>' + esc(jcT("ca_unmerge")) + '</button></div></div>';
     }).join("") : '');
 }
-function wireCatList(){
-  each("[data-cat]", function(b){ catId = b.dataset.cat; catTab = "about"; show("cat"); try { window.scrollTo(0, 0); } catch(e){} });
+/* root: the search redraws only #caCats, so only its new cards get a click (the missing ones keep theirs) */
+function wireCatList(root){
+  Array.prototype.forEach.call((root || document).querySelectorAll("[data-cat]"), function(b){
+    b.addEventListener("click", function(){ catId = b.dataset.cat; catTab = "about"; show("cat"); try { window.scrollTo(0, 0); } catch(e){} });
+  });
   jcPetPhotoFill();
 }
 function wireCats(d){
   var q = el("caQ");
-  if (q) q.addEventListener("input", function(){ catQ = q.value; el("caCats").innerHTML = catsListHtml(d); wireCatList(); });
+  if (q) q.addEventListener("input", function(){ catQ = q.value; el("caCats").innerHTML = catsListHtml(d); wireCatList(el("caCats")); });
   on("caAddCat", function(){ openCatEditor(null); });
   each("[data-unmerge]", function(b){
     var c = catFind(reg, b.dataset.unmerge);
