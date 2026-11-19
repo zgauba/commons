@@ -346,6 +346,19 @@ vs `jc_cat_register`), hides Organizer Tools and every editor. The server is unc
 so nothing is weakened; per-session (`sessionStorage`), off on a new visit. Needs a short `/plan-change` (touches
 `nav.js` / `api.js` shared state; every module's role checks read through one helper).
 
+### Pets admins mark / un-mark a pet missing  ·  DB + app  ·  asked (Zee 2026-11-19)
+Today only the owner's household can (`jc_pet_missing_set` → `jc_pet_manage`: an owned pet is the home's only). A
+Pets / community admin needs to do it for an owner who phones or messages instead. Shape: a NEW admin RPC
+(`jc_admin_pet_missing_set`, `jc_assert_admin('pets')`, logged with the admin) — never widen `jc_pet_manage`, which
+gates every owner edit. Buttons on the pet page (admins) and in Organizer Tools → Pets. Open: does the owner see who
+marked it? **Yes (Zee 2026-11-19): the owner sees "Marked missing by the Pets team".** Needs `/plan-change` +
+`/db-rehearse` ("apply" word). Plan: `docs/plans/DS-design-system.md` (after DS-4).
+
+### Cats look and feel — match Pets  ·  app only  ·  review 2026-11-19 (`docs/qa/cats-design-review-2026-11-19.md`)
+Zee: Cats doesn't look like the rest of the site. Findings + fix list in the review file; the cat page is rebuilt on
+the Pets pet-page pattern (photo beside name, About / Sightings tabs, label-value facts), the cat list on the Pets
+card grid, Activity gets one "Log activity" entry point (visit or sighting).
+
 ### Light mode  ·  fast follower (Zee 2026-11-11)
 - The light palette already exists in `tokens.css` (`[data-theme="light"]`, contrast-checked); every page pins
   `color-scheme: dark` today. Follow the phone's setting (`prefers-color-scheme`), every screen checked in both, map

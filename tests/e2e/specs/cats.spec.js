@@ -204,6 +204,7 @@ test("a volunteer sees every station (private ones too) with who feeds there, bu
   const s2 = page.locator(`.caStation[data-station="${S2}"]`);
   await expect(s2).toContainText("S-002 · Next door");
   await expect(s2.locator("[data-private]")).toHaveText("Private location");
+  if (process.env.SHOT_DIR) await page.screenshot({ path: process.env.SHOT_DIR + "/cats-volunteer-stations.png", fullPage: true });
   await expect(s2.locator('[data-role="lead"]')).toHaveText("Lead: Vera");
   await expect(s2.locator('[data-role="backup"]')).toHaveText("Backups: Cora");
   await expect(s2.locator(".caNotes")).toHaveText("Ring twice");
