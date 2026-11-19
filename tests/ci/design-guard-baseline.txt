@@ -1,0 +1,71 @@
+# design-guard baseline (DS-5): today's offenders. May only SHRINK — delete a line when you fix it (DS-3).
+# bare|<file>|<selector>   module CSS styling a bare select/input/textarea/label/button
+# dup|<hash>|<files>       the same rule body (≥ 3 declarations) in several files
+bare|commons/admin/admin.css|#bannerForm textarea
+bare|commons/admin/admin.css|#cdBlockForm input[type=date]
+bare|commons/admin/admin.css|#cdBlockForm select
+bare|commons/admin/admin.css|#ctForm .row label
+bare|commons/admin/admin.css|#ctForm input[type=time]
+bare|commons/admin/admin.css|.care .pmform input[type=date]
+bare|commons/admin/admin.css|.cdbar input[type=date]
+bare|commons/admin/admin.css|.choice .allergy input
+bare|commons/admin/admin.css|.choice input
+bare|commons/admin/admin.css|.choice input[data-c-f="en"]
+bare|commons/admin/admin.css|.dates input
+bare|commons/admin/admin.css|.dates label
+bare|commons/admin/admin.css|.mnlist button
+bare|commons/admin/admin.css|.qrow label:first-child
+bare|commons/admin/admin.css|input:disabled
+bare|commons/admin/admin.css|input[type=datetime-local]
+bare|commons/admin/admin.css|label.check input
+bare|commons/admin/admin.css|select
+bare|commons/admin/admin.css|textarea
+bare|commons/bookings/bookings.css|.bklist .check input
+bare|commons/bookings/bookings.css|.strip button
+bare|commons/bookings/bookings.css|.strip button[aria-pressed="true"]
+bare|commons/cats/cats.css|#caWho label
+bare|commons/cats/cats.css|.check input
+bare|commons/cats/cats.css|.panel textarea
+bare|commons/cats/cats.css|input[type=date]
+bare|commons/cats/cats.css|input[type=datetime-local]
+bare|commons/cats/cats.css|input[type=number]
+bare|commons/cats/cats.css|select
+bare|commons/events/events.css|.opts button
+bare|commons/events/events.css|.opts button[aria-pressed="true"]
+bare|commons/events/events.css|.seg2 button
+bare|commons/events/events.css|.seg2 button[aria-pressed="true"]
+bare|commons/events/events.css|.seg4 button
+bare|commons/events/events.css|.seg4 button:disabled
+bare|commons/events/events.css|.seg4 button[aria-pressed="true"]
+bare|commons/events/events.css|.tog button
+bare|commons/events/events.css|.tog button:disabled
+bare|commons/events/events.css|.tog button[aria-pressed="true"]
+bare|commons/events/events.css|.tog button[data-live="done"][aria-pressed="true"]
+bare|commons/events/events.css|textarea
+bare|commons/home/home.css|#fbForm .opts button
+bare|commons/home/home.css|#fbForm .opts button[aria-pressed="true"]
+bare|commons/home/home.css|#fbForm textarea
+bare|commons/home/home.css|.shellrows button
+bare|commons/home/home.css|.shellrows button[disabled]
+bare|commons/home/home.css|.starts input[type=radio]
+bare|commons/pets/pets.css|.check input
+bare|commons/pets/pets.css|.panel textarea
+dup|09ab600fd3|commons/admin/admin.css,commons/pets/pets.css
+dup|0bdf6b966a|commons/admin/admin.css,commons/assets/app.css
+dup|14b4b58a73|commons/admin/admin.css,commons/cats/cats.css,commons/events/events.css,commons/pets/pets.css
+dup|1662d25917|commons/admin/admin.css,commons/assets/app.css
+dup|2d05516272|commons/admin/admin.css,commons/bookings/bookings.css,commons/pets/pets.css
+dup|35c8a1d4d2|commons/admin/admin.css,commons/bookings/bookings.css
+dup|3874c6f549|commons/admin/admin.css,commons/bookings/bookings.css
+dup|4be0007dc2|commons/admin/admin.css,commons/bookings/bookings.css,commons/cats/cats.css,commons/pets/pets.css
+dup|527c6f54fc|commons/assets/app.css,commons/bookings/bookings.css
+dup|6c9b24c169|commons/admin/admin.css,commons/events/events.css
+dup|7bd44df1f5|commons/admin/admin.css,commons/home/home.css
+dup|8a462ecb5f|commons/admin/admin.css,commons/assets/mapui.css
+dup|8baf0a16a3|commons/admin/admin.css,commons/assets/app.css,commons/events/events.css,commons/home/home.css
+dup|980f8630c1|commons/cats/cats.css,commons/events/events.css,commons/pets/pets.css
+dup|9f72dde63a|commons/admin/admin.css,commons/cats/cats.css
+dup|b0f75dc90a|commons/bookings/bookings.css,commons/pets/pets.css
+dup|d9387b827e|commons/admin/admin.css,commons/assets/app.css,commons/events/events.css,commons/home/home.css
+dup|e12feb99b2|commons/admin/admin.css,commons/bookings/bookings.css,commons/cats/cats.css,commons/pets/pets.css
+dup|fdd3c619cf|commons/bookings/bookings.css,commons/pets/pets.css

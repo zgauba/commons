@@ -433,6 +433,11 @@ Add it here (an entry field or a "Never") in the same PR (`/ship-pr` step 1b).
 |---|---|---|
 | Prior Art + Screens to match tables | Building without looking | `/plan-change` Step 1b |
 | Visual Done-when (side-by-side) + UI review | Re-invention that looks different | `/plan-change` Step 4, `/ship-pr` 1b |
-| Bare-element guard | Module CSS restyling shared controls | CI (DS-5) |
-| Duplicate-rule guard | Copy-paste between modules | CI (DS-5) |
-| Plan-followed guard | A PR skipping the tables above | CI (DS-5, proposed) |
+| Bare-element guard | Module CSS restyling shared controls | CI `design-guard.yml` (`tests/ci/design-guard.mjs`) |
+| Duplicate-rule guard | The same rule body (≥ 3 declarations) in two CSS files | CI `design-guard.yml` |
+| Plan conformance table | The build ignoring the plan's rows | `/ship-pr` step 3b |
+| Plan-followed guard | A PR body without Done when / Screens to match / Plan conformance | CI `plan-followed.yml` |
+
+**Baseline** (`tests/ci/design-guard-baseline.txt`): the offenders that existed on 2026-11-19 — 51 bare-element
+rules and 19 duplicated bodies across all modules. It may only **shrink**: a new offender fails, and so does a
+line that no longer matches (you fixed it: delete the line in the same PR). Never add a line to make CI pass.
