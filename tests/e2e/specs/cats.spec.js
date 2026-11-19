@@ -925,7 +925,7 @@ test("DS-4c: residents' stations — a map with the public pins, a sorted-by lin
   await page.locator("#caMap .leaflet-interactive").first().click({ force: true });
   await expect(page.locator(".leaflet-popup")).toContainText("Behind the souk");
   await expect(page.locator(".leaflet-popup").getByRole("link", { name: "Directions" })).toHaveCount(1);
-  await expect(page.locator(".leaflet-popup [data-popopen], .leaflet-popup .chip")).toHaveCount(0);
+  await expect(page.locator(".leaflet-popup [data-popopen], .leaflet-popup .chip, .leaflet-popup [data-popcat]")).toHaveCount(0);   // no cat list either
   await expect(page.locator(".leaflet-popup")).not.toContainText("S-0");
 });
 
@@ -948,4 +948,43 @@ test("DS-4c: the programme's stations — private pins too, popup opens the hist
   await page.locator("#caMap .leaflet-interactive").first().click({ force: true });
   await page.locator(".leaflet-popup [data-popopen]").click();
   await expect(page.locator("h1")).toContainText("S-00");                                   // a station's history
+});
+
+// Cats + stations on one map (ROADMAP, Zee 2026-11-19): the programme's station pins say how many cats live there and
+// turn red when one is missing; the popup lists them (missing first, red) and a tap opens the cat. Merged, adopted,
+// transferred and deceased cats don't count; clinic / foster ones do.
+test("stations map (programme): cats per station, red pin for a missing cat, popup lists them, tap opens the cat", async ({ page }) => {
+  const rpc = logBackend(["cats"], { activity: [] });
+  const reg = regFor(true);
+  const cat = (id, code, name, status, station) => Object.assign({}, reg.cats[0], { id, code, name, status, station_id: station,
+    merged_into: null, merged_from: [], status_log: [], photos: [], own_photos: [] });
+  const K4 = "dddddddd-0000-4000-8000-000000000004", K5 = "dddddddd-0000-4000-8000-000000000005", K6 = "dddddddd-0000-4000-8000-000000000006";
+  reg.cats = [
+    reg.cats[0],                                                                  // Caramel, community, S-001
+    cat(K4, "C-004", "Luna", "missing", S1),
+    cat(K5, "C-005", "Ash", "clinic", S1),                                        // away a while: still lives here
+    cat(K6, "C-006", "Pip", "adopted", S1),                                       // gone: not counted
+    Object.assign({}, reg.cats[2], { station_id: S1 }),                           // merged: not counted
+  ];
+  rpc.jc_cat_register = () => ok(reg);
+  await stubBackend(page, { rpc });
+  await signIn(page);
+  await page.goto("cats/");
+  await page.locator("#caTab_stations").click();
+  await expect(page.locator("#caMap .bklabel")).toContainText(["S-001 · Behind the souk · 3 cats", "S-002 · Next door"]);
+  await expect(page.locator("#caMap .bklabel").nth(1)).not.toContainText("cat");   // no cats at S-002: no count
+  const fills = await page.locator("#caMap path.leaflet-interactive").evaluateAll((ps) => ps.map((p) => p.getAttribute("fill")));
+  const danger = await page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue("--jc-danger").trim());
+  expect(fills.filter((f) => f === danger)).toHaveLength(1);                     // only the station with a missing cat is red
+  if (process.env.SHOT_DIR) await page.screenshot({ path: process.env.SHOT_DIR + "/stations-cats-map.png" });
+  await page.locator("#caMap path.leaflet-interactive").nth(0).click({ force: true });
+  const btns = page.locator(".leaflet-popup [data-popcat]");
+  await expect(btns).toHaveText(["Luna · Missing", "Ash", "Caramel"]);           // missing first, then A–Z
+  await expect(btns.first()).toHaveClass(/danger/);
+  await expect(btns.nth(1)).not.toHaveClass(/danger/);
+  await expect(page.locator(".leaflet-popup [data-popopen]")).toHaveText("History");   // History still there
+  if (process.env.SHOT_DIR) await page.screenshot({ path: process.env.SHOT_DIR + "/stations-cats-popup.png" });
+  await btns.first().click();
+  await expect(page.locator("h1")).toHaveText("Luna");
+  await expect(page.locator("#caAlarm")).toBeVisible();
 });

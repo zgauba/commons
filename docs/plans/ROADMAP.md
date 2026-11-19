@@ -337,6 +337,8 @@ Make residents' pet pages richer and more fun now that strays leave Pets. Sequen
 - Needs `/plan-change` (Localized for the programme part).
 - **Decided (Zee, 2026-11-19):** build the programme version (station pins carry their cats, one map). Missing
   cat's last sighting and the resident version stay ideas. Queued after the events house-number labels.
+- **Built 2026-11-19** (PR `cats-stations-cats-map`; review `docs/qa/cats-stations-cats-map-review-2026-11-19.md`):
+  programme pins show "· N cats" and turn red when one is missing; the popup lists the cats (missing first), tap → cat page.
 
 ### Events: per-event organizers draft, admin approves  ·  idea (2026-11-17)
 - Per-event organizers already exist (T5.2b: invite link, then they run that one event). They can't **create** or
