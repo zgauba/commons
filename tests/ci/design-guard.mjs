@@ -1,10 +1,13 @@
 // Design guard (DS-5 E3 + E4, 2026-11-19) — docs/design.md §8 "Never" #1 and #2, enforced.
-//   E3 bare: module CSS (commons/<module>/*.css, not commons/assets/) may not target a bare select / input /
-//            textarea / label / button — with or without a parent selector (".panel textarea" counts).
+//   E3 bare: module CSS (any commons/ CSS outside commons/assets/ and vendor/) may not target a bare select /
+//            input / textarea / label / button — with or without a parent selector (".panel textarea" counts,
+//            ":is(input, select)" counts, "label.check" does not).
 //   E4 dup:  the same rule body (≥ 3 declarations) may not appear in two different CSS files.
-// Today's offenders are listed in design-guard-baseline.txt. The baseline may only SHRINK: a new offender
-// fails, and so does a baseline line that no longer matches anything (fixed → delete the line).
-// Usage: node tests/ci/design-guard.mjs [--write-baseline]   (no dependencies)
+// Today's offenders, with how many times each occurs, are in design-guard-baseline.txt ("<count>\t<key>").
+// The baseline may only SHRINK: more occurrences than listed fails; fewer fails too ("fixed — lower the count /
+// delete the line"); and CI (--base) fails if the PR's baseline lists more than the base branch's does.
+// Nested CSS ("& input { }") is refused, not silently skipped.
+// Usage: node tests/ci/design-guard.mjs [--write-baseline] [--base <base branch's baseline file>]   (no dependencies)
 import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
@@ -12,31 +15,45 @@ import { fileURLToPath } from 'node:url';
 
 export const BARE = new Set(['select', 'input', 'textarea', 'label', 'button']);
 export const MIN_DECLS = 3;
+const STATEMENT_AT = /^@(import|charset|namespace)\b/;
 
-/* rules → [{ selector, body, line }]; descends into @media / @supports, skips other at-rules' blocks */
+/* rules → { rules: [{ selector, body, line }], errors: [line] }; descends into @media / @supports / @layer /
+   @container; skips other at-rule blocks (@keyframes, @font-face); statement at-rules (@import …;) are dropped */
 export function parseCss(text) {
   const src = text.replace(/\/\*[\s\S]*?\*\//g, (c) => c.replace(/[^\n]/g, ' '));   // keep line numbers
-  const rules = [];
+  const rules = [], errors = [];
+  const lineAt = (k) => src.slice(0, k).split('\n').length;
   (function walk(from, to) {
     let i = from;
     while (i < to) {
       const open = src.indexOf('{', i);
       if (open < 0 || open >= to) return;
-      const head = src.slice(i, open).trim();
-      let depth = 1, j = open + 1;
-      while (j < to && depth) { if (src[j] === '{') depth++; else if (src[j] === '}') depth--; j++; }
+      let hs = i;                                       // head start, after any "@import …;" statements
+      for (;;) {
+        while (hs < open && /\s/.test(src[hs])) hs++;
+        if (!STATEMENT_AT.test(src.slice(hs, open))) break;
+        const semi = src.indexOf(';', hs);
+        if (semi < 0 || semi > open) break;
+        hs = semi + 1;
+      }
+      const head = src.slice(hs, open).trim();
+      let depth = 1, j = open + 1, nested = false;
+      while (j < to && depth) {
+        if (src[j] === '{') { depth++; nested = true; } else if (src[j] === '}') depth--;
+        j++;
+      }
       if (/^@(media|supports|layer|container)\b/.test(head)) walk(open + 1, j - 1);
       else if (head && !head.startsWith('@')) {
-        const line = src.slice(0, i + (src.slice(i, open).length - src.slice(i, open).trimStart().length)).split('\n').length;
-        rules.push({ selector: head.replace(/\s+/g, ' '), body: src.slice(open + 1, j - 1), line });
+        if (nested) errors.push(lineAt(hs));
+        else rules.push({ selector: head.replace(/\s+/g, ' '), body: src.slice(open + 1, j - 1), line: lineAt(hs) });
       }
       i = j;
     }
   })(0, src.length);
-  return rules;
+  return { rules, errors };
 }
 
-function splitTop(s, sepRe) {      // split on a separator outside () and []
+export function splitTop(s, sepRe) {      // split on a separator outside () and []
   const out = []; let depth = 0, cur = '';
   for (const ch of s) {
     if (ch === '(' || ch === '[') depth++;
@@ -47,28 +64,57 @@ function splitTop(s, sepRe) {      // split on a separator outside () and []
   return out.map((x) => x.trim()).filter(Boolean);
 }
 
+/* a compound without its pseudo-classes (balanced parentheses), plus the selector lists inside :is() / :where() */
+function stripPseudo(compound) {
+  let base = '', i = 0;
+  const lists = [];
+  while (i < compound.length) {
+    if (compound[i] !== ':') { base += compound[i++]; continue; }
+    const m = /^::?([a-z-]+)/i.exec(compound.slice(i));
+    if (!m) { base += compound[i++]; continue; }
+    i += m[0].length;
+    if (compound[i] === '(') {
+      let depth = 0, k = i;
+      for (; k < compound.length; k++) {
+        if (compound[k] === '(') depth++;
+        else if (compound[k] === ')' && --depth === 0) break;
+      }
+      if (/^(is|where|matches)$/i.test(m[1])) lists.push(compound.slice(i + 1, k));
+      i = k + 1;
+    }
+  }
+  return { base, lists };
+}
+
 /* the element a selector finally targets, if it is a bare one: ".panel textarea" → "textarea"; "label.check" → null */
 export function bareTarget(selector) {
   const last = splitTop(selector, /[\s>+~]/).pop() || '';
-  const base = last.replace(/\[[^\]]*\]/g, '').replace(/::?[a-z-]+(\([^)]*\))?/gi, '');
-  return /^[a-z]+$/i.test(base) && BARE.has(base.toLowerCase()) ? base.toLowerCase() : null;
+  const { base, lists } = stripPseudo(last.replace(/\[[^\]]*\]/g, ''));
+  if (/^[a-z]+$/i.test(base) && BARE.has(base.toLowerCase())) return base.toLowerCase();
+  /* ".x :is(input, select)" — with nothing else in the compound, a bare member of an :is()/:where() list makes it bare.
+     ".a:is(input)" is the same as "input.a": a classed element, allowed like "label.check". */
+  if (base === '' || base === '*') {
+    for (const list of lists) for (const s of splitTop(list, /,/)) { const t = bareTarget(s); if (t) return t; }
+  }
+  return null;
 }
 
 export function normBody(body) {
   return body.split(';').map((d) => d.trim().replace(/\s+/g, ' ').replace(/\s*:\s*/, ':')).filter(Boolean).sort();
 }
 
-/* files: [{ file, text, module }] → { bare: [{key, file, line, selector}], dup: [{key, where}], counts } */
+/* files: [{ file, text, module }] → { bare, dup, nested, counts } */
 export function check(files) {
-  const bare = [], seen = new Map();
+  const bare = [], nested = [], seen = new Map();
   let rules = 0;
   for (const f of files) {
-    for (const r of parseCss(f.text)) {
+    const parsed = parseCss(f.text);
+    for (const line of parsed.errors) nested.push({ file: f.file, line });
+    for (const r of parsed.rules) {
       rules++;
       if (f.module) {
         for (const sel of splitTop(r.selector, /,/)) {
-          const t = bareTarget(sel);
-          if (t) bare.push({ key: `bare|${f.file}|${sel}`, file: f.file, line: r.line, selector: sel });
+          if (bareTarget(sel)) bare.push({ key: `bare|${f.file}|${sel}`, file: f.file, line: r.line, selector: sel });
         }
       }
       const decls = normBody(r.body);
@@ -84,19 +130,40 @@ export function check(files) {
     const filesWith = [...new Set(where.map((w) => w.file))].sort();
     if (filesWith.length >= 2) dup.push({ key: `dup|${h}|${filesWith.join(',')}`, where });
   }
-  return { bare, dup, counts: { files: files.length, rules } };
+  return { bare, dup, nested, counts: { files: files.length, rules } };
 }
 
-export function compare(found, baselineKeys) {
-  const keys = new Set(found);
-  return {
-    added: found.filter((k) => !baselineKeys.has(k)),
-    stale: [...baselineKeys].filter((k) => !keys.has(k)),
-  };
+/* key → occurrences: a bare selector repeated in a second rule counts twice; a dup counts every copy */
+export function tally(res) {
+  const m = new Map();
+  for (const b of res.bare) m.set(b.key, (m.get(b.key) || 0) + 1);
+  for (const d of res.dup) m.set(d.key, d.where.length);
+  return m;
 }
 
 export function readBaseline(text) {
-  return new Set(text.split('\n').map((l) => l.trim()).filter((l) => l && !l.startsWith('#')));
+  const m = new Map();
+  for (const raw of text.split('\n')) {
+    const l = raw.trim();
+    if (!l || l.startsWith('#')) continue;
+    const tab = l.indexOf('\t');
+    if (tab > 0 && /^\d+$/.test(l.slice(0, tab))) m.set(l.slice(tab + 1), Number(l.slice(0, tab)));
+    else m.set(l, 1);
+  }
+  return m;
+}
+
+/* found vs baseline: "added" = more than listed; "stale" = fewer than listed (fixed → lower or delete) */
+export function compare(found, baseline) {
+  const added = [], stale = [];
+  for (const [k, n] of found) if (n > (baseline.get(k) || 0)) added.push({ key: k, n, was: baseline.get(k) || 0 });
+  for (const [k, n] of baseline) if ((found.get(k) || 0) < n) stale.push({ key: k, n: found.get(k) || 0, was: n });
+  return { added, stale };
+}
+
+/* the PR's baseline vs the base branch's: any line new or with a higher count = the baseline grew */
+export function grew(prBaseline, baseBaseline) {
+  return [...prBaseline].filter(([k, n]) => n > (baseBaseline.get(k) || 0)).map(([k, n]) => ({ key: k, n, was: baseBaseline.get(k) || 0 }));
 }
 
 /* ---------- CLI ---------- */
@@ -106,45 +173,59 @@ const BASELINE = path.join(here, 'design-guard-baseline.txt');
 const MIN_FILES = 8, MIN_RULES = 200;   // zero-output guard: a guard that read nothing must not pass
 
 function collect() {
-  const commons = path.join(ROOT, 'commons');
   const out = [];
-  for (const dir of fs.readdirSync(commons, { withFileTypes: true })) {
-    if (!dir.isDirectory() || dir.name === 'vendor') continue;
-    const d = path.join(commons, dir.name);
-    for (const name of fs.readdirSync(d)) {
-      if (!name.endsWith('.css')) continue;
-      out.push({ file: `commons/${dir.name}/${name}`, text: fs.readFileSync(path.join(d, name), 'utf8'), module: dir.name !== 'assets' });
+  (function walk(rel) {
+    for (const e of fs.readdirSync(path.join(ROOT, rel), { withFileTypes: true })) {
+      const r = path.posix.join(rel, e.name);
+      if (e.isDirectory()) { if (e.name !== 'vendor' && e.name !== 'node_modules') walk(r); }
+      else if (e.name.endsWith('.css')) out.push({ file: r, text: fs.readFileSync(path.join(ROOT, r), 'utf8'), module: !r.startsWith('commons/assets/') });
     }
-  }
+  })('commons');
   return out.sort((a, b) => a.file.localeCompare(b.file));
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   const res = check(collect());
-  const found = [...new Set([...res.bare.map((b) => b.key), ...res.dup.map((d) => d.key)])].sort();
-  console.log(`design-guard: read ${res.counts.files} CSS files, ${res.counts.rules} rules; ${res.bare.length} bare-element, ${res.dup.length} duplicate.`);
+  const found = tally(res);
+  console.log(`design-guard: read ${res.counts.files} CSS files, ${res.counts.rules} rules; ${res.bare.length} bare-element, ${res.dup.length} duplicate bodies.`);
+  let fail = false;
   if (res.counts.files < MIN_FILES || res.counts.rules < MIN_RULES) {
     console.error(`::error::design-guard read too little (${res.counts.files} files / ${res.counts.rules} rules, need ≥ ${MIN_FILES} / ${MIN_RULES}) — the guard is broken, not passing.`);
     process.exit(1);
   }
-  if (process.argv.includes('--write-baseline')) {
-    const head = '# design-guard baseline (DS-5): today\'s offenders. May only SHRINK — delete a line when you fix it (DS-3).\n' +
-      '# bare|<file>|<selector>   module CSS styling a bare select/input/textarea/label/button\n' +
-      '# dup|<hash>|<files>       the same rule body (≥ 3 declarations) in several files\n';
-    fs.writeFileSync(BASELINE, head + found.join('\n') + '\n');
-    console.log(`Wrote ${found.length} lines to ${path.relative(ROOT, BASELINE)}`);
-    process.exit(0);
+  for (const n of res.nested) {
+    console.error(`::error file=${n.file},line=${n.line}::Nested CSS isn't checked by design-guard — write flat rules (or extend tests/ci/design-guard.mjs first).`);
+    fail = true;
   }
-  const { added, stale } = compare(found, readBaseline(fs.existsSync(BASELINE) ? fs.readFileSync(BASELINE, 'utf8') : ''));
-  for (const k of added) {
-    const b = res.bare.find((x) => x.key === k);
-    if (b) console.error(`::error file=${b.file},line=${b.line}::Module CSS styles a bare element: "${b.selector}". Use or fix the shared style in commons/assets/app.css (docs/design.md §8 #1).`);
-    else {
-      const d = res.dup.find((x) => x.key === k);
-      console.error(`::error::The same rule is in ${d.where.length} places — ${d.where.map((w) => `${w.file}:${w.line} "${w.selector}"`).join(' · ')}. Make it one shared rule (docs/design.md §8 #2, §10).`);
+  if (process.argv.includes('--write-baseline')) {
+    const head = '# design-guard baseline (DS-5): today\'s offenders and how often each occurs. May only SHRINK —\n' +
+      '# lower the count / delete the line when you fix one (DS-3). Never add or raise a line to make CI pass.\n' +
+      '# <count>\\tbare|<file>|<selector>   module CSS styling a bare select/input/textarea/label/button\n' +
+      '# <count>\\tdup|<hash>|<files>       the same rule body (≥ 3 declarations) in several files\n';
+    const lines = [...found].sort((a, b) => a[0].localeCompare(b[0])).map(([k, n]) => `${n}\t${k}`);
+    fs.writeFileSync(BASELINE, head + lines.join('\n') + '\n');
+    console.log(`Wrote ${lines.length} lines to ${path.relative(ROOT, BASELINE)}`);
+    process.exit(fail ? 1 : 0);
+  }
+  const baseline = readBaseline(fs.existsSync(BASELINE) ? fs.readFileSync(BASELINE, 'utf8') : '');
+  const { added, stale } = compare(found, baseline);
+  for (const a of added) {
+    const b = res.bare.filter((x) => x.key === a.key);
+    if (b.length) {
+      for (const x of b) console.error(`::error file=${x.file},line=${x.line}::Module CSS styles a bare element: "${x.selector}" (${a.n}× now, baseline ${a.was}). Use or fix the shared style in commons/assets/app.css (docs/design.md §8 #1).`);
+    } else {
+      const d = res.dup.find((x) => x.key === a.key);
+      console.error(`::error::The same rule is in ${d.where.length} places (baseline ${a.was}) — ${d.where.map((w) => `${w.file}:${w.line} "${w.selector}"`).join(' · ')}. Make it one shared rule (docs/design.md §8 #2, §10).`);
     }
   }
-  for (const k of stale) console.error(`::error::Baseline line no longer matches anything — it was fixed; delete it from tests/ci/design-guard-baseline.txt: ${k}`);
-  if (added.length || stale.length) process.exit(1);
+  for (const s of stale) console.error(`::error::Fixed — ${s.n ? `lower the count to ${s.n}` : 'delete the line'} in tests/ci/design-guard-baseline.txt: ${s.key}`);
+  const bi = process.argv.indexOf('--base');
+  if (bi > 0 && fs.existsSync(process.argv[bi + 1] || '')) {
+    for (const g of grew(baseline, readBaseline(fs.readFileSync(process.argv[bi + 1], 'utf8')))) {
+      console.error(`::error::The baseline grew (${g.was} → ${g.n}): ${g.key}. The baseline may only shrink — fix the CSS instead.`);
+      fail = true;
+    }
+  }
+  if (added.length || stale.length || fail) process.exit(1);
   console.log('design-guard: OK (only baseline offenders remain).');
 }
