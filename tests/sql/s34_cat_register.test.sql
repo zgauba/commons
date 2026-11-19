@@ -220,7 +220,8 @@ begin
     raise exception 'FAIL CR05a merged cat shown to residents: %', v; end if;
   if exists (select 1 from jsonb_array_elements(v -> 'cats') y, jsonb_object_keys(y) key
               where key not in ('id', 'code', 'name', 'sex', 'life_stage', 'coat', 'confirmed', 'story', 'status',
-                                'ear_tip', 'sterilised', 'area', 'photos')) then
+                                'ear_tip', 'sterilised', 'area', 'photos',
+                                'vaccinated', 'invoices')) then                  -- CC-5
     raise exception 'FAIL CR05b resident keys: %', v; end if;
   if v::text like '%JB-07%' or v::text like '%Clinic card%' or v::text like '%Lead feeder%' or v::text like '%Souk station%'
      or v::text like '%2026-11-15%' or v::text like '%' || st_souk || '%' then

@@ -206,6 +206,46 @@ of cats whose usual station / area is this one, then search); cat page → **See
 | 5 | Migration applied live with history row, live suite green, advisors no new kinds | live run output in review doc |
 | 6 | PRs merged after Chromium CI green; Pages deploy success | `gh` run ids |
 
+## CC-5 plan — vet log (2026-11-19; Zee approved + pre-authorised apply + merge for CC-5)
+
+**Ships:** coordinators log a **vet visit** for one or more cats: date (= date given), clinic, what was done (check-up ·
+sterilisation · vaccination · deworming · flea & tick · treatment · surgery · microchip · other), vaccine (Rabies · Core
+(FVRCP) · Other + optional name), next dose due, invoice number, link to the document in the programme's Google Drive
+(`https://drive.google.com/…` / `https://docs.google.com/…` only, checked on the server), note. One visit, several cats
+(her counting rule: clinic visits counted apart from cats treated); different treatments for different cats = separate
+entries, which may share an invoice number. Medical facts only, no amounts. Fix a mistake = hide + log again.
+
+**Decisions (Zee 2026-11-19):**
+1. Logging = Cats coordinators + community admins; volunteers read the medical facts.
+2. Invoice number + Drive link = coordinators only, **unless the coordinator ticks "shared"**: then everyone sees it,
+   residents included (Zee chose residents over volunteers-only). Residents see a shared invoice's date, what was done,
+   number and link — never the clinic, note or names. Whether a resident can open the file is set by its Drive sharing.
+3. Residents' **"Vaccinated ✓"** = rabies on record and not overdue: the latest rabies entry's next dose is due today or
+   later, or (no due date entered) it was given within the last 365 days. Otherwise nothing is shown (no ✗).
+   Overdue / hidden / core-only = no ✓. A merged cat's records count for the survivor.
+4. Date given = the visit date (no separate field).
+- Not in CC-5: logging sterilisation does **not** change the register's sterilisation / TNVR fields (no silent
+  overwrite; coordinators still edit the register). Next-dose reminders stay Phase 2.
+
+**DB (CC-5a, `20261119180000_cc5_cat_vet_log`, `/db-rehearse`):** `jc_cat_vet_visits` + `jc_cat_vet_cats` (RLS on, no
+policies, RPC-only, kept forever); new `jc_cat_vet_add` (coordinators; rate bucket `cat_log`); `jc_cat_activity` +
+`jc_cat_log_hide` + `jc_cat_log_json` gain kind `vet` (never in a station's list); `jc_cat_json` gains `vaccinated` +
+`invoices` (everyone) and `vaccines` (programme: latest per vaccine, `overdue`). Test slice `s37_cat_vet_log`.
+
+**App (CC-5b; CC-5c if over ~250 lines):** Log activity → 3rd kind **Vet visit** (coordinators); vet entries in Activity
+(chip **Vet**) and on the cat's Activity tab; cat page Health → **Vaccines** line (amber when overdue); residents:
+"Vaccinated ✓" + shared invoices, with "a record never replaces seeing a doctor".
+
+**Done when:**
+| # | Check | Proof |
+|---|---|---|
+| 1 | Coordinator logs a vet visit for 2 cats (sterilisation + rabies, next due); it shows in Activity (Vet) and on both cats, Health shows given + next due | SQL s37 VT01 + e2e `cats.spec.js` |
+| 2 | Residents see "Vaccinated ✓" only while rabies is current (due today ✓, yesterday ✗, hidden ✗, merged counts); resident data = only the listed keys; shared invoices only | SQL s37 VT02 |
+| 3 | Volunteers see facts but not an unshared invoice / link and can't log or hide; only Google Drive / Docs links accepted | SQL s37 VT03 + e2e |
+| 4 | Regression: feeding visits + sightings unchanged; `cats_vol` passes no other gate | s35 + existing `cats.spec.js` green unchanged |
+| 5 | Vet form + vet entries match Edit pet / Pet Sightings (EN + AR) | side-by-side `/shot` screenshots in the review doc |
+| 6 | Migration applied live with history row, live suite green (3 chunks), advisors no new kinds | live run output in review doc |
+
 ## Decisions (Zee 2026-11-17, answering this plan)
 
 1. **Volunteers = a role by invite link** (named, listed, removable, like admins), working on the Cats page only, no
