@@ -271,6 +271,34 @@ C-001… (old programme IDs kept as a searchable field). **Tester feedback 2026-
 cat (look-alike orange cats); no per-cat "fed" button (one log per station visit); the organizer's optional
 "Pin here" step was missed while Report a stray's "Where" was intuitive → every Cats editor reuses the Where flow.
 
+### Pets profile v2  ·  DB + app  ·  after CC-7  (Zee 2026-11-18 — needs `/plan-change`)
+Make residents' pet pages richer and more fun now that strays leave Pets. Sequenced **after CC-7** (both touch
+`pets.js`; no parallel work in the same area). All new fields optional; pet data only, so no new personal data.
+- **New fields:** breed (free text with per-species suggestions incl. "Mixed", Arabian Mau, Saluki); sex
+  female / male / unknown and **neutered / spayed** yes / no / unknown (same choices as the Cats register `jc_cats`,
+  so a roaming owned cat that's neutered isn't trapped again); age = birthday **or** "about N years old" (store year +
+  optional month / day; rescues often don't know the date); **size** instead of weight (weight goes stale), with
+  guidance per species — dog: small < 10 kg, medium 10–25 kg, large > 25 kg; cat: small < 3.5 kg, medium 3.5–5.5 kg,
+  large > 5.5 kg (rules of thumb); no size for bird / rabbit / other.
+- **Description → prompts:** owner picks up to 2 short fill-ins (~80 chars): "Known for…", "Favourite spot in
+  Jubail…", "Will do anything for…".
+- **Badges = standard emoji in chips** (no artwork). Stored as fixed keys; labels in the EN/AR strings dictionary;
+  emoji hidden from screen readers (the label carries the meaning). Use widely supported emoji only — **one exception:
+  🛟 Proud Rescue** (2021 emoji; label still reads fine where it doesn't render). Display chips, not buttons; in the
+  editor they are toggles.
+  - **Good to know** (amber tint, shown first; contrast checked in both themes): 🧭 Wanderer (today's `wanderer`
+    flag, restyled — must be clearly visible), 🚫 Please don't feed me, ✋ Ask before petting, 🏃 Escape artist,
+    🐕 Good with dogs, 🐈 Good with cats, 🧒 Good with kids.
+  - **Personality** (neutral chips, **up to 4**, hidden when they don't fit the species): 🦋 Social Butterfly,
+    🎾 Playful, 💨 Zoomies, 🏖️ Beach Bum, 🐦 Bird Watcher, 💞 Velcro, 🦉 Night Owl, 🛟 Proud Rescue, 🛋️ Couch
+    Potato, 🍗 Foodie, 💬 Chatterbox, ☀️ Sun Seeker, 🥏 Fetch Pro, 👑 Boss of the House, 🌊 Water Lover, 🧸 Gentle
+    Giant.
+- **Missing pets:** Good to know chips show on the missing banner / poster (finders need "Ask before petting",
+  "Escape artist", "Please don't feed me") — **except Wanderer**, which is hidden while a pet is missing (it says
+  "don't worry", missing says "worry").
+- **Later, not v1:** automatic badges (🎂 birthday this week, Golden Oldie from age, New to Jubail for 30 days) and an
+  opt-in birthday shout-out on the Commons home.
+
 ### Desktop layout (shared, every module)  ·  app only  (Zee 2026-11-17)  ·  ✓ DL-1 done (`docs/plans/DL-desktop-layout.md`)
 - Today every page is a phone-width strip on a computer (`main{max-width:480px}` in `app.css`, no breakpoints
   anywhere). The coordinator uses a computer.
