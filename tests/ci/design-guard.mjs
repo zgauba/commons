@@ -153,17 +153,47 @@ export function readBaseline(text) {
   return m;
 }
 
-/* found vs baseline: "added" = more than listed; "stale" = fewer than listed (fixed → lower or delete) */
+/* A dup line is matched by its rule body (the hash), not by its exact file list (DS-3a): removing one copy is a fix,
+   and a module copy moving into commons/assets/ is the promotion design.md §10 asks for. It is worse — "added" — when
+   there are more copies, or a module file that didn't hold this body before now does. */
+const isDup = (k) => k.startsWith('dup|');
+function dupParts(k) { const [, hash, files] = k.split('|'); return { hash, files: files ? files.split(',') : [] }; }
+function dupIndex(m) {
+  const ix = new Map();
+  for (const [k, n] of m) if (isDup(k)) ix.set(dupParts(k).hash, { key: k, n, files: dupParts(k).files });
+  return ix;
+}
+function dupWorse(key, n, was) {
+  if (!was) return true;
+  return n > was.n || dupParts(key).files.some((f) => !f.startsWith('commons/assets/') && !was.files.includes(f));
+}
+
+/* found vs baseline: "added" = more than listed; "stale" = fewer than listed (fixed → lower or delete; for a dup,
+   `to` is the line it should now read) */
 export function compare(found, baseline) {
-  const added = [], stale = [];
-  for (const [k, n] of found) if (n > (baseline.get(k) || 0)) added.push({ key: k, n, was: baseline.get(k) || 0 });
-  for (const [k, n] of baseline) if ((found.get(k) || 0) < n) stale.push({ key: k, n: found.get(k) || 0, was: n });
+  const added = [], stale = [], bix = dupIndex(baseline), fix = dupIndex(found);
+  for (const [k, n] of found) {
+    if (isDup(k)) {
+      const was = bix.get(dupParts(k).hash);
+      if (dupWorse(k, n, was)) added.push({ key: k, n, was: was ? was.n : 0 });
+      else if (was.key !== k || n < was.n) stale.push({ key: was.key, n, was: was.n, to: k });
+    } else if (n > (baseline.get(k) || 0)) added.push({ key: k, n, was: baseline.get(k) || 0 });
+  }
+  for (const [k, n] of baseline) {
+    if (isDup(k)) { if (!fix.has(dupParts(k).hash)) stale.push({ key: k, n: 0, was: n }); }
+    else if ((found.get(k) || 0) < n) stale.push({ key: k, n: found.get(k) || 0, was: n });
+  }
   return { added, stale };
 }
 
-/* the PR's baseline vs the base branch's: any line new or with a higher count = the baseline grew */
+/* the PR's baseline vs the base branch's: any line new or with a higher count (for a dup: or a new module file) = grew */
 export function grew(prBaseline, baseBaseline) {
-  return [...prBaseline].filter(([k, n]) => n > (baseBaseline.get(k) || 0)).map(([k, n]) => ({ key: k, n, was: baseBaseline.get(k) || 0 }));
+  const bix = dupIndex(baseBaseline), out = [];
+  for (const [k, n] of prBaseline) {
+    if (isDup(k)) { const was = bix.get(dupParts(k).hash); if (dupWorse(k, n, was)) out.push({ key: k, n, was: was ? was.n : 0 }); }
+    else if (n > (baseBaseline.get(k) || 0)) out.push({ key: k, n, was: baseBaseline.get(k) || 0 });
+  }
+  return out;
 }
 
 /* ---------- CLI ---------- */
@@ -218,7 +248,7 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
       console.error(`::error::The same rule is in ${d.where.length} places (baseline ${a.was}) — ${d.where.map((w) => `${w.file}:${w.line} "${w.selector}"`).join(' · ')}. Make it one shared rule (docs/design.md §8 #2, §10).`);
     }
   }
-  for (const s of stale) console.error(`::error::Fixed — ${s.n ? `lower the count to ${s.n}` : 'delete the line'} in tests/ci/design-guard-baseline.txt: ${s.key}`);
+  for (const s of stale) console.error(`::error::Fixed — ${s.to ? `replace the line with "${s.n}\\t${s.to}"` : s.n ? `lower the count to ${s.n}` : 'delete the line'} in tests/ci/design-guard-baseline.txt: ${s.key}`);
   const bi = process.argv.indexOf('--base');
   if (bi > 0 && fs.existsSync(process.argv[bi + 1] || '')) {
     for (const g of grew(baseline, readBaseline(fs.readFileSync(process.argv[bi + 1], 'utf8')))) {

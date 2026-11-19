@@ -4,16 +4,10 @@ main{display:flex; flex-direction:column; gap:12px}
 #view > h1, #view > p, #view > .subtabs{margin:0}
 #view > .subtabs + .msg{margin-top:-4px}
 [role="tabpanel"]{display:flex; flex-direction:column; gap:12px}
-/* Cats page (CC-2): the station editor's form controls, the same look as Pets (pets.css) and Organizer Tools (admin.css) */
-.panel textarea{font:inherit; font-size:16px; color:var(--jc-ink); background:var(--jc-surface-2); border:1px solid var(--jc-line);
-  border-radius:10px; padding:10px 12px; width:100%; min-height:80px; resize:vertical}
+/* form controls (textarea, select, dates, checks): shared, in assets/app.css (DS-3a) */
 .panel p{margin:0}
-select{font:inherit; font-size:16px; color:var(--jc-ink); background:var(--jc-surface); border:1px solid var(--jc-line);
-  border-radius:10px; padding:10px; width:100%}
-.check{flex-direction:row; align-items:flex-start; gap:8px; font-weight:600; color:var(--jc-ink); font-size:14px}
-.check input{width:20px; height:20px; flex:0 0 auto; margin-top:1px}
 .caStation .row{align-items:center; gap:12px}
-#caWho label{margin-top:8px}
+#caWho{gap:14px}
 /* CC-3: the cat register — a cat card is one button (photo + name + chips), the photo row on a cat's page */
 .panel.caCat{display:flex; flex-direction:row; align-items:center; justify-content:flex-start; gap:12px; width:100%;
   text-align:start; font:inherit; color:var(--jc-ink); cursor:pointer}
@@ -26,10 +20,6 @@ select{font:inherit; font-size:16px; color:var(--jc-ink); background:var(--jc-su
 .caStory{margin:8px 0; white-space:pre-line}
 .caFacts{margin:8px 0}
 .caMergedRow .row{margin-top:6px}
-/* dates in the cat editor: the same field look as text inputs (iOS draws a bare control otherwise — as admin.css .pmform) */
-input[type=date]{font:inherit; font-size:16px; color:var(--jc-ink); background:var(--jc-surface-2); border:1px solid var(--jc-line);
-  border-radius:10px; padding:11px 12px; width:100%; -webkit-appearance:none; appearance:none; display:block; min-width:0;
-  max-width:100%; box-sizing:border-box; min-height:46px; color-scheme:dark}
 .caAreaName{font-size:16px; overflow-wrap:anywhere}
 /* CC-4: the visit form's cat picker (tap a picture to select) and the history entries */
 .caPicks{display:grid; grid-template-columns:repeat(auto-fill, minmax(96px, 1fr)); gap:8px}
@@ -42,7 +32,3 @@ input[type=date]{font:inherit; font-size:16px; color:var(--jc-ink); background:v
 .caLog .row, .caLogCats{flex-wrap:wrap; align-items:center; gap:8px}
 .caLog .caLinkRow{align-items:flex-end}
 .caLinkLab{display:flex; flex-direction:column; gap:4px; flex:1 1 180px}
-input[type=number], input[type=datetime-local]{font:inherit; font-size:16px; color:var(--jc-ink); background:var(--jc-surface-2);
-  border:1px solid var(--jc-line); border-radius:10px; padding:11px 12px; width:100%; box-sizing:border-box; min-height:46px;
-  min-width:0; max-width:100%; color-scheme:dark}
-input[type=datetime-local]{-webkit-appearance:none; appearance:none; display:block}

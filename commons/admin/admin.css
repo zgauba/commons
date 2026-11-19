@@ -7,15 +7,7 @@
 h2.group{font-size:13px; letter-spacing:.06em; text-transform:uppercase; color:var(--jc-muted); margin:20px 0 8px}
 .danger{color:var(--jc-danger); border:1px solid var(--jc-danger); background:transparent}
 .btn.small{font-size:13px; padding:7px 11px}
-input[type=datetime-local]{font:inherit; font-size:16px; color:var(--jc-ink); background:var(--jc-surface-2);
-  border:1px solid var(--jc-line); border-radius:10px; padding:10px; width:100%; color-scheme:dark;
-  /* iPhone: width:100% plus padding + border spilled off the right edge (Zee, 2026-11-06) */
-  box-sizing:border-box; display:block; -webkit-appearance:none; appearance:none; min-height:46px; text-align:start}
-textarea{font:inherit; font-size:16px; color:var(--jc-ink); background:var(--jc-surface-2); border:1px solid var(--jc-line);
-  border-radius:10px; padding:10px 12px; width:100%; min-height:72px; resize:vertical}
-input:disabled{opacity:.6}
-label.check{flex-direction:row; align-items:flex-start; gap:8px; font-weight:400; color:var(--jc-ink); font-size:14px}
-label.check input{margin-top:3px}
+/* form fields, dates, dropdowns, checkboxes, disabled: shared, in assets/app.css (DS-3a) */
 
 /* OT-1: the chips + search over the Events list */
 .evtools{display:flex; flex-direction:column; gap:10px; margin:16px 0 14px}
@@ -45,8 +37,6 @@ label.check input{margin-top:3px}
 .qhead span{display:flex; gap:6px}
 .qrow{display:flex; flex-wrap:wrap; align-items:flex-end; gap:12px}
 .qrow label:first-child{flex:1; min-width:150px}
-select{font:inherit; font-size:16px; color:var(--jc-ink); background:var(--jc-surface); border:1px solid var(--jc-line);
-  border-radius:10px; padding:10px; width:100%}
 .choices{display:flex; flex-direction:column; gap:6px}
 .clabel{font-size:13px; font-weight:700; color:var(--jc-muted)}
 .choice{display:flex; gap:6px; align-items:center}
@@ -89,7 +79,6 @@ label.check span small{display:block; color:var(--jc-muted); font-size:12.5px; f
 .flags{display:flex; flex-wrap:wrap; gap:5px}
 .flags span{border:1px solid var(--jc-line); border-radius:var(--jc-radius-pill); padding:2px 9px; font-size:12px; color:var(--jc-muted)}
 .suform{display:flex; flex-direction:column; gap:8px; border-top:1px solid var(--jc-line); padding-top:10px}
-#bannerForm textarea{min-height:60px}
 
 /* T5.3 feedback inbox (platform owner) */
 .fblist{list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:8px}
@@ -140,7 +129,6 @@ li[data-event] .chip.draft{display:table; margin:3px 0 2px}
 .notice.draftnote{border-color:var(--jc-warn); color:var(--jc-warn)}
 #ctStateNote{margin-bottom:12px}
 #ctForm .row label{flex:1 1 0}
-#ctForm input[type=time]{width:100%}
 /* R4b-2 — a court's day view */
 /* Zee 2026-11-09: ‹ date › — the iPhone date pill has a wide built-in minimum, so the middle column must be allowed to shrink */
 .cdbar{display:grid; grid-template-columns:48px minmax(0,1fr) 48px; align-items:center; gap:8px; margin:8px 0}
@@ -153,14 +141,13 @@ li[data-event] .chip.draft{display:table; margin:3px 0 2px}
   background:var(--jc-surface-2); border:1px solid var(--jc-line); border-radius:10px; color:var(--jc-ink);
   font-size:16px; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
 .cdbar .cdpill::after{content:"▾"; color:var(--jc-muted); font-size:13px}
-.cdbar input[type=date]{position:absolute; inset:0; width:100%; height:100%; min-width:0; margin:0; padding:0; border:0;
+.cdbar input[type=date]{position:absolute; inset:0; width:100%; height:100%; min-width:0; min-height:0; margin:0; padding:0; border:0;
   opacity:0; font-size:16px; cursor:pointer; -webkit-appearance:none; appearance:none}
 .cdbar .cddate:focus-within .cdpill{outline:2px solid var(--jc-accent); outline-offset:2px}
 .cdlist .cdhead{display:flex; flex-wrap:wrap; align-items:center; gap:6px}
 .cdlist .cdtime{font-variant-numeric:tabular-nums}
 .cdlist li.cd-past .cdtime{color:var(--jc-muted)}
 .cdlist .cdform{margin-top:8px}
-#cdBlockForm select, #cdBlockForm input[type=date]{width:100%}
 .cdlist{margin-top:12px}
 #cdBlockForm h2.group{margin-top:0}
 /* Section Names: the list of sections (tap one to rename it) */
@@ -183,12 +170,7 @@ li[data-event] .chip.draft{display:table; margin:3px 0 2px}
 .care li.editing{flex-direction:column; align-items:stretch}
 .care .pmform{flex-basis:100%; display:flex; flex-direction:column; gap:10px}
 .care .mini{margin-inline-start:auto}
-/* the care item's date looks like the other fields (the shared input rule covers text types only) */
-.care .pmform input[type=date]{font:inherit; font-size:16px; color:var(--jc-ink); background:var(--jc-surface-2);
-  border:1px solid var(--jc-line); border-radius:10px; padding:11px 12px; width:100%}
 #pmLog, #pmLogNone{margin-top:12px}
 
 /* Zee 2026-11-14: room between the WhatsApp group row and Add a Stray */
 #paGroupRows + .row{margin-top:12px}
-/* iOS Safari gives a date input its own minimum width: keep it inside the card */
-.care .pmform input[type=date]{-webkit-appearance:none; appearance:none; display:block; min-width:0; max-width:100%; box-sizing:border-box; min-height:46px}

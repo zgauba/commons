@@ -46,6 +46,10 @@ test("new event from the Halloween template: short name follows the title; quest
   await page.locator("#newEv").click();
   await page.locator('[data-tpl="halloween"]').click();                           // T5.2 2c: start from a template
   await expect(page.locator("#form")).toHaveAttribute("data-no-autoreload", "");   // auto-update never reloads mid-edit
+  // DS-3a: the editor's dropdowns are the shared ones — 46px, our own chevron (never iOS's thin double arrow)
+  const sels = await page.locator("#form select").evaluateAll((els) => els.map((e) => [e.getBoundingClientRect().height, getComputedStyle(e).appearance]));
+  expect(sels.length).toBeGreaterThan(2);
+  for (const [h, app] of sels) { expect(h).toBeGreaterThanOrEqual(46); expect(app).toBe("none"); }
   await page.locator("#title_en").fill("Halloween 2027!");
   await expect(page.locator("#slug")).toHaveValue("halloween-2027");
   // the template opens as editable cards (PR 2b)

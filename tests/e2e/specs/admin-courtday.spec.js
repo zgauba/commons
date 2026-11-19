@@ -110,6 +110,9 @@ test("opens on today in community time (phone in London, still yesterday there);
   const { calls } = await openDay(page, b, T_NIGHT);
   await expect(page.locator("#cdDate")).toHaveValue(D);
   await expect(page.locator("#cdDay")).toHaveText("Tue 10 Nov");
+  // DS-3a: the shared field look must not reach the invisible date input over the day pill — it stays the pill's size
+  const box = await page.locator("#cdDate").evaluate((e) => [e.getBoundingClientRect().height, e.closest(".cddate").getBoundingClientRect().height]);
+  expect(box).toEqual([44, 44]);
   expect(lastCall(calls, "jc_admin_facility_day").args).toEqual({ p_facility: "c1", p_date: D });
   await expect(page.locator(".cdlist .cdtime").first()).toHaveText("⁦07:00–08:00⁩");
   await expect(page.locator(".cdlist li")).toHaveCount(15);

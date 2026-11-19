@@ -24,12 +24,7 @@
 .links a{color:var(--jc-accent)}
 
 /* T5.3 feedback (Account tab) */
-#fbForm .opts{display:flex; flex-wrap:wrap; gap:6px}
-#fbForm .opts button{font:inherit; font-size:14px; cursor:pointer; color:var(--jc-ink); background:var(--jc-surface-2);
-  border:1px solid var(--jc-line); border-radius:var(--jc-radius-pill); padding:7px 14px}
-#fbForm .opts button[aria-pressed="true"]{border-color:var(--jc-accent); box-shadow:inset 0 0 0 1px var(--jc-accent)}
-#fbForm textarea{font:inherit; font-size:16px; color:var(--jc-ink); background:var(--jc-surface-2); border:1px solid var(--jc-line);
-  border-radius:10px; padding:10px 12px; width:100%; min-height:110px; resize:vertical}
+/* the type pills and the text box: shared (.opts, textarea in assets/app.css, DS-3a); the box is taller via rows="4" in home.js */
 
 /* R3a: bottom bar + start page (Account tab). Buttons, not drag: keyboard / screen reader / RTL alike. */
 .shellrows{list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:6px}

@@ -27,10 +27,25 @@ h1{font-size:22px; font-weight:800; margin:0 0 6px}
 .panel{background:var(--jc-surface); border:1px solid var(--jc-line); border-radius:var(--jc-radius);
   padding:18px 16px; display:flex; flex-direction:column; gap:12px}
 label{display:flex; flex-direction:column; gap:5px; font-size:13px; font-weight:700; color:var(--jc-muted)}
-input[type=email], input[type=password], input[type=text], input[type=number], input[type=tel]{
+/* every form field, one look (DS-3a, docs/design.md §5): modules never restyle these — fix them here for everyone */
+input[type=email], input[type=password], input[type=text], input[type=number], input[type=tel],
+input[type=date], input[type=time], input[type=datetime-local], textarea, select{
   font:inherit; font-size:16px; /* ≥16px: iOS doesn't zoom on focus */
   color:var(--jc-ink); background:var(--jc-surface-2); border:1px solid var(--jc-line);
   border-radius:10px; padding:11px 12px; width:100%}
+/* iPhone draws date / time fields as its own pill, wider than the box: field look, allowed to shrink */
+input[type=date], input[type=time], input[type=datetime-local]{-webkit-appearance:none; appearance:none; display:block;
+  min-width:0; max-width:100%; min-height:46px; text-align:start}
+textarea{min-height:80px; resize:vertical}
+/* dropdown: 46px like the other fields, one chevron of our own (drawn with the theme's colour), on the end side */
+select{-webkit-appearance:none; appearance:none; min-height:46px; padding-inline-end:36px; cursor:pointer;
+  background-image:linear-gradient(45deg, transparent 50%, var(--jc-muted) 50%), linear-gradient(135deg, var(--jc-muted) 50%, transparent 50%);
+  background-position:calc(100% - 20px) 50%, calc(100% - 15px) 50%; background-size:5px 5px; background-repeat:no-repeat}
+[dir=rtl] select{background-position:15px 50%, 20px 50%}
+input:disabled, select:disabled, textarea:disabled{opacity:.6}
+/* a checkbox or radio with its text: the box first, the theme's colour (never browser blue — Cats review D13) */
+label.check{flex-direction:row; align-items:flex-start; gap:8px; font-weight:600; color:var(--jc-ink); font-size:14px}
+label.check input{width:20px; height:20px; flex:0 0 auto; margin:1px 0 0; accent-color:var(--jc-accent)}
 /* every keyboard-reachable thing gets the same ring on the dark surface (R3c P3): textareas, selects,
    <summary>, Leaflet's keyboard markers ([tabindex]). A heading focused by script (tabindex=-1, nav.js
    jcFocusKeep) isn't a control: no ring. */
