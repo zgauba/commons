@@ -31,8 +31,9 @@ jobs:
           set -euo pipefail
           files=$(gh api "repos/$REPO/pulls/$PR/files" --paginate --jq '.[] | .filename')
           app=0; db=0
-          if printf '%s\n' "$files" | grep -Eq '^commons/'; then app=1; fi
-          if printf '%s\n' "$files" | grep -Eq '^supabase/'; then db=1; fi
+          # here-strings, not a pipe: under pipefail, grep -q closing early SIGPIPEs printf on a long list (review CR1)
+          if grep -Eq '^commons/' <<<"$files"; then app=1; fi
+          if grep -Eq '^supabase/' <<<"$files"; then db=1; fi
           if [ "$app" = 0 ] && [ "$db" = 0 ]; then
             echo "No app or database files changed — no plan headings needed."; exit 0
           fi
@@ -44,13 +45,26 @@ jobs:
           need=("Done when")
           if [ "$app" = 1 ]; then need+=("Screens to match" "Plan conformance"); fi
           missing=()
+          # one heading test for grep and awk alike: "## <name>" then a space, colon or end of line (review CR8)
           for h in "${need[@]}"; do
-            grep -Eiq "^[[:space:]]*##[[:space:]]*${h}([[:space:]]|$)" body.md || missing+=("## $h")
+            if ! grep -Eiq "^[[:space:]]*##[[:space:]]*${h}([[:space:]:]|$)" body.md; then
+              missing+=("## $h"); continue
+            fi
+            # the section must hold something — for Done when, a real table: header with Proof, separator, ≥ 1 row (CR6)
+            if ! awk -v h="$(tr '[:upper:]' '[:lower:]' <<<"$h")" '
+              { l = tolower($0); sub(/\r$/, "", l) }
+              l ~ "^[[:space:]]*##[[:space:]]*" h "([[:space:]:]|$)" { s = 1; next }
+              l ~ /^[[:space:]]*##/ { s = 0 }
+              !s { next }
+              h != "done when" { if (l ~ /[^[:space:]]/) ok = 1; next }
+              l ~ /\|/ && l ~ /proof/ && !hd { hd = 1; next }
+              hd && l ~ /^[[:space:]]*\|?[[:space:]]*:?---/ { sep = 1; next }
+              sep && l ~ /\|/ { ok = 1 }
+              END { exit ok ? 0 : 1 }' body.md; then
+              if [ "$h" = "Done when" ]; then missing+=("a filled Check | Proof | Pass/Fail table under ## Done when (header, separator, at least one row)")
+              else missing+=("text under ## $h"); fi
+            fi
           done
-          # the Done-when section must hold the table, not just the heading
-          if ! awk '{l=tolower($0)} l ~ /^[[:space:]]*##[[:space:]]*done when/ {s=1; next} l ~ /^[[:space:]]*##[[:space:]]/ {s=0} s && l ~ /\|/ && l ~ /proof/ {f=1} END {exit f?0:1}' body.md; then
-            missing+=("a Check | Proof | Pass/Fail table under ## Done when")
-          fi
           if [ ${#missing[@]} -eq 0 ]; then
             echo "All plan headings present: ${need[*]}"; exit 0
           fi
