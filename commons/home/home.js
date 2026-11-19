@@ -123,7 +123,7 @@ var VIEWS = {
           '<div class="opts" role="group" aria-label="' + esc(jcT("fb_kind")) + '">' + ["idea", "problem", "other"].map(function(k){
             return '<button type="button" data-fbkind="' + k + '" aria-pressed="' + (fbKind === k) + '">' + esc(jcT("fb_kind_" + k)) + '</button>';
           }).join("") + '</div>' +
-          '<textarea id="fbBody" maxlength="1000" dir="auto" aria-label="' + esc(jcT("fb_title")) + '" placeholder="' + esc(jcT("fb_placeholder")) + '"></textarea>' +
+          '<textarea id="fbBody" rows="4" maxlength="1000" dir="auto" aria-label="' + esc(jcT("fb_title")) + '" placeholder="' + esc(jcT("fb_placeholder")) + '"></textarea>' +
           '<p class="help">' + esc(jcFmt("fb_disclosure", { h: homeTitle() })) + '</p>' +
           '<button class="btn" type="submit" id="fbSend">' + esc(jcT("fb_send")) + '</button>' +
         '</form></div>' +

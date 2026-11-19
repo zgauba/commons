@@ -11,8 +11,6 @@ main{display:flex; flex-direction:column; gap:12px}
 .bklist .time{font-variant-numeric:tabular-nums}
 .bklist li.s-past .time{color:var(--jc-muted)}
 .bklist li.cancelled{border-color:var(--jc-warn)}
-.bklist .check{flex-direction:row; align-items:center; gap:8px; font-weight:600; color:var(--jc-ink); font-size:14px}
-.bklist .check input{width:20px; height:20px}
 /* the day strip: one button per day of the window, scrolls sideways */
 .strip{display:flex; gap:6px; overflow-x:auto; padding-bottom:4px; scrollbar-width:none}
 .strip button{flex:0 0 auto; min-width:56px; min-height:52px; font:inherit; font-size:13px; line-height:1.2; cursor:pointer;

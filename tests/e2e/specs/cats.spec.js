@@ -686,3 +686,47 @@ test("a list that fails to load says so and offers Try again", async ({ page }) 
   await page.locator("[data-lretry]").click();
   await expect(page.locator(".caLog")).toHaveCount(2);
 });
+
+// DS-3a (docs/plans/DS-3-shared-pieces.md): the form controls are the shared ones in assets/app.css — every dropdown
+// 46px with one chevron on the end side (flipped in Arabic), fields and text boxes in the field look, accent checkboxes
+for (const lang of ["en", "ar"]) {
+  test(`DS-3a shared controls in the cat editor and the visit form (${lang})`, async ({ page }) => {
+    if (lang === "ar") await page.addInitScript(() => { try { localStorage.setItem("jc_lang", "ar"); } catch (e) {} });
+    const sink = { activity: [] };
+    const rpc = Object.assign(logBackend(["cats"], sink), {});
+    await stubBackend(page, { rpc });
+    await signIn(page);
+    await page.goto("cats/");
+    await page.locator("#caAddCat").click();
+    await expect(page.locator("#caCArea")).toBeVisible();
+    const sel = await page.locator("#caCatForm select, form select").evaluateAll((els) => els.map((e) => {
+      const s = getComputedStyle(e);
+      return { h: e.getBoundingClientRect().height, img: s.backgroundImage, pos: s.backgroundPosition, app: s.appearance };
+    }));
+    expect(sel.length).toBeGreaterThan(3);
+    for (const s of sel) {
+      expect(s.h).toBeGreaterThanOrEqual(46);
+      expect(s.app).toBe("none");
+      expect(s.img).toContain("linear-gradient");
+      expect(s.pos.startsWith(lang === "ar" ? "15px" : "calc(100% - 20px)")).toBe(true);
+    }
+    const fields = await page.locator("form input[type=date], form textarea").evaluateAll((els) => els.map((e) => ({
+      tag: e.tagName, h: e.getBoundingClientRect().height, r: getComputedStyle(e).borderRadius })));
+    expect(fields.length).toBeGreaterThan(1);
+    for (const f of fields) {
+      expect(f.h).toBeGreaterThanOrEqual(f.tag === "TEXTAREA" ? 80 : 46);
+      expect(f.r).toBe("10px");
+    }
+    await page.goto("cats/");
+    await page.locator("#caTab_stations").click();
+    await page.locator(`[data-visit="${S1}"]`).click();
+    const accent = await page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue("--jc-accent").trim());
+    const checks = await page.locator("label.check input[type=checkbox]").evaluateAll((els) => els.map((e) => {
+      const s = getComputedStyle(e); return { ac: s.accentColor, w: e.getBoundingClientRect().width };
+    }));
+    expect(checks.length).toBeGreaterThan(2);
+    const rgb = await page.evaluate((c) => { const d = document.createElement("i"); d.style.color = c; document.body.appendChild(d);
+      const v = getComputedStyle(d).color; d.remove(); return v; }, accent);
+    for (const c of checks) { expect(c.ac).toBe(rgb); expect(c.w).toBe(20); }
+  });
+}

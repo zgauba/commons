@@ -73,7 +73,7 @@ test('baseline: more than listed is "added"; fewer is "stale"; old count-less li
   const found = new Map([['bare|f|.a select', 1], ['bare|f|.c select', 1], ['dup|h|a,b', 1]]);
   const { added, stale } = compare(found, base);
   assert.deepEqual(added.map((a) => a.key), ['bare|f|.c select']);
-  assert.deepEqual(stale.map((s) => [s.key, s.n]), [['bare|f|.b select', 0], ['dup|h|a,b', 1]]);
+  assert.deepEqual(stale.map((s) => [s.key, s.n]).sort(), [['bare|f|.b select', 0], ['dup|h|a,b', 1]]);
 });
 
 test('the PR may not grow the baseline against the base branch (security review)', () => {
@@ -81,4 +81,35 @@ test('the PR may not grow the baseline against the base branch (security review)
   assert.deepEqual(grew(readBaseline('1\tbare|f|.a select\n1\tdup|h|a,b\n'), baseB), []);
   assert.deepEqual(grew(readBaseline('2\tbare|f|.a select\n1\tbare|f|.new select\n'), baseB).map((g) => g.key),
     ['bare|f|.a select', 'bare|f|.new select']);
+});
+
+/* DS-3a: a dup is matched by its rule body (hash), not by the exact file list — so removing one copy is a fix,
+   promoting a copy into commons/assets/ is allowed, and a copy landing in another module still fails */
+test('dup: removing one copy is "stale" (a fix), never "added"', () => {
+  const base = readBaseline('4\tdup|h|commons/admin/admin.css,commons/assets/app.css,commons/events/events.css,commons/home/home.css\n');
+  const found = new Map([['dup|h|commons/admin/admin.css,commons/assets/app.css', 2]]);
+  const { added, stale } = compare(found, base);
+  assert.deepEqual(added, []);
+  assert.deepEqual(stale.map((s) => [s.n, s.to]), [[2, 'dup|h|commons/admin/admin.css,commons/assets/app.css']]);
+  assert.deepEqual(grew(readBaseline('2\tdup|h|commons/admin/admin.css,commons/assets/app.css\n'), base), []);
+});
+
+test('dup: a module copy moving into commons/assets/ is a promotion; a copy into another module fails', () => {
+  const base = readBaseline('2\tdup|h|commons/admin/admin.css,commons/pets/pets.css\n');
+  const promoted = new Map([['dup|h|commons/admin/admin.css,commons/assets/app.css', 2]]);
+  assert.deepEqual(compare(promoted, base).added, []);
+  assert.deepEqual(grew(readBaseline('2\tdup|h|commons/admin/admin.css,commons/assets/app.css\n'), base), []);
+  const spread = new Map([['dup|h|commons/admin/admin.css,commons/cats/cats.css', 2]]);
+  assert.deepEqual(compare(spread, base).added.map((a) => a.key), ['dup|h|commons/admin/admin.css,commons/cats/cats.css']);
+  assert.equal(grew(readBaseline('2\tdup|h|commons/admin/admin.css,commons/cats/cats.css\n'), base).length, 1);
+  const more = new Map([['dup|h|commons/admin/admin.css,commons/pets/pets.css', 3]]);
+  assert.equal(compare(more, base).added.length, 1);
+  assert.equal(compare(new Map([['dup|z|a,b', 2]]), base).added.length, 1);
+});
+
+test('dup: a body gone from every file is "stale" (delete the line)', () => {
+  const base = readBaseline('2\tdup|h|commons/admin/admin.css,commons/pets/pets.css\n');
+  const { added, stale } = compare(new Map(), base);
+  assert.deepEqual(added, []);
+  assert.deepEqual(stale.map((s) => [s.key, s.n, s.to]), [['dup|h|commons/admin/admin.css,commons/pets/pets.css', 0, undefined]]);
 });

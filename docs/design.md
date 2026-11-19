@@ -294,37 +294,37 @@ Cats today: sex (3), life stage (4), ear tip (3), sterilisation (3) → pills ·
 ### Text input
 | | |
 |---|---|
-| Status | **Shared** (`input[type=text|email|password|number|tel]` in `app.css`) |
+| Status | **Shared** (one field rule in `app.css` for text / email / password / number / tel / date / time / datetime-local, `textarea`, `select`) |
 | Native basis | `input` |
-| Variants / states | `:disabled` (opacity) · focus ring |
+| Variants / states | `:disabled` (opacity .6, shared with `select` / `textarea`) · focus ring |
 | Accessibility | 16px text; `dir="auto"` on free text |
 
 ### Textarea
 | | |
 |---|---|
-| Status | **Gap** — copied in 5 files (`pets`, `cats`, `admin`, `events`, `home`) → one rule in `app.css` (DS-3) |
+| Status | **Shared** (`app.css`, DS-3a) |
 | Native basis | `textarea` |
-| Markup | Same look as text inputs; min-height 80px; vertical resize. Optional `jcRichToolbar` (§5 rich text) |
+| Markup | Same look as text inputs; min-height 80px; vertical resize. Taller box: the `rows` attribute, never module CSS. Optional `jcRichToolbar` (§5 rich text) |
 
 ### Dropdown (`select`)
 | | |
 |---|---|
-| Status | **Gap** — styled bare in `cats.css` and `admin.css`, ≈30px on iOS (D7) → shared in DS-3 |
+| Status | **Shared** (`app.css`, DS-3a) |
 | Native basis | `select` |
-| Markup | Target: 46px, field look, one own chevron (mirrored in Arabic) |
+| Markup | Field look, min 46px, `appearance:none` + one chevron drawn with `--jc-muted` on the end side (left in Arabic) |
 | Use / Don't | Per the choice table (§1). **Never redraw the form on `change` and re-focus a new `select`**: on iPhone it can re-open the picker (D9). Update only the dependent part |
 
 ### Date · time · datetime
 | | |
 |---|---|
-| Status | **Gap** — copied in `cats.css` and `admin.css` (bare and `.pmform`) → shared in DS-3 |
+| Status | **Shared** (`app.css`, DS-3a). Exception: Courts day view's `.cdbar` date (an invisible input over its own pill, iOS fix) |
 | Native basis | `input[type=date|time|datetime-local]` |
-| Markup | Target: field look, 46px, `appearance:none`, `color-scheme` from the theme |
+| Markup | Field look, min 46px, `appearance:none`, allowed to shrink (`min-width:0`); `color-scheme` inherited from the theme |
 
 ### Choice pills
 | | |
 |---|---|
-| Status | **Shared**, with drift: `events/events.css:50` and `home/home.css:27` redefine `.opts` → removed in DS-3 |
+| Status | **Shared** (the Events and My Home overrides removed in DS-3a) |
 | Native basis | `button` in a `fieldset` |
 | Markup | `fieldset > legend + .opts > button[aria-pressed]` |
 | Variants / states | Pressed = accent ring |
@@ -335,9 +335,9 @@ Cats today: sex (3), life stage (4), ear tip (3), sterilisation (3) → pills ·
 ### Checkbox
 | | |
 |---|---|
-| Status | **Gap** — `.check` copied in Pets and Cats; browser-blue in both (D13) → shared, `accent-color:var(--jc-accent)` (DS-3) |
-| Native basis | `input[type=checkbox]` in `label.check` |
-| Markup | `label.check` (row, 20px box, then the text) |
+| Status | **Shared** (`app.css`, DS-3a): `accent-color:var(--jc-accent)`, never browser blue (D13) |
+| Native basis | `input[type=checkbox]` or `radio` in `label.check` |
+| Markup | `label.check` (row, 20px box, then the text in 600 weight; a two-line option: `span > b + small`) |
 | Reference | `design/pet-edit.jpg` (shows the blue to fix) |
 
 ### Tap-to-pick grid
@@ -439,5 +439,7 @@ Add it here (an entry field or a "Never") in the same PR (`/ship-pr` step 1b).
 | Plan-followed guard | A PR body without Done when / Screens to match / Plan conformance | CI `plan-followed.yml` |
 
 **Baseline** (`tests/ci/design-guard-baseline.txt`): the offenders that existed on 2026-11-19 — 51 bare-element
-rules and 19 duplicated bodies across all modules. It may only **shrink**: a new offender fails, and so does a
-line that no longer matches (you fixed it: delete the line in the same PR). Never add a line to make CI pass.
+rules and 19 duplicated bodies across all modules (after DS-3a: 23 and 15). It may only **shrink**: a new offender
+fails, and so does a line that no longer matches (you fixed it: delete or update the line in the same PR). A
+duplicate is matched by its rule body: removing one copy is a fix, moving a module copy into `commons/assets/` is a
+promotion, and a copy appearing in another module fails. Never add a line to make CI pass.
