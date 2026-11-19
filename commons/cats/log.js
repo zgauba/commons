@@ -140,7 +140,7 @@ function logWire(root){
   function each(sel, fn){ Array.prototype.forEach.call(root.querySelectorAll(sel), function(b){ b.addEventListener("click", function(){ fn(b); }); }); }
   each("[data-lmore]", function(b){ logFetch(b.dataset.lmore, true); logPaint(b.dataset.lmore); });
   each("[data-lretry]", function(b){ var k = b.dataset.lretry; delete logs[k]; logFetch(k); logPaint(k); });
-  each("[data-lcat]", function(b){ catId = b.dataset.lcat; show("cat"); try { window.scrollTo(0, 0); } catch(e){} });
+  each("[data-lcat]", function(b){ catId = b.dataset.lcat; catTab = "about"; show("cat"); try { window.scrollTo(0, 0); } catch(e){} });
   each("[data-lhide]", function(b){
     var p = b.dataset.lhide.split(":");
     logWrite("jc_cat_log_hide", { p_kind: p[0], p_id: p[1], p_hidden: b.dataset.on === "1" }, b.dataset.on === "1" ? "ca_l_hidden_ok" : "ca_l_shown_ok", b);

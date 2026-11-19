@@ -317,6 +317,13 @@ Make residents' pet pages richer and more fun now that strays leave Pets. Sequen
   only — frozen signature); new refusal code.
 - Sign-up limit for every event kind (today only one-place events have a capacity).
 
+### Events map: house-number labels when zoomed in  ·  app only  (neighbour request via Zee, 2026-11-19)
+- On an event's map, once zoomed in close (≈ street level), each home pin shows its number ("206") as a small
+  permanent label; zoomed out, no labels (they'd pile up). The number is already sent and shown in the List
+  (`jcHomeLabel`), so no new data. Match the Courts / venue pin label look (`bklabel`). Needs a light `/plan-change`
+  (Localized): check Arabic digits, clustering at zoom ≥ 18, and the Halloween-night pin colours stay readable.
+  Queued after DS-4.
+
 ### Events: per-event organizers draft, admin approves  ·  idea (2026-11-17)
 - Per-event organizers already exist (T5.2b: invite link, then they run that one event). They can't **create** or
   publish. Idea: an organizer drafts an event → it waits in Organizer Tools → a community admin publishes it.

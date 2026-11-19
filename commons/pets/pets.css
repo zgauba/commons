@@ -1,11 +1,5 @@
 /* R5b-1 — Pets (residents). Page shell, list cards, photo cards, hero and facts: shared, in assets/app.css (DS-3b). */
-/* actions outside a list card (the alarm, the seen-out box, the share block) */
-.acts{display:flex; flex-wrap:wrap; gap:8px; align-items:center}
-/* the missing alarm on a pet's page */
-.alarm{border:2px solid var(--jc-danger); border-radius:var(--jc-radius); padding:12px 14px; background:var(--jc-surface)}
-.alarm b{color:var(--jc-danger)}
-.alarm p{margin:6px 0 0; font-size:14px}
-.desc{margin:0; font-size:14.5px; line-height:1.45; overflow-wrap:anywhere}
+/* the story (.desc), the missing alarm and button rows (.acts): shared, in assets/app.css (DS-4a) */
 .panel p{margin:0}
 .status{font-size:13.5px; margin:0; display:flex; align-items:center; gap:8px; flex-wrap:wrap}
 .status.ok{color:var(--jc-good)}
@@ -19,8 +13,6 @@
 #ptPhotoIn:focus-visible + #ptPhotoPick{outline:2px solid var(--jc-accent); outline-offset:2px}
 
 /* pet page: header, alarm, then the About · Sightings tabs */
-.alarm .acts{margin-top:10px}
-.alarm .btn{flex:1 1 auto}
 #ptPage > h2.group:first-child{margin-top:0}
 /* R5b-2b-2a — "seen out on their own" on my pet's card: amber (a heads-up), never red */
 .ptcard .meta.seenout{color:var(--jc-warn); font-weight:700}

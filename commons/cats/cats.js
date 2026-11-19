@@ -20,6 +20,7 @@ var places = null, prog = null, loadErr = null, busy = false, map = null;
 var tab = "cats";                     /* the programme's tabs: cats · log (CC-4 Activity) · stations · areas (coordinators) */
 var reg = null, pubCats = null;       /* CC-3: the register (programme) · the residents' cat list */
 var catQ = "", catId = null;          /* the cats search · the open cat */
+var catTab = "about";                 /* the cat page's tab: about · log (programme) */
 var ced = null;                       /* the cat editor's draft: { id | null, f: {field: value}, merge_into, shrinking } */
 var ed = null;                        /* the station editor's draft: { id | null, area_id, w (where.js), landmark, notes, private (null = not chosen), people {user_id: role}, archived } */
 var newArea = "";
@@ -86,7 +87,7 @@ function peopleLine(s){
 function stationCard(d, s, programme){
   var title = programme && s.code ? s.code + (s.landmark ? " · " + s.landmark : "") : (s.landmark || jcT("ca_station"));
   return '<div class="panel caStation" data-station="' + esc(s.id) + '">' +
-    '<div class="evtop"><b dir="auto">' + esc(title) + '</b>' +
+    '<div class="head"><b dir="auto">' + esc(title) + '</b>' +          /* D6: the chip right after the title */
     (programme && s.private === true ? '<span class="chip" data-private>' + esc(jcT("ca_private")) + '</span>' : '') + '</div>' +
     (programme ? (peopleLine(s) ? '<p class="help">' + peopleLine(s) + '</p>' : '') +
       (typeof s.access_notes === "string" && s.access_notes ? '<p class="help caNotes" dir="auto">' + esc(s.access_notes) + '</p>' : '') : '') +
@@ -115,21 +116,20 @@ var VIEWS = {
       (rk ? '<p class="notice" id="caRole">' + esc(jcT(rk)) + '</p>' : '');
     if (loadErr) { el("view").innerHTML = head + '<p class="notice" id="caErr">' + esc(jcErrTextFor("ca_err_", loadErr)) + '</p>'; return; }
     if (!prog && !places) { el("view").innerHTML = head + '<p class="help">' + esc(jcT("working")) + '</p>'; return; }
-    if (!prog) {                                          /* residents: the cats + public stations only */
-      var pub = stationsOf(places);
-      el("view").innerHTML = head + catsHtml(pubCats, false) +
-        '<h2>' + esc(jcT("ca_stations_h")) + '</h2><p class="help">' + esc(jcT("ca_public_help")) + '</p>' +
-        (pub.length ? grouped(places, pub, false) : '<p class="help" id="caNone">' + esc(jcT("ca_none_public")) + '</p>') +
-        '<div class="panel" id="caSoon"><p>' + esc(jcT("ca_soon")) + '</p></div>';
-      wireCats(pubCats);
-      return;
-    }
-    var keys = canEdit() ? ["cats", "log", "stations", "areas"] : ["cats", "log", "stations"];
+    /* residents: the cats + public stations only, in two tabs (DS-4a: as Pets, no headings repeating the tab) */
+    var keys = !prog ? ["cats", "stations"] : canEdit() ? ["cats", "log", "stations", "areas"] : ["cats", "log", "stations"];
     if (keys.indexOf(tab) < 0) tab = "cats";
-    var body = tab === "areas" ? areasHtml() : tab === "cats" ? catsHtml(reg, true) : tab === "log" ? logTabHtml() : stationsHtml();
+    var body;
+    if (!prog) {
+      var pub = stationsOf(places);
+      body = tab === "cats" ? catsHtml(pubCats, false) + '<div class="panel" id="caSoon"><p>' + esc(jcT("ca_soon")) + '</p></div>'
+        : '<p class="help">' + esc(jcT("ca_public_help")) + '</p>' +
+          (pub.length ? grouped(places, pub, false) : '<p class="help" id="caNone">' + esc(jcT("ca_none_public")) + '</p>');
+    } else body = tab === "areas" ? areasHtml() : tab === "cats" ? catsHtml(reg, true) : tab === "log" ? logTabHtml() : stationsHtml();
     el("view").innerHTML = head + jcTabsHtml("caTab_", keys, tab, function(k){ return jcT("ca_tab_" + k); }, jcModTitle("cats"), "caPanel") +
       '<div ' + jcTabPanel("caTab_", tab, "caPanel") + '>' + body + '</div>';
     jcTabsWire("caTab_", keys, function(k){ tab = k; renaming = null; draw(); });
+    if (!prog) { if (tab === "cats") wireCats(pubCats); return; }
     if (tab === "areas") wireAreas(); else if (tab === "cats") wireCats(reg); else if (tab === "log") wireLogTab(); else wireStations();
   },
   cat: function(){ catView(); },
@@ -316,32 +316,43 @@ function catFind(d, id){ return catsList(d).filter(function(c){ return c.id === 
 function merged(c){ return hObj(c.merged_into); }
 /* a value's label, or "" when the server sent something this page doesn't know */
 function lab(prefix, list, v){ return list.indexOf(v) >= 0 ? jcT(prefix + v) : ""; }
-function catChips(c){
-  return (c.status && c.status !== "community" ? ' <span class="chip' + (c.status === "missing" ? ' warn' : '') + '">' + esc(lab("ca_st_", CA_STATUS, c.status)) + '</span>' : '') +
-    (c.confirmed === false ? ' <span class="chip" data-prov>' + esc(jcT("ca_provisional")) + '</span>' : '');
+/* status + provisional chips; a missing cat is red, as a missing pet (DS-4a). noMissing: the cat page's alarm says it */
+function catChips(c, noMissing){
+  var miss = c.status === "missing";
+  return (c.status && c.status !== "community" && !(miss && noMissing) ? '<span class="chip' + (miss ? ' miss' : '') + '">' + esc(lab("ca_st_", CA_STATUS, c.status)) + '</span>' : '') +
+    (c.confirmed === false ? '<span class="chip" data-prov>' + esc(jcT("ca_provisional")) + '</span>' : '');
 }
+/* "C-001 · Souk": the Cat ID when the cat has a name, and its area */
+function catSub(c){ return [c.code !== catTitle(c) ? c.code : "", typeof c.area === "string" ? c.area : ""].filter(Boolean).join(" · "); }
+/* D2: a Pets photo card; the whole card is one button, its text starts with the name (review M3) */
 function catCard(c){
-  var ph = strs(c.photos)[0];
-  var sub = [c.code !== catTitle(c) ? c.code : "", typeof c.area === "string" ? c.area : "", typeof c.coat === "string" ? c.coat : ""].filter(Boolean).join(" · ");
-  return '<button type="button" class="panel caCat" data-cat="' + esc(c.id) + '">' +     /* its text is its name (review M3) */
-    jcPetPhotoHtml({ photo_path: ph || null }, 22, "thumb") +
-    '<span class="caCatTxt"><span class="caCatTop"><b dir="auto">' + esc(catTitle(c)) + '</b>' + catChips(c) + '</span>' +
-    (sub ? '<span class="help" dir="auto">' + esc(sub) + '</span>' : '') + '</span></button>';
+  return jcCardHtml({ missing: c.status === "missing", liAttrs: 'data-catli="' + esc(c.id) + '"', btnAttrs: 'data-cat="' + esc(c.id) + '"',
+    photoHtml: jcPetPhotoHtml({ photo_path: strs(c.photos)[0] || null }, 34, "tile"), name: catTitle(c), linesHtml: [
+      catSub(c) && jcMetaHtml(catSub(c), "", true),
+      typeof c.coat === "string" && c.coat && jcMetaHtml(c.coat, "where", true),
+      catChips(c) && '<span class="head">' + catChips(c) + '</span>'] });
 }
 function catMatches(c){
   return jcMatches(catQ, [c.name, c.code, c.old_id, c.coat, c.area].map(function(x){ return typeof x === "string" ? x : ""; }));
 }
+function live(d){ return catsList(d).filter(function(c){ return !merged(c); }); }
+/* the cards under the search: every cat not missing (missing ones are pinned on top, as on Pets) */
 function catsListHtml(d){
-  var live = catsList(d).filter(function(c){ return !merged(c); });
-  if (!live.length) return '<p class="help" id="caCatsNone">' + esc(jcT("ca_cats_none")) + '</p>';
-  var hit = live.filter(catMatches);
-  return hit.length ? hit.map(catCard).join("") : '<p class="help" id="caCatsNone">' + esc(jcT("ca_cats_nomatch")) + '</p>';
+  var rest = live(d).filter(function(c){ return c.status !== "missing"; });
+  if (!live(d).length) return '<p class="help" id="caCatsNone">' + esc(jcT("ca_cats_none")) + '</p>';
+  var hit = rest.filter(catMatches);
+  return hit.length ? '<ul class="ptgrid">' + hit.map(catCard).join("") + '</ul>'
+    : rest.length ? '<p class="help" id="caCatsNone">' + esc(jcT("ca_cats_nomatch")) + '</p>' : '';
 }
 function catsHtml(d, programme){
   if (!d) return '';
   var gone = programme && canEditCats() ? catsList(d).filter(merged) : [], off = busy ? ' disabled' : '';
-  return '<h2>' + esc(jcT("ca_cats_h")) + '</h2><p class="help">' + esc(jcT("ca_cats_help")) + '</p>' +
+  var missing = live(d).filter(function(c){ return c.status === "missing"; });
+  /* Pets' list order: the urgent group, then search, then the cards (design.md §3) */
+  return '<p class="help">' + esc(jcT("ca_cats_help")) + '</p>' +
     (programme && canEditCats() ? '<div class="row"><button class="btn" type="button" id="caAddCat"' + off + '>' + esc(jcT("ca_add_cat")) + '</button></div>' : '') +
+    (missing.length ? '<h2 class="group" id="caMissingHead">' + esc(jcT("ca_missing_h")) + '</h2>' +
+      '<ul class="ptgrid wide" id="caMissing">' + missing.map(catCard).join("") + '</ul>' : '') +
     (catsList(d).length ? jcSearchHtml({ id: "caQ", placeholder: jcT("ca_search"), value: catQ }) : '') +
     '<div id="caCats">' + catsListHtml(d) + '</div>' +
     (gone.length ? '<h2 class="group">' + esc(jcT("ca_merged_h")) + '</h2>' + gone.map(function(c){
@@ -350,13 +361,16 @@ function catsHtml(d, programme){
         '<div class="row"><button class="mini" type="button" data-unmerge="' + esc(c.id) + '"' + off + '>' + esc(jcT("ca_unmerge")) + '</button></div></div>';
     }).join("") : '');
 }
-function wireCatList(){
-  each("[data-cat]", function(b){ catId = b.dataset.cat; show("cat"); try { window.scrollTo(0, 0); } catch(e){} });
+/* root: the search redraws only #caCats, so only its new cards get a click (the missing ones keep theirs) */
+function wireCatList(root){
+  Array.prototype.forEach.call((root || document).querySelectorAll("[data-cat]"), function(b){
+    b.addEventListener("click", function(){ catId = b.dataset.cat; catTab = "about"; show("cat"); try { window.scrollTo(0, 0); } catch(e){} });
+  });
   jcPetPhotoFill();
 }
 function wireCats(d){
   var q = el("caQ");
-  if (q) q.addEventListener("input", function(){ catQ = q.value; el("caCats").innerHTML = catsListHtml(d); wireCatList(); });
+  if (q) q.addEventListener("input", function(){ catQ = q.value; el("caCats").innerHTML = catsListHtml(d); wireCatList(el("caCats")); });
   on("caAddCat", function(){ openCatEditor(null); });
   each("[data-unmerge]", function(b){
     var c = catFind(reg, b.dataset.unmerge);
@@ -365,7 +379,6 @@ function wireCats(d){
   wireCatList();
 }
 function canEditCats(){ return !!(reg && reg.can_edit === true); }
-function factRow(k, v){ return v ? '<li><b>' + esc(jcT(k)) + ':</b> <span dir="auto">' + esc(v) + '</span></li>' : ''; }
 function dateText(d){ return typeof d === "string" && /^\d{4}-\d{2}-\d{2}$/.test(d) ? dayOf(d + "T12:00:00Z") : ""; }
 
 function catView(){
@@ -377,38 +390,53 @@ function catView(){
   var hist = programme && Array.isArray(c.status_log) ? c.status_log.filter(hObj) : [];
   var also = programme && Array.isArray(c.merged_from) ? c.merged_from.filter(hObj) : [];
   var join = function(a){ return a.filter(Boolean).join(" · "); };
-  el("view").innerHTML = msgBox() +
-    (photos.length ? '<div class="caPhotos">' + photos.map(function(p, i){
-      return jcPetPhotoHtml({ photo_path: p }, i ? 22 : 44, i ? "thumb" : "big", { view: photos });
-    }).join("") + '</div>' : '') +
-    '<h1 dir="auto">' + esc(catTitle(c)) + '</h1>' +
-    '<p class="help" id="caCode">' + esc(c.code) + catChips(c) + '</p>' +
-    (merged(c) ? '<p class="notice">' + esc(jcFmt("ca_merged_into", { c: c.merged_into.code || "" })) + '</p>' : '') +
-    (typeof c.story === "string" && c.story ? '<p class="caStory" dir="auto">' + esc(c.story) + '</p>' : '') +
-    '<ul class="helplist caFacts">' +
-      factRow("ca_f_area", typeof c.area === "string" ? c.area : "") +
-      (programme ? factRow("ca_f_station", st ? join([st.code, st.landmark]) : "") : '') +
-      factRow("ca_f_coat", typeof c.coat === "string" ? c.coat : "") +
-      factRow("ca_f_sex", c.sex !== "unknown" ? lab("ca_sex_", CA_SEX, c.sex) : "") +
-      factRow("ca_f_life", c.life_stage !== "unknown" ? lab("ca_life_", CA_LIFE, c.life_stage) : "") +
-      factRow("ca_f_status", programme ? join([lab("ca_st_", CA_STATUS, c.status), dateText(c.status_on), c.status_source]) : lab("ca_st_", CA_STATUS, c.status)) +
-      factRow("ca_f_ear", join([lab("ca_ear_", CA_EAR, c.ear_tip), programme && c.ear_side ? lab("ca_side_", ["left", "right"], c.ear_side) : ""])) +
-      factRow("ca_f_ster", join([lab("ca_ster_", CA_STER, c.sterilised), programme ? c.sterilised_source : ""])) +
-      (programme ? factRow("ca_f_tnvr", c.tnvr !== "none" ? join([lab("ca_tnvr_", CA_TNVR, c.tnvr), dateText(c.tnvr_on), c.tnvr_place]) : "") +
-                   factRow("ca_f_old_id", c.old_id) : '') +
-    '</ul>' +
-    (also.length ? '<p class="help" id="caAlso">' + esc(jcT("ca_also_filed")) + ': <span dir="auto">' +
-      esc(also.map(function(m){ return join([m.code, m.name, m.old_id]); }).join("; ")) + '</span></p>' : '') +
-    (hist.length ? '<h2>' + esc(jcT("ca_history")) + '</h2><ul class="helplist" id="caHist">' + hist.map(function(h){
-      return '<li>' + esc(jcFmt("ca_hist_line", { s: lab("ca_st_", CA_STATUS, h.status), d: dateText(h.on) || dayOf(h.at) })) +
-        (h.source ? ' · <span dir="auto">' + esc(h.source) + '</span>' : '') + (h.code && h.code !== c.code ? ' · ' + esc(h.code) : '') + '</li>';
-    }).join("") + '</ul>' : '') +
-    (programme ? catLogHtml(c) : '') +                                                              /* CC-4 */
-    (canEditCats() ? '<div class="row">' + (merged(c)
-       ? '<button class="btn ghost" type="button" id="caUnmerge"' + off + '>' + esc(jcT("ca_unmerge")) + '</button>'
-       : '<button class="btn" type="button" id="caEditCat"' + off + '>' + esc(jcT("ca_edit")) + '</button>') + '</div>' : '');
+  var str = function(v){ return typeof v === "string" ? v : ""; };
+  /* typed text inside a joined value keeps its own direction (a Latin source in an Arabic line stays in order) */
+  var typed = function(v){ v = str(v); return v ? "\u2068" + v + "\u2069" : ""; };
+  /* DS-4a (D3, D5): the stray page's layout — hero (photo beside the name), the red alarm when missing, About · Activity
+     tabs, label → value facts in three groups, the status history as record rows */
+  var tabs = programme && !merged(c) ? ["about", "log"] : ["about"];
+  if (tabs.indexOf(catTab) < 0) catTab = "about";
+  var h = jcHeroHtml({ photoHtml: jcPetPhotoHtml({ photo_path: photos[0] || null }, 34, "tile", { view: photos }), name: catTitle(c),
+    afterNameHtml: canEditCats() && !merged(c) ? '<button class="lang adminbtn" type="button" id="caEditCat"' + off + '>' + esc(jcT("ca_edit")) + '</button>' : '',
+    meta: catSub(c), chipsHtml: catChips(c, true) });
+  if (c.status === "missing") h += jcAlarmHtml("caAlarm", programme && dateText(c.status_on)
+    ? jcFmt("ca_missing_since", { n: catTitle(c), d: dateText(c.status_on) }) : jcFmt("ca_missing_now", { n: catTitle(c) }));
+  if (merged(c)) h += '<p class="notice">' + esc(jcFmt("ca_merged_into", { c: c.merged_into.code || "" })) + '</p>' +
+    (canEditCats() ? '<div class="row"><button class="btn ghost" type="button" id="caUnmerge"' + off + '>' + esc(jcT("ca_unmerge")) + '</button></div>' : '');
+  if (tabs.length > 1) h += jcTabsHtml("caPg_", tabs, catTab, function(t){ return jcT(t === "log" ? "ca_tab_log" : "ca_pg_about"); }, catTitle(c), "caPage");
+  h += msgBox();
+  var body = '';
+  if (catTab === "about") {
+    var pairs = function(list){ return list.filter(function(f){ return f[1]; }).map(function(f){ return [jcT(f[0]), f[1]]; }); };
+    var about = pairs([
+      ["ca_f_status", programme ? join([lab("ca_st_", CA_STATUS, c.status), dateText(c.status_on), typed(c.status_source)]) : lab("ca_st_", CA_STATUS, c.status)],
+      ["ca_f_coat", str(c.coat)],
+      ["ca_f_sex", c.sex !== "unknown" ? lab("ca_sex_", CA_SEX, c.sex) : ""],
+      ["ca_f_life", c.life_stage !== "unknown" ? lab("ca_life_", CA_LIFE, c.life_stage) : ""],
+      ["ca_fl_old", programme ? str(c.old_id) : ""],
+      ["ca_also_filed", also.map(function(m){ return join([m.code, typed(m.name), typed(m.old_id)]); }).join("; ")]]);
+    var health = pairs([
+      ["ca_f_ear", join([lab("ca_ear_", CA_EAR, c.ear_tip), programme && c.ear_side ? lab("ca_side_", ["left", "right"], c.ear_side) : ""])],
+      ["ca_fl_ster", join([lab("ca_ster_", CA_STER, c.sterilised), programme ? typed(c.sterilised_source) : ""])],
+      ["ca_f_tnvr", programme && c.tnvr !== "none" ? join([lab("ca_tnvr_", CA_TNVR, c.tnvr), dateText(c.tnvr_on), typed(c.tnvr_place)]) : ""]]);
+    var where = pairs([["ca_f_area", str(c.area)], ["ca_f_station", st ? join([st.code, typed(st.landmark)]) : ""]]);
+    /* the first group has no heading: it would repeat the About tab's name (D1) */
+    body += (str(c.story) ? '<p class="desc" dir="auto" id="caStory">' + esc(c.story) + '</p>' : '') +
+      (about.length ? jcFactsHtml(about, "caFacts") : '') +
+      (health.length ? '<h2 class="group">' + esc(jcT("ca_g_health")) + '</h2>' + jcFactsHtml(health, "caHealth") : '') +
+      (where.length ? '<h2 class="group">' + esc(jcT("ca_g_where")) + '</h2>' + jcFactsHtml(where, "caWhere") : '') +
+      (hist.length ? '<h2 class="group">' + esc(jcT("ca_history")) + '</h2><ul class="care" id="caHist">' + hist.map(function(x){
+        var d = dateText(x.on) || dayOf(x.at), note = join([str(x.source), x.code && x.code !== c.code ? x.code : ""]);
+        return '<li><span class="nm">' + esc(lab("ca_st_", CA_STATUS, x.status)) + '</span>' + (d ? '<span class="st">⁦' + esc(d) + '⁩</span>' : '') +
+          (note ? '<span class="note" dir="auto">' + esc(note) + '</span>' : '') + '</li>';
+      }).join("") + '</ul>' : '');
+  } else body += catLogHtml(c);                                                                     /* CC-4 */
+  el("view").innerHTML = h + (tabs.length > 1 ? '<div ' + jcTabPanel("caPg_", catTab, "caPage") + '>' + body + '</div>'
+    : '<div id="caPage" class="jcstack">' + body + '</div>');
+  if (tabs.length > 1) jcTabsWire("caPg_", tabs, function(t){ catTab = t; draw(); });
   on("caEditCat", function(){ openCatEditor(c.id); });
-  if (programme) wireCatLog(c);
+  if (programme && catTab === "log") wireCatLog(c);
   on("caUnmerge", function(){
     if (window.confirm(jcFmt("ca_unmerge_q", { c: c.code }))) save("jc_cat_unmerge", { p_cat: c.id }, "ca_unmerged");
   });
@@ -546,7 +574,7 @@ function catEditView(){
     var into = catFind(reg, e.merge_into);
     if (!into) { caMsg("NO_MERGE"); if (mt) mt.focus(); return; }
     if (!window.confirm(jcFmt("ca_merge_q", { a: c.code, b: into.code }))) return;
-    save("jc_cat_merge", { p_from: c.id, p_into: into.id }, "ca_merged", function(){ catId = into.id; current = "cat"; });
+    save("jc_cat_merge", { p_from: c.id, p_into: into.id }, "ca_merged", function(){ catId = into.id; catTab = "about"; current = "cat"; });
   });
   jcPetPhotoFill();
 }

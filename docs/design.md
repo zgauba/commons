@@ -36,7 +36,7 @@ Every component uses the same fields (shape borrowed from shadcn-html's per-comp
 | Colour is never the only signal | A state always says it in words too (slots, care status, Missing) |
 | Logical properties only | `margin-inline`, `padding-inline`, `inset-inline`, `text-align:start`; Arabic mirrors from `dir`. Exception: map controls (Leaflet zoom is physically top-left) |
 | Mirrored icons | Back, chevrons, prev/next: `transform:scaleX(-1)` under `[dir=rtl]` |
-| User-typed text | `dir="auto"` (keeps Latin letters in order) **plus** `text-align:right` under `html[dir=rtl]` so it lines up with the Arabic: card and hero names, `dl.facts dd` (`app.css`, DS-3b; `design/pet-stray-ar.jpg`). Still to fix: `.care .note` (a Latin care note sits flush left in Arabic) — DS-4 |
+| User-typed text | `dir="auto"` (keeps Latin letters in order) **plus** `text-align:right` under `html[dir=rtl]` so it lines up with the Arabic: card and hero names, `dl.facts dd` (`app.css`, DS-3b; `design/pet-stray-ar.jpg`). `.care .note` and `.jcpage .desc` too (DS-4a). Inside a joined value (`A · B`), wrap the typed part in U+2068 … U+2069 so a Latin source in an Arabic line keeps its order (Cats facts) |
 | Type scale | `h1` 22px/800 · `h2.group` 12.5px caps muted · body 15px · `.meta` 12.5–13px muted · `.help` 12.5px faint |
 | Inputs ≥ 16px text | iOS zooms on focus below 16px |
 | Touch targets | ≥ 44px for anything primary; `.mini` 36px, inside cards only |
@@ -174,7 +174,7 @@ Cats today: sex (3), life stage (4), ear tip (3), sterilisation (3) → pills ·
 |---|---|
 | Status | **Shared** |
 | Native basis | `button` |
-| Markup | `.row` (or `.acts`) of `.mini` buttons at the **foot** of the card |
+| Markup | `.row` (or `.acts`) of `.mini` buttons at the **foot** of the card. `.acts` outside a list card (an alarm, a share block): `.jcpage .acts` (`app.css`, DS-4a) |
 | Variants / states | `.mini` · `.mini.danger` · `:disabled` |
 | Accessibility | 36px min; the label names the action ("Edit", not "✎") |
 | Use / Don't | Never stacked loosely or floating beside content (D11). The card's main action may be an accent `.mini` |
@@ -225,7 +225,7 @@ Cats today: sex (3), life stage (4), ear tip (3), sterilisation (3) → pills ·
 | Markup | `jcHeroHtml({ photoHtml, name, afterNameHtml, meta, chipsHtml })` → `.pthero` = photo tile 104px (`jcPetPhotoHtml(p, 34, "tile", {view:true})`) **beside** `.ptwho` (`h1 dir=auto`, `.meta` "Kind · Status", chips). Sub-tabs follow (About · Sightings · Map) |
 | Variants / states | A state box (§4) sits between hero and tabs when it applies |
 | Accessibility | Photo opens the viewer (button); name mirrors in Arabic (`design/pet-stray-ar.jpg`) |
-| Use / Don't | Every page about one animal / thing with a photo. **Never a full-width photo stacked above the name (D3)** |
+| Use / Don't | Every page about one animal / thing with a photo. **Never a full-width photo stacked above the name (D3)**. Several photos: the first is the tile, the viewer gets them all (Cats). A story under the hero: `p.desc dir=auto` (`.jcpage .desc`, `app.css`) |
 | Reference | `design/pet-stray.jpg` |
 
 ### Facts list
@@ -254,8 +254,8 @@ Cats today: sex (3), life stage (4), ear tip (3), sterilisation (3) → pills ·
 ### State boxes
 | | |
 |---|---|
-| Status | **Module-only** (`pets/pets.css` `.alarm`, `.seenbox`) |
-| Markup | `.alarm` (red 2px: missing, with its own `.acts`) · `.seenbox` (amber 2px: heads-up) |
+| Status | `.alarm`: **Shared** (`app.css` + `jcAlarmHtml(id, text, bodyHtml)` in `assets/blocks.js`, DS-4a; Pets + Cats) · `.seenbox`: **Module-only** (`pets/pets.css`) |
+| Markup | `.alarm` (red 2px: missing; optional note `p` + `.acts` row) · `.seenbox` (amber 2px: heads-up) |
 | Use / Don't | Above the tabs, on every tab. Red only for a real alarm |
 
 ### Photo + viewer

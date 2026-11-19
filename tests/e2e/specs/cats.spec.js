@@ -85,6 +85,7 @@ test("Cats on, a resident: the page, the bar button, the page hit; no role line;
   await page.goto("cats/");
   await expect(page.locator("h1")).toHaveText("Community Cats");
   await expect(page.locator("#caSoon")).toContainText("The cat programme is moving here");
+  await page.locator("#caTab_stations").click();                         // DS-4a: residents get Cats · Stations tabs
   await expect(page.locator(".caStation")).toHaveCount(1);
   await expect(page.locator("#caRole")).toHaveCount(0);
   await expect(page.locator('#tabbar [data-tab="cats"]')).toHaveAttribute("aria-current", "page");
@@ -187,6 +188,7 @@ test("a resident sees public stations only: no Station ID, notes, people or edit
   const { calls } = await stubBackend(page, { rpc: member([]) });
   await signIn(page);
   await page.goto("cats/");
+  await page.locator("#caTab_stations").click();
   const card = page.locator(`.caStation[data-station="${S1}"]`);
   await expect(card).toContainText("Behind the souk");
   await expect(page.locator("h2.group")).toHaveText(["Souk"]);
@@ -362,29 +364,32 @@ test("a resident sees the cats (resident view only), searches, opens a cat; neve
   const { calls } = await stubBackend(page, { rpc });
   await signIn(page);
   await page.goto("cats/");
-  await expect(page.locator(".caCat")).toHaveCount(2);
+  await expect(page.locator(".ptcard")).toHaveCount(2);
   if (process.env.SHOT_DIR) await page.screenshot({ path: process.env.SHOT_DIR + "/cats-resident-list.png", fullPage: true });
-  await expect(page.locator(`.caCat[data-cat="${K2}"]`)).toContainText("C-002");             // no name: the Cat ID
-  await expect(page.locator(`.caCat[data-cat="${K2}"]`)).toContainText("Missing");
-  await expect(page.locator(`.caCat[data-cat="${K2}"] [data-prov]`)).toHaveText("Provisional ID");
+  await expect(page.locator(`[data-cat="${K2}"]`)).toContainText("C-002");             // no name: the Cat ID
+  await expect(page.locator(`[data-cat="${K2}"]`)).toContainText("Missing");
+  await expect(page.locator(`[data-cat="${K2}"] [data-prov]`)).toHaveText("Provisional ID");
   await page.locator("#caQ").fill("socks");
-  await expect(page.locator(".caCat")).toHaveCount(1);
+  await expect(page.locator(".ptcard")).toHaveCount(1);
   await page.locator("#caQ").fill("nothing like it");
   await expect(page.locator("#caCatsNone")).toHaveText("No cat matches that search.");
   await page.locator("#caQ").fill("");
-  await page.locator(`.caCat[data-cat="${K1}"]`).click();
+  await page.locator(`[data-cat="${K1}"]`).click();
   await expect(page.locator("h1")).toHaveText("Caramel");
-  await expect(page.locator(".caStory")).toHaveText("Very gentle, loves cuddles.");
+  await expect(page.locator("#caStory")).toHaveText("Very gentle, loves cuddles.");
   if (process.env.SHOT_DIR) await page.screenshot({ path: process.env.SHOT_DIR + "/cats-resident-cat.png", fullPage: true });
-  await expect(page.locator(".caFacts")).toContainText("Ear-tipped");
-  await expect(page.locator(".caFacts")).toContainText("Sterilised");
-  await expect(page.locator(".caPhotos [data-view]")).toHaveCount(2);
-  await expect(page.locator("#caEditCat, #caHist, #caAlso")).toHaveCount(0);
+  await expect(page.locator("#caPage")).toContainText("Ear-tipped");
+  await expect(page.locator("#caPage")).toContainText("Sterilised");
+  // DS-4a: one photo beside the name (the hero); it opens the viewer with every photo
+  await expect(page.locator(".pthero [data-view]")).toHaveCount(1);
+  expect(JSON.parse(await page.locator(".pthero [data-view]").getAttribute("data-view"))).toHaveLength(2);
+  await expect(page.locator("#caEditCat, #caHist, #caPg_log")).toHaveCount(0);
+  await expect(page.locator("#caPage")).not.toContainText("Also filed as");
   await expect(page.locator("body")).not.toContainText("JB-07");
   await expect(page.locator("body")).not.toContainText("Lead feeder");
   expect(calls.some((c) => c.name === "jc_cat_register" || c.name === "jc_cat_programme")).toBe(false);
   await page.locator("#jcBackBtn").click();
-  await expect(page.locator(".caCat")).toHaveCount(2);
+  await expect(page.locator(".ptcard")).toHaveCount(2);
 });
 
 test("a volunteer reads the full record (old ID, station, TNVR, history) but gets no editor and no merged records", async ({ page }) => {
@@ -394,15 +399,16 @@ test("a volunteer reads the full record (old ID, station, TNVR, history) but get
   await expect(page.locator("#caTab_cats")).toHaveAttribute("aria-selected", "true");
   await expect(page.locator("#caAddCat, [data-unmerge]")).toHaveCount(0);
   await page.locator("#caQ").fill("JB-07");                                                    // old ID is searchable
-  await expect(page.locator(".caCat")).toHaveCount(1);
-  await page.locator(`.caCat[data-cat="${K1}"]`).click();
-  await expect(page.locator(".caFacts")).toContainText("JB-07");
-  await expect(page.locator(".caFacts")).toContainText("S-001 · Behind the souk");
-  await expect(page.locator(".caFacts")).toContainText("Returned");
-  await expect(page.locator(".caFacts")).toContainText("Clinic card");
+  await expect(page.locator("#caCats .ptcard")).toHaveCount(1);                                // (the missing group stays on top)
+  await page.locator(`[data-cat="${K1}"]`).click();
+  await expect(page.locator("#caPage")).toContainText("JB-07");
+  await expect(page.locator("#caPage")).toContainText(/S-001 · \u2068?Behind the souk/);
+  await expect(page.locator("#caPage")).toContainText("Returned");
+  await expect(page.locator("#caPage")).toContainText("Clinic card");
   await expect(page.locator("#caHist li")).toHaveCount(2);
   await expect(page.locator("#caHist li").nth(1)).toContainText("C-003");
-  await expect(page.locator("#caAlso")).toContainText("C-003");
+  await expect(page.locator("#caFacts")).toContainText("Also filed as");
+  await expect(page.locator("#caFacts")).toContainText(/C-003 · \u2068?Caramel 2/);
   if (process.env.SHOT_DIR) await page.screenshot({ path: process.env.SHOT_DIR + "/cats-volunteer-cat.png", fullPage: true });
   await expect(page.locator("#caEditCat")).toHaveCount(0);
 });
@@ -467,7 +473,7 @@ test("a coordinator edits, removes a photo, merges a duplicate and undoes a merg
   answer = true;
   await page.locator(`[data-unmerge="${K3}"]`).click();
   await expect(page.locator("#msg")).toHaveText("Merge undone.");
-  await page.locator(`.caCat[data-cat="${K2}"]`).click();
+  await page.locator(`[data-cat="${K2}"]`).click();
   await page.locator("#caEditCat").click();
   await expect(page.locator("h1")).toHaveText("Edit C-002");
   await expect(page.locator("#caCSide")).toHaveCount(0);                                        // no ear tip, no side
@@ -476,7 +482,7 @@ test("a coordinator edits, removes a photo, merges a duplicate and undoes a merg
   await expect(page.locator("#msg")).toHaveText("Saved.");
   await expect(page.locator("h1")).toHaveText("C-002");                                          // back on the cat's page
   await page.locator(`#jcBackBtn`).click();
-  await page.locator(`.caCat[data-cat="${K1}"]`).click();
+  await page.locator(`[data-cat="${K1}"]`).click();
   await page.locator("#caEditCat").click();
   await expect(page.locator("[data-phrm]")).toHaveCount(2);
   await page.locator(`[data-phrm="${PH2}"]`).click();
@@ -502,7 +508,7 @@ test("a server refusal on a cat is said in words (Arabic too)", async ({ page })
   await stubBackend(page, { rpc });
   await signIn(page);
   await page.goto("cats/");
-  await page.locator(`.caCat[data-cat="${K1}"]`).click();
+  await page.locator(`[data-cat="${K1}"]`).click();
   await page.locator("#caEditCat").click();
   await page.locator("#caCatSave").click();
   await expect(page.locator("#msg")).toHaveText("اختر نقطة في المنطقة المعتادة للقطة (أو بدون نقطة).");
@@ -517,7 +523,7 @@ test("a photo the phone can't read is said in words; Stations / Areas writes ref
   await stubBackend(page, { rpc });
   await signIn(page);
   await page.goto("cats/");
-  await page.locator(`.caCat[data-cat="${K1}"]`).click();
+  await page.locator(`[data-cat="${K1}"]`).click();
   await page.locator("#caEditCat").click();
   await page.locator("#caPhotoIn").setInputFiles({ name: "x.jpg", mimeType: "image/jpeg", buffer: Buffer.from("not a photo") });
   await expect(page.locator("#msg")).toHaveText("That photo couldn't be read. Try another one.");
@@ -600,7 +606,8 @@ test("Activity tab: entries, chips ask the server, older pages send the exact cu
   await expect(page.locator(`.caLog[data-log="${SI1}"] [data-unid]`)).toHaveText("Not identified yet");
   if (process.env.SHOT_DIR) await page.screenshot({ path: process.env.SHOT_DIR + "/cats-activity.png", fullPage: true });
   await page.locator("[data-lmore]").click();
-  expect(sink.activity.at(-1)).toEqual({ p_station: null, p_cat: null, p_kind: null, p_before: ITEMS[1].at, p_before_id: SI1 });
+  // the stubbed server answers asynchronously: wait for the request rather than reading it right after the click (CI race)
+  await expect.poll(() => sink.activity.at(-1)).toEqual({ p_station: null, p_cat: null, p_kind: null, p_before: ITEMS[1].at, p_before_id: SI1 });
   await page.locator("#caLk_problem").click();
   await expect(page.locator(".caLog")).toHaveCount(1);
   expect(sink.activity.at(-1).p_kind).toBe("problem");
@@ -626,6 +633,7 @@ test("a sighting from the cat's page: the cat is chosen, a station or a place is
   await signIn(page);
   await page.goto("cats/");
   await page.locator(`[data-cat="${K1}"]`).click();
+  await page.locator("#caPg_log").click();                              // DS-4a: a cat's history is its Activity tab
   await expect(page.locator("#caCatLog .caLog")).toHaveCount(2);
   expect(sink.activity.at(-1)).toEqual(expect.objectContaining({ p_cat: K1, p_kind: null }));
   await page.locator("#caCatSeen").click();
@@ -665,7 +673,7 @@ test("residents: no Activity tab, no visit buttons, no activity calls", async ({
   await stubBackend(page, { rpc: logBackend([], sink) });
   await signIn(page);
   await page.goto("cats/");
-  await expect(page.locator(".caCat").first()).toBeVisible();
+  await expect(page.locator(".ptcard").first()).toBeVisible();
   await expect(page.locator("#caTab_log, [data-visit], [data-stlog], #caCatSeen")).toHaveCount(0);
   await page.locator(`[data-cat="${K1}"]`).click();
   await expect(page.locator("#caCatSeen, #caCatLog")).toHaveCount(0);
@@ -730,3 +738,60 @@ for (const lang of ["en", "ar"]) {
     for (const c of checks) { expect(c.ac).toBe(rgb); expect(c.w).toBe(20); }
   });
 }
+
+// DS-4a (docs/plans/DS-4-cats-rebuild.md, Done-when 1–2): the Cats tab and a cat's page are built from the Pets pieces
+test("DS-4a: cats are photo cards with no heading repeating the tab; a missing cat is red; the page is hero + facts + record rows", async ({ page }) => {
+  await stubBackend(page, { rpc: member(["cats_vol"]) });
+  await signIn(page);
+  await page.goto("cats/");
+  await expect(page.locator("#caPanel ul.ptgrid li")).toHaveCount(2);
+  await expect(page.locator("#caPanel h2")).toHaveText(["Missing now"]);                     // D1: group labels only
+  await expect(page.locator(`#caMissing.wide [data-cat="${K2}"]`)).toHaveCount(1);           // pinned on top, as on Pets
+  await expect(page.locator(`li[data-catli="${K2}"]`)).toHaveClass(/missing/);
+  await expect(page.locator(`[data-cat="${K2}"] .chip.miss`)).toHaveText("Missing");
+  if (process.env.SHOT_DIR) await page.screenshot({ path: process.env.SHOT_DIR + "/ds4a-cats-list.png", fullPage: true });
+  await page.locator(`[data-cat="${K2}"]`).click();
+  await expect(page.locator("#caAlarm")).toHaveText("C-002 is missing");
+  await expect(page.locator(".pthero .chip.miss")).toHaveCount(0);                           // the alarm says it
+  await page.locator("#jcBackBtn").click();
+  await page.locator(`[data-cat="${K1}"]`).click();
+  await expect(page.locator(".pthero h1")).toHaveText("Caramel");
+  await expect(page.locator(".pthero .meta")).toHaveText("C-001 · Souk");
+  await expect(page.locator("#caPg_about")).toHaveAttribute("aria-selected", "true");
+  await expect(page.locator("#caPage h2.group")).toHaveText(["Health", "Where", "Status history"]);
+  await expect(page.locator("#caHealth dt")).toHaveText(["Ear tip", "Sterilised", "TNVR stage"]);
+  await expect(page.locator("#caHist li .nm")).toHaveText(["In the community", "Clinic or recovery"]);
+  await expect(page.locator("#caPage ul.helplist")).toHaveCount(0);                          // D3, D5: no bullets
+  if (process.env.SHOT_DIR) await page.screenshot({ path: process.env.SHOT_DIR + "/ds4a-cat-page.png", fullPage: true });
+});
+
+test("DS-4a Arabic: a Latin note in the status history lines up right", async ({ page }) => {
+  await page.addInitScript(() => { try { localStorage.setItem("jc_lang", "ar"); } catch (e) {} });
+  await stubBackend(page, { rpc: member(["cats_vol"]) });
+  await signIn(page);
+  await page.goto("cats/");
+  await page.locator(`[data-cat="${K1}"]`).click();
+  const note = page.locator("#caHist li .note").first();
+  await expect(note).toHaveText("Lead feeder");
+  expect(await note.evaluate((n) => getComputedStyle(n).textAlign)).toBe("right");
+  if (process.env.SHOT_DIR) await page.screenshot({ path: process.env.SHOT_DIR + "/ds4a-cat-page-ar.png", fullPage: true });
+});
+
+test("DS-4a review: a cat opened from an Activity entry starts on About; search keeps the missing group, whose cards still open", async ({ page }) => {
+  const sink = { activity: [] };
+  await stubBackend(page, { rpc: logBackend(["cats"], sink) });
+  await signIn(page);
+  await page.goto("cats/");
+  await page.locator(`[data-cat="${K1}"]`).click();
+  await page.locator("#caPg_log").click();                                                   // leave Caramel on its Activity tab
+  await page.locator("#jcBackBtn").click();
+  await page.locator("#caTab_log").click();
+  await page.locator(`.caLog[data-log="${V1}"] [data-lcat="${K1}"]`).click();
+  await expect(page.locator("#caPg_about")).toHaveAttribute("aria-selected", "true");
+  await page.locator("#jcBackBtn").click();
+  await page.locator("#caTab_cats").click();
+  await page.locator("#caQ").fill("caramel");
+  await expect(page.locator(`#caMissing [data-cat="${K2}"]`)).toHaveCount(1);
+  await page.locator(`#caMissing [data-cat="${K2}"]`).click();
+  await expect(page.locator("#caAlarm")).toBeVisible();
+});
