@@ -1052,7 +1052,7 @@ test("CC-5: a coordinator logs a vet visit — cats, what was done, vaccine, lin
   await expect(page.locator("#caTab_log")).toHaveAttribute("aria-selected", "true");                     // back on Activity
 });
 
-test("CC-5: vet entries in Activity — Vet chip asks the server; coordinators see the invoice + a safe Drive link, volunteers neither and can't log one", async ({ page }) => {
+test("CC-5: vet entries in Activity — Vet chip asks the server; coordinators see the invoice + a safe Drive link; a volunteer gets no Hide and no Vet kind, and nothing the server didn't send", async ({ page }) => {
   const sink = { activity: [] };
   await stubBackend(page, { rpc: vetBackend(["cats"], sink) });
   await signIn(page);
@@ -1062,7 +1062,7 @@ test("CC-5: vet entries in Activity — Vet chip asks the server; coordinators s
   await expect.poll(() => sink.activity.at(-1).p_kind).toBe("vet");
   const v = page.locator(`.caLog[data-log="${VT1}"]`);
   await expect(v).toContainText("Vet visit");
-  await expect(v).toContainText("Jubail Vet · by Cora");
+  await expect(v).toContainText(/\u2068?Jubail Vet\u2069? · by Cora/);              // the clinic is typed text: isolated
   await expect(v).toContainText("Sterilisation · Vaccination");
   await expect(v).toContainText(/Rabies · \u2068?Rabisin\u2069? · next dose due/);   // typed name keeps its own direction
   await expect(v).toContainText("Invoice INV-42");
@@ -1072,7 +1072,7 @@ test("CC-5: vet entries in Activity — Vet chip asks the server; coordinators s
   await expect(a).toHaveAttribute("target", "_blank");
   await page.locator(`[data-lhide="vet:${VT1}"]`).click();
   expect(sink.hide).toEqual({ p_kind: "vet", p_id: VT1, p_hidden: true });
-  // a volunteer: facts yes, invoice / link no, no Vet kind to log
+  // a volunteer: the server sends no invoice / link (s37 VT03a proves that); here only that the page adds nothing, no Hide, no Vet kind
   const sink2 = { activity: [] };
   await stubBackend(page, { rpc: vetBackend(["cats_vol"], sink2) });
   await page.goto("cats/");
@@ -1147,7 +1147,6 @@ test("CC-5: residents see 'Vaccinated' + see-a-doctor line and only shared invoi
   await expect(inv.nth(1).locator("a")).toHaveCount(0);                         // not a Drive / Docs link: text only
   if (process.env.SHOT_DIR) await page.screenshot({ path: process.env.SHOT_DIR + "/cats-resident-vet.png", fullPage: true });
   expect(sink.activity.length).toBe(0);
-  await page.locator("#caBack, .back").first().click().catch(() => {});
   await page.goto("cats/");
   await page.locator(`[data-cat="${K2}"]`).click();
   await expect(page.locator("#caHealth")).not.toContainText("Vaccinated");
@@ -1174,6 +1173,9 @@ test("CC-5 Arabic: the vet form, vaccines and a vet entry read right to left; a 
   await page.goto("cats/");
   await page.locator(`[data-cat="${K1}"]`).click();
   await expect(page.locator("#caVacc li .nm")).toHaveText(/^داء الكلب · ⁨?Rabisin⁩?$/);
+  const st = page.locator("#caVacc li .st");                                          // code review M1: never forced left-to-right
+  await expect(st).toContainText("الجرعة التالية");
+  expect(await st.evaluate((n) => n.textContent.charCodeAt(0))).toBe(0x2068);
   await expect(page.locator("#caInvoices li")).toContainText("الفاتورة INV-42");
   if (process.env.SHOT_DIR) await page.screenshot({ path: process.env.SHOT_DIR + "/cats-vaccines-ar.png", fullPage: true });
   await page.locator("#caPg_log").click();
@@ -1184,4 +1186,56 @@ test("CC-5 Arabic: the vet form, vaccines and a vet entry read right to left; a 
   await expect(page.locator("#caVtVac_rabies")).toHaveText("داء الكلب");
   await expect(page.locator("html")).toHaveAttribute("dir", "rtl");
   if (process.env.SHOT_DIR) await page.screenshot({ path: process.env.SHOT_DIR + "/cats-vet-form-ar.png", fullPage: true });
+});
+
+test("CC-5: the vet form refuses what the server would (dates, unticked vaccine, sharing without an invoice); saved from a cat, it returns there with the new vaccine", async ({ page }) => {
+  const sink = { activity: [] };
+  const rpc = vetBackend(["cats"], sink);
+  let saved = false, regReads = 0;
+  rpc.jc_cat_vet_add = (a) => { sink.vet = a; saved = true; return ok({ vet: vetItem(true) }); };
+  rpc.jc_cat_register = () => { regReads++; const r = regFor(true);
+    if (saved) r.cats[0].vaccines = [{ vaccine: "core", name: null, given: isoIn(0), next_due: null, overdue: false }];
+    return ok(r); };
+  await stubBackend(page, { rpc });
+  await signIn(page);
+  await page.goto("cats/");
+  await page.locator(`[data-cat="${K1}"]`).click();
+  await expect(page.locator("#caVacc")).toHaveCount(0);
+  await page.locator("#caPg_log").click();
+  await page.locator("#caCatVet").click();
+  await page.locator('[data-vtdone="checkup"]').check();
+  await page.locator("#caVtOn").fill(isoIn(2));
+  await page.locator("#caVtSave").click();
+  await expect(page.locator("#msg")).toHaveText("Choose the date of the visit. It can't be in the future.");
+  await page.locator("#caVtOn").fill("1999-12-31");
+  await page.locator("#caVtSave").click();
+  await expect(page.locator("#msg")).toHaveText("Choose the date of the visit. It can't be in the future.");
+  await page.locator("#caVtOn").fill(isoIn(-10));
+  await page.locator("#caVtDue").fill(isoIn(-10));                                 // not after the visit
+  await page.locator("#caVtSave").click();
+  await expect(page.locator("#msg")).toHaveText("The next dose is due after the visit, and within 5 years.");
+  await expect(page.locator("#caVtDue")).toBeFocused();
+  await page.locator("#caVtDue").fill(isoIn(-10 + 365 * 5 + 3));                   // more than 5 years on
+  await page.locator("#caVtSave").click();
+  await expect(page.locator("#msg")).toHaveText("The next dose is due after the visit, and within 5 years.");
+  await page.locator("#caVtDue").fill("");
+  // a vaccine chosen, then Vaccination unticked: nothing about a vaccine is sent
+  await page.locator('[data-vtdone="vaccination"]').check();
+  await page.locator("#caVtVac_other").click();
+  await page.locator("#caVtVName").fill("FeLV");
+  await page.locator('[data-vtdone="vaccination"]').uncheck();
+  await expect(page.locator("#caVtVacBox")).toBeHidden();
+  await page.locator("#caVtShared").check();
+  await page.locator("#caVtSave").click();
+  await expect(page.locator("#msg")).toHaveText("Add the invoice number or the link before showing it to residents.");
+  await expect(page.locator("#caVtInv")).toBeFocused();
+  await page.locator("#caVtInv").fill("INV-9");
+  const before = regReads;
+  await page.locator("#caVtSave").click();
+  await expect(page.locator("h1")).toHaveText("Caramel");                           // back on the cat it was logged from
+  expect(sink.vet.p_fields).toEqual({ visited_on: isoIn(-10), clinic: null, done: ["checkup"], vaccine: null, vaccine_name: null,
+    next_due: null, invoice_no: "INV-9", doc_url: null, shared: true, note: null, cats: [K1] });   // exact
+  await expect.poll(() => regReads).toBeGreaterThan(before);                      // the register is read again
+  await page.locator("#caPg_about").click();
+  await expect(page.locator("#caVacc li")).toContainText("Core (FVRCP)");
 });

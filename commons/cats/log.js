@@ -59,7 +59,7 @@ function logWhen(it){
   return typeof it.at === "string" ? jcDayText(jcDateOf(it.at, cfg), { weekday: undefined, year: "numeric" }) + " " + jcClock(it.at, cfg) : "";
 }
 function logPlace(it){
-  if (it.kind === "vet") return typeof it.clinic === "string" ? it.clinic : "";            /* CC-5: a vet visit's place is its clinic */
+  if (it.kind === "vet") return typeof it.clinic === "string" && it.clinic ? "\u2068" + it.clinic + "\u2069" : "";   /* CC-5: its clinic, typed text isolated */
   var s = hObj(it.station) ? [it.station.code, it.station.landmark].filter(Boolean).join(" · ") : "";
   if (s) return s;
   var a = typeof it.area_id === "string" ? areaName(prog, it.area_id) : "";

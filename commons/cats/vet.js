@@ -48,7 +48,8 @@ function vetVaccinesHtml(c){
   return '<ul class="care" id="caVacc">' + list.map(function(v){
     var due = vetDueText(v.next_due, v.overdue), given = dateText(v.given);
     return '<li><span class="nm" dir="auto">' + esc(vetVacName(v.vaccine, v.name)) + '</span>' +
-      (due ? '<span class="st ' + (v.overdue === true ? 'st-due' : 'st-done') + '">\u2066' + esc(due) + '\u2069</span>' : '') +
+      /* code review M1: the state is a phrase in the reader's language — first-strong isolate, never forced left-to-right */
+      (due ? '<span class="st ' + (v.overdue === true ? 'st-due' : 'st-done') + '">\u2068' + esc(due) + '\u2069</span>' : '') +
       (given ? '<span class="note">' + esc(jcFmt("ca_vt_given", { d: given })) + '</span>' : '') + '</li>';
   }).join("") + '</ul>';
 }
@@ -71,6 +72,12 @@ function openVet(back, catIdOrNull){
          cats: cats, all: false, station_id: "", back: back || { to: "log" } };
   show("vet");
   try { window.scrollTo(0, 0); } catch(e){}
+}
+/* the server's rule: the visit date + 5 years by the calendar (29 Feb → 28 Feb), as Postgres adds '5 years' (code review L4) */
+function vetPlus5(d){
+  var y = Number(d.slice(0, 4)) + 5, md = d.slice(5);
+  var t = y + "-" + md;
+  return jcIsDate(t) ? t : y + "-02-28";
 }
 function vetBack(){ var b = wd ? wd.back : null; wd = null; logBack(b || { to: "log" }); }
 function vetText(id, key, v, max, off, type){
@@ -129,7 +136,7 @@ function vetView(){
     if (!jcIsDate(w.on) || w.on > today || w.on < "2000-01-01") return stop("BAD_DATE_VET", "caVtOn");
     if (!done.length) return stop("BAD_DONE", "[data-vtdone]");
     if (w.done.vaccination && VET_VAC.indexOf(vac) < 0) return stop("BAD_VACCINE", "caVtVac_rabies");
-    if (w.due && (!jcIsDate(w.due) || w.due <= w.on || w.due > jcDateAdd(w.on, 1827))) return stop("BAD_DUE", "caVtDue");
+    if (w.due && (!jcIsDate(w.due) || w.due <= w.on || w.due > vetPlus5(w.on))) return stop("BAD_DUE", "caVtDue");
     if (url && !vetOk(url)) return stop("BAD_LINK", "caVtUrl");
     if (w.shared && !inv && !url) return stop("NO_INVOICE", "caVtInv");
     busy = true; draw();

@@ -166,6 +166,14 @@
     visits at a station (tap the cats you recognise) and sightings, even of a cat you can't name yet. Strays logged in Pets are test
     entries and won't carry over."
 
+- **CC-5 done 2026-11-19**: `20261119180000_cc5_cat_vet_log` applied (#182, live suite 1864); app #183-or-later: Log activity →
+  Vet visit (coordinators), Activity chip Vet, vaccines as Health record rows, residents' "Vaccinated ✓" + shared invoices.
+  Reviews: `docs/qa/cc-5a-cat-vet-log-review-2026-11-19.md`, `docs/qa/cc-5b-cat-vet-log-app-review-2026-11-19.md`.
+  - Decisions taken in CC-5: see "CC-5 plan" below (shared invoices visible to residents; ✓ = rabies current; date given =
+    visit date). Drive links limited to Drive file / folder and Docs / Sheets / Slides paths (security L1).
+  - Accepted for later: `invoices` per cat is unbounded (cap if payloads grow); a shared `jcExtLink` helper (Cats Drive link,
+    `jcMapLink`, Pets) — extract when next touched.
+
 ## CC-4 plan — visits + sightings (2026-11-18; Zee pre-authorised apply + merge for CC-4 only)
 
 **Ships:** a volunteer at a station logs one **feeding visit** (date, food / water / cleaned, headcount, taps the cats they
