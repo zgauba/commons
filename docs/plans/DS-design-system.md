@@ -16,8 +16,8 @@ nothing checked (review: `docs/qa/cats-design-review-2026-11-19.md`). Fix the pr
 | Step | What | Needs from Zee |
 |---|---|---|
 | DS-1 | **Protocols** (list below) | done 2026-11-19 |
-| DS-2 | **`docs/design.md`:** fixed per-component template (shadcn-html shape: status, native basis, markup, variants, a11y, wiring, use/don't, reference) + choice-control rule + "never" list + promotion process | written 2026-11-19 — Zee to review |
-| DS-5 | **Enforcement — runs BEFORE DS-3** (Zee 2026-11-19: "ensure proper checks are in place so plans and protocols are followed"), so DS-3/DS-4 are the first PRs it checks. Scope below | `/plan-change`, then merge |
+| DS-2 | **`docs/design.md`:** fixed per-component template (shadcn-html shape: status, native basis, markup, variants, a11y, wiring, use/don't, reference) + choice-control rule + "never" list + promotion process | done 2026-11-19 (Zee approved) |
+| DS-5 | **Enforcement — runs BEFORE DS-3** (Zee 2026-11-19: "ensure proper checks are in place so plans and protocols are followed"), so DS-3/DS-4 are the first PRs it checks. Scope below | approved 2026-11-19; `/plan-change`, then merge |
 | DS-3 | **Extract shared pieces** from Pets: page shell, hero header, card grid, list cards, facts list (+ Arabic alignment fix), sightings block; shared textarea / select / date / checkbox styles (remove the 5 + 2 + 3 module copies and the `.opts` overrides in events/home); tap-to-zoom in the photo viewer | merge |
 | DS-4 | **Rebuild Cats** on them (review D1–D14), incl. one "Log activity" button, the dropdown fix (iPhone), pills for sex / life stage / ear tip / sterilisation; UI review Cats vs Pets | merge |
 
