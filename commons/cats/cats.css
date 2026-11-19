@@ -1,7 +1,6 @@
 /* Cats page shell: the shared one (main.jcpage, assets/app.css, DS-3b) */
 /* form controls (textarea, select, dates, checks): shared, in assets/app.css (DS-3a) */
 .panel p{margin:0}
-.caStation .row{align-items:center; gap:12px}
 #caWho{gap:14px}
 /* CC-3: the photo row in the cat editor (cards, hero, facts, story: shared, DS-4a) */
 .caPhotos{display:flex; flex-wrap:wrap; gap:8px; align-items:flex-end}

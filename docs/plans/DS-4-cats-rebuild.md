@@ -141,3 +141,10 @@ Already done elsewhere: D7 dropdown height/chevron and D13 accent checkboxes (DS
   pet (the editor's was covered by D14); a draft is lost on Back, as on Edit pet. (2) Choosing a station while the pin map
   is open redraws the sighting form (a hidden pin map can't stay open) — the one D9 exception, rare. (3) string key
   `pt_on_map` renamed `map_open` (now shared). Review: `docs/qa/DS-4b-review-2026-11-19.md`.
+- **4c** (branch `ds-4c-cats-stations-map`): Stations tab (residents + programme) = the Pets Strays layout: the map of the
+  stations (the kit: Street / Satellite, Full Screen, Find Me; name labels; popup → Directions, and for the programme
+  History) above a nearest-first list (`jcSortedHtml` / `jcSortedWire`, Use Where I Am, distance line); stations as
+  `ul.bklist` list cards with Directions · Log a visit · History · Edit in `.acts` at the foot; archived last.
+  **DEPART (4c):** the plan said "a Map tab"; the reference screen (Pets Strays) has its map *inside* the tab above the
+  list, and coordinators already have four tabs — so the map sits on the Stations tab, no fifth tab. Done-when 7 reads
+  "a map with pins" accordingly. Residents get only public stations (the server sends no others; spec counts the pins).
