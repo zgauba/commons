@@ -1,0 +1,59 @@
+# Plans and protocols were followed (DS-5 E2, 2026-11-19). Before this, 0 of 8 merged Commons PRs carried the
+# Check | Proof | Pass/Fail table /ship-pr requires. A PR that changes the app (commons/) must carry, in its body:
+#   ## Done when          — the Check | Proof | Pass/Fail table
+#   ## Screens to match   — new/changed screen → reference + side-by-side proof, or "No screen changes"
+#   ## Plan conformance   — plan row → FOLLOWED / NOT FOLLOWED + evidence, or "No plan: <reason>"
+# A database-only PR (supabase/) needs "## Done when". Copy-only PRs can carry the label "plan-not-needed".
+# The headings are a contract with ~/.claude/skills/ship-pr ("PR body contract") — change both together.
+# Reads the PR through the API — no checkout, nothing from the PR branch runs; the body is never put in a command.
+name: Plan followed
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, edited, labeled, unlabeled]
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  plan-followed:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Require the plan headings in the PR body
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          PR: ${{ github.event.pull_request.number }}
+          SKIP: ${{ contains(github.event.pull_request.labels.*.name, 'plan-not-needed') }}
+        run: |
+          set -euo pipefail
+          files=$(gh api "repos/$REPO/pulls/$PR/files" --paginate --jq '.[] | .filename')
+          app=0; db=0
+          if printf '%s\n' "$files" | grep -Eq '^commons/'; then app=1; fi
+          if printf '%s\n' "$files" | grep -Eq '^supabase/'; then db=1; fi
+          if [ "$app" = 0 ] && [ "$db" = 0 ]; then
+            echo "No app or database files changed — no plan headings needed."; exit 0
+          fi
+          if [ "$SKIP" = "true" ]; then
+            echo "Label plan-not-needed set — skipping."; exit 0
+          fi
+          # fetch the body fresh (an edit after the run started still counts); set -e fails closed if the API fails
+          gh api "repos/$REPO/pulls/$PR" --jq '.body // ""' > body.md
+          need=("Done when")
+          if [ "$app" = 1 ]; then need+=("Screens to match" "Plan conformance"); fi
+          missing=()
+          for h in "${need[@]}"; do
+            grep -Eiq "^[[:space:]]*##[[:space:]]*${h}([[:space:]]|$)" body.md || missing+=("## $h")
+          done
+          # the Done-when section must hold the table, not just the heading
+          if ! awk '{l=tolower($0)} l ~ /^[[:space:]]*##[[:space:]]*done when/ {s=1; next} l ~ /^[[:space:]]*##[[:space:]]/ {s=0} s && l ~ /\|/ && l ~ /proof/ {f=1} END {exit f?0:1}' body.md; then
+            missing+=("a Check | Proof | Pass/Fail table under ## Done when")
+          fi
+          if [ ${#missing[@]} -eq 0 ]; then
+            echo "All plan headings present: ${need[*]}"; exit 0
+          fi
+          for m in "${missing[@]}"; do echo "::error::PR body is missing: $m"; done
+          echo "::error::Add them with /ship-pr (PR body contract), or gh pr edit $PR --body-file <file>. Copy-only change: label the PR plan-not-needed."
+          exit 1

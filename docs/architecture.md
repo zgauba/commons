@@ -165,6 +165,7 @@ SOURCE-OF-TRUTH POLICY:
 - [repo] One Pages build serves everything — career page shares blast radius with community-app pushes.
 - [repo] `.github/workflows/commons-e2e.yml` (T5.1): the stubbed Playwright suite runs on every PR touching `commons/` or `tests/e2e/` (never the live backend). A red `e2e` check = don't merge. R0 (2026-11-06): a second, non-blocking `e2e-webkit` job runs the same suite on WebKit (`continue-on-error`, so it shows green even when its tests fail — read the log); `npm test` = Chromium lane, `npm run test:webkit` = WebKit lane, bare `npx playwright test` = both. Actions pinned to commit SHAs (T5.2). First green `e2e-webkit` 2026-11-06 (PR #62); it becomes blocking after green ×2. [live] `main` has **no branch protection or rulesets** (API, 2026-11-06) — a red check blocks nothing by itself; merges are gated by reading CI first.
 - [repo] `.github/workflows/review-saved.yml` (T5.2): any PR touching `commons/` or `supabase/` must add a `docs/qa/*review*.md` (label `review-not-needed` for trivial copy). Reads the PR file list via the API; no checkout.
+- [repo] `.github/workflows/plan-followed.yml` (DS-5 E2, 2026-11-19): a PR touching `commons/` must carry `## Done when` (with a Check | Proof table), `## Screens to match`, `## Plan conformance` in its body; `supabase/`-only: `## Done when`. Label `plan-not-needed` skips. Reads via API, no checkout; runs on body edits too.
 - Note: the whole repo is served verbatim (this file is a public URL) — docs here must stay sanitized.
 
 ## LAYER — SECRETS & ENV VARS
