@@ -305,6 +305,37 @@ function jcMiniMap(node, latlng){
   return m;
 }
 
+/* A list entry's mini map + its text link (DS-4b: Pets sightings, Cats activity). jcMiniHtml = the still map's box
+   (role=img; the link is the real target); jcMapLink = "Open in Google Maps" for where something was SEEN
+   (jcDirLink's "Directions" is for a place you go to). */
+function jcMiniHtml(lat, lng){
+  return '<div class="ptmini" data-lat="' + esc(String(lat)) + '" data-lng="' + esc(String(lng)) + '" role="img" aria-label="' + esc(jcT("pt_mini_label")) + '"></div>';
+}
+function jcMapLink(lat, lng, cls){                    /* cls: a literal class list, e.g. "btn ghost small" */
+  return '<a' + (cls ? ' class="' + cls + '"' : '') + ' target="_blank" rel="noopener noreferrer" href="' +
+    esc("https://www.google.com/maps/search/?api=1&query=" + encodeURIComponent(lat + "," + lng)) + '">' + esc(jcT("map_open")) + '</a>';
+}
+/* build the .ptmini boxes under root (default: the page) only once scrolled into view — tiles cost a request each.
+   st = the page's { maps: [], obs: null }; jcMinisClear(st) takes them all down before a redraw. */
+function jcMinisClear(st){
+  if (st.obs) { st.obs.disconnect(); st.obs = null; }
+  st.maps.forEach(jcMapRemove); st.maps = [];
+}
+function jcMinisDraw(st, root){
+  var nodes = Array.prototype.slice.call((root || document).querySelectorAll(".ptmini"));
+  if (!nodes.length || typeof L === "undefined") return;
+  function build(n){
+    if (n.dataset.built) return;
+    n.dataset.built = "1";
+    st.maps.push(jcMiniMap(n, [Number(n.dataset.lat), Number(n.dataset.lng)]));
+  }
+  if (typeof IntersectionObserver === "undefined") return nodes.forEach(build);
+  var obs = st.obs || (st.obs = new IntersectionObserver(function(es){
+    es.forEach(function(e){ if (e.isIntersecting && st.obs === obs) { obs.unobserve(e.target); build(e.target); } });
+  }, { rootMargin: "200px 0px" }));
+  nodes.forEach(function(n){ obs.observe(n); });
+}
+
 /* ---------- pin picker: the map pans under a fixed centre ring; the page reads map.getCenter() on Save ---------- */
 /* markup for jcPinPicker; cls: an extra class on the box (the organizer's shorter "vpin"); attrs: e.g. data-no-autoreload.
    cls and attrs are raw HTML — literals only, or escaped by the caller. */

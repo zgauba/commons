@@ -446,8 +446,10 @@ test("a coordinator adds a cat: name or coat required, the server gets the form,
   await page.locator("#caCatSave").click();
   await expect(page.locator("#msg")).toHaveText("Saved. You can add photos now.");
   expect(sent.p_cat).toBeNull();
-  expect(sent.p_fields).toMatchObject({ name: "Gwen", old_id: "JB-12", coat: null, area_id: A_SOUK, station_id: S1, ear_tip: "present",
-    ear_side: "right", status: "foster", status_on: "2026-11-12", confirmed: false, tnvr: "none" });
+  // DS-4 premortem #1: the exact payload, every field (the editor's rebuild must not drop or rename one)
+  expect(sent.p_fields).toEqual({ name: "Gwen", old_id: "JB-12", coat: null, story: null, status_source: null, sterilised_source: null,
+    tnvr_place: null, sex: "unknown", life_stage: "unknown", status: "foster", ear_tip: "present", sterilised: "unknown", tnvr: "none",
+    ear_side: "right", status_on: "2026-11-12", tnvr_on: null, area_id: A_SOUK, station_id: S1, confirmed: false });
   await expect(page.locator("h1")).toHaveText("Edit C-004");
   if (process.env.SHOT_DIR) await page.screenshot({ path: process.env.SHOT_DIR + "/cats-coordinator-editor.png", fullPage: true });
   await page.locator("#caPhotoIn").setInputFiles(await smallJpeg(page));
@@ -587,9 +589,8 @@ test("a volunteer logs a feeding visit at a station: station cats first, problem
   await page.locator("#caVSave").click();
   await expect(page.locator("#msg")).toHaveText("Visit saved.");
   expect(sink.visit.p_station).toBe(S1);
-  expect(sink.visit.p_fields).toEqual(expect.objectContaining({ food: true, water: false, cleaned: false, headcount: 6, unfamiliar: null,
-    kittens: null, problem: "Bowl broken", note: null, cats: [K1] }));
-  expect(sink.visit.p_fields.visited_on).toMatch(/^\d{4}-\d\d-\d\d$/);
+  expect(sink.visit.p_fields).toEqual({ visited_on: expect.stringMatching(/^\d{4}-\d\d-\d\d$/), food: true, water: false, cleaned: false,
+    headcount: 6, unfamiliar: null, kittens: null, problem: "Bowl broken", note: null, cats: [K1] });          // exact (DS-4 premortem #1)
 });
 
 test("Activity tab: entries, chips ask the server, older pages send the exact cursor, a coordinator links + hides", async ({ page }) => {
@@ -646,7 +647,7 @@ test("a sighting from the cat's page: the cat is chosen, a station or a place is
   await page.locator("#caSSave").click();
   await expect(page.locator("#msg")).toHaveText("Sighting saved.");
   await expect(page.locator("h1")).toHaveText("Caramel");                    // back on the cat
-  expect(sink.sighting.p_fields).toEqual(expect.objectContaining({ cat_id: K1, station_id: S1, note: null }));
+  expect(sink.sighting.p_fields).toEqual({ seen_at: expect.any(String), note: null, cat_id: K1, station_id: S1 });   // exact
   expect(Date.parse(sink.sighting.p_fields.seen_at)).toBeGreaterThan(Date.now() - 600000);
 });
 
@@ -663,8 +664,7 @@ test("an unidentified sighting needs a description; residents get no Activity ta
   await page.locator("#caSDesc").fill("Black, tiny star");
   await page.locator("#caSSave").click();
   await expect(page.locator("#msg")).toHaveText("Sighting saved.");
-  expect(sink.sighting.p_fields).toEqual(expect.objectContaining({ description: "Black, tiny star", station_id: S2 }));
-  expect(sink.sighting.p_fields.cat_id).toBeUndefined();
+  expect(sink.sighting.p_fields).toEqual({ seen_at: expect.any(String), note: null, description: "Black, tiny star", station_id: S2 });   // exact
   await expect(page.locator("#caTab_log")).toHaveAttribute("aria-selected", "true");   // back on Activity
 });
 
