@@ -91,7 +91,9 @@ begin
   perform pg_temp.s36_as(ca);
   perform jc_admin_pet_missing_set(v_rex, true, null);
   execute 'reset role';
-  if not (select missing_by_team from jc_pets where id = v_rex) then raise exception 'FAIL AM04a community admin'; end if;
+  -- a community admin passes jc_assert_admin('pets'); the household reported it (AM03b), so it stays theirs (review M2)
+  if (select missing and not missing_by_team and last_seen_note = 'still out' from jc_pets where id = v_rex) is not true then
+    raise exception 'FAIL AM04a community admin re-mark'; end if;
   execute 'set local role authenticated';
   perform pg_temp.s36_as(ad);
   v := jc_admin_pet_missing_set(v_rex, false, 'ignored when found');
@@ -152,6 +154,43 @@ begin
   msg := pg_temp.s36_err(format('select jc_admin_pet_missing_set(%L, true, null)', v_bo));
   if msg is distinct from 'NOT_FOUND' then raise exception 'FAIL AM06b archived: %', msg; end if;
   k := k + 2;
+
+  -- ---------- AM08 review M2: an admin re-mark keeps the household's note and their attribution ----------
+  execute 'set local role authenticated';
+  perform pg_temp.s36_as(o1); perform jc_pet_missing_set(v_rex, true, 'by the gate');
+  perform pg_temp.s36_as(ad); perform jc_admin_pet_missing_set(v_rex, true, null);
+  execute 'reset role';
+  select * into r from jc_pets where id = v_rex;
+  if r.last_seen_note is distinct from 'by the gate' or r.missing_by_team then
+    raise exception 'FAIL AM08a re-mark: % %', r.last_seen_note, r.missing_by_team; end if;
+  execute 'set local role authenticated';
+  perform pg_temp.s36_as(ad); perform jc_admin_pet_missing_set(v_rex, true, 'seen at the souk');
+  execute 'reset role';
+  if (select last_seen_note from jc_pets where id = v_rex) is distinct from 'seen at the souk' then
+    raise exception 'FAIL AM08b a new note replaces'; end if;
+  execute 'set local role authenticated';
+  perform pg_temp.s36_as(ad); perform jc_admin_pet_missing_set(v_rex, false, null);
+  k := k + 2;
+
+  -- ---------- AM09 review M1: 20 marks an hour per admin, 60 per community; found is never limited ----------
+  execute 'reset role';
+  insert into jc_rate (user_id, bucket, window_start, n)                          -- the counter as 20 marks would leave it
+    values (ad, 'pet_missing', now(), 20)
+    on conflict (user_id, bucket) do update set window_start = now(), n = 20;
+  execute 'set local role authenticated';
+  perform pg_temp.s36_as(ad);
+  msg := pg_temp.s36_err(format('select jc_admin_pet_missing_set(%L, true, null)', v_rex));
+  if msg is distinct from 'RATE_LIMITED' then raise exception 'FAIL AM09a per admin: %', msg; end if;
+  msg := pg_temp.s36_err(format('select jc_admin_pet_missing_set(%L, false, null)', v_rex));
+  if msg is not null then raise exception 'FAIL AM09b found while limited: %', msg; end if;
+  execute 'reset role';
+  insert into jc_admin_log (community_id, actor, action, target)
+    select 'testville36', ad, 'pet_missing', jsonb_build_object('pet_id', v_rex, 'missing', true) from generate_series(1, 60);
+  execute 'set local role authenticated';
+  perform pg_temp.s36_as(ca);                                                          -- another admin, same community
+  msg := pg_temp.s36_err(format('select jc_admin_pet_missing_set(%L, true, null)', v_rex));
+  if msg is distinct from 'RATE_LIMITED' then raise exception 'FAIL AM09c per community: %', msg; end if;
+  k := k + 3;
 
   -- ---------- AM07 the CHECK: the team flag never stands without missing ----------
   execute 'reset role';

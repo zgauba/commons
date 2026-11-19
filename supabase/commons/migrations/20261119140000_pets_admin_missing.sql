@@ -12,9 +12,25 @@
 -- jc_pet_retire(...)             body replaced from live: archiving clears missing_by_team with missing (the CHECK).
 -- jc_pet_card(...)               body replaced from live: + 'missing_by_team' for the owner's household only (null for
 --                                everyone else). Additive key; signature unchanged.
+-- jc_rate bucket 'pet_missing'   (security review M1) marking missing only: 20 / hour per admin (jc_rate_take) +
+--                                60 / hour per community (jc_admin_log). Marking found is never limited.
+-- Re-mark of a pet already missing (db + security review M2): keeps the household's note when no new note is given
+-- and keeps who reported it (a household report stays the household's).
+--
+-- Rollback, in this order: 1. drop function jc_admin_pet_missing_set(uuid, boolean, text); 2. re-create
+-- jc_pet_missing_set / jc_pet_retire / jc_pet_card from 20261111160000 / 20261117090000 / 20261113100000;
+-- 3. delete from jc_rate where bucket = 'pet_missing', then put back the 7-bucket jc_rate_bucket_check;
+-- 4. alter table jc_pets drop constraint jc_pets_missing_by_team, drop column missing_by_team.
+
+set local lock_timeout = '5s';                            -- db review: fail cleanly rather than queue behind a long reader
 
 alter table public.jc_pets add column missing_by_team boolean not null default false;
 alter table public.jc_pets add constraint jc_pets_missing_by_team check (not missing_by_team or missing);
+
+alter table public.jc_rate drop constraint jc_rate_bucket_check;
+alter table public.jc_rate add constraint jc_rate_bucket_check
+  check (bucket = any (array['join', 'admin_unlock', 'feedback', 'pet_archive', 'sighting_hide', 'pet_care_add', 'cat_log',
+                             'pet_missing']));
 
 create or replace function public.jc_pet_missing_set(p_pet uuid, p_missing boolean, p_note text)
  returns jsonb
@@ -53,14 +69,21 @@ begin
   v_comm := jc_assert_admin('pets');                      -- Pets admins and community admins; their community only
   perform jc_module_on(v_comm, 'pets');
   if p_missing is null or char_length(p_note) > 400 then raise exception 'BAD_FIELDS'; end if;
+  if p_missing then                                       -- security review M1: raising the alert is limited, clearing never
+    if (select count(*) from jc_admin_log where community_id = v_comm and action = 'pet_missing'
+         and at > now() - interval '1 hour' and (target ->> 'missing')::boolean) >= 60 then raise exception 'RATE_LIMITED'; end if;
+    perform jc_rate_take(auth.uid(), 'pet_missing', 20, interval '1 hour');
+  end if;
   -- a resident's pet only (strays have no missing switch); the same row lock as the household's switch
   select * into p from jc_pets where id = p_pet and community_id = v_comm and status = 'active' for no key update;
   if p.id is null or p.kind <> 'owned' then raise exception 'NOT_FOUND'; end if;
   update jc_pets
      set missing = p_missing,
          missing_since = case when p_missing then coalesce(missing_since, now()) end,
-         last_seen_note = case when p_missing then left(jc_clean_text(p_note), 200) else null end,
-         missing_by_team = p_missing,
+         -- review M2: re-marking a pet already missing keeps the household's note (unless a new one is given) and
+         -- keeps who reported it
+         last_seen_note = case when p_missing then coalesce(left(jc_clean_text(p_note), 200), last_seen_note) end,
+         missing_by_team = p_missing and (not missing or missing_by_team),
          updated_at = now(), updated_by = v_user
    where id = p.id;
   perform jc_admin_log_add(v_comm, 'pet_missing', jsonb_build_object('pet_id', p.id, 'missing', p_missing));
