@@ -498,3 +498,66 @@ test("a coordinator: a report's photo on the Reports tab opens the photo viewer;
   await expect(viewer).toBeHidden();
   await expect(ph).toBeFocused();
 });
+
+// UI review 2026-11-20 #1: a resident on a missing cat's page tells the coordinators through the report form
+test("UI review #1: I've seen ⟨cat⟩ on a missing cat opens the report form naming it; the note says so; Back returns to the cat", async ({ page }) => {
+  const b = backend([]);
+  b.st.cats.push(catRow(K2, "C-002", "Smudge", { status: "missing" }));
+  const { calls } = await open(page, b);
+  await page.locator(`[data-cat="${K2}"]`).click();
+  await expect(page.locator("#caAlarm #caSeenRep")).toHaveText("I've seen Smudge");
+  await expect(page.locator("#caAlarmSeen")).toHaveCount(0);                                 // residents: no programme sighting
+  await page.locator("#caSeenRep").click();
+  await expect(page.locator("h1")).toHaveText("I've seen Smudge");
+  await expect(page.locator("#rpSeen")).toHaveText("About \u2068C-002 · Smudge\u2069, listed as missing. Say where and when you saw it.");
+  await expect(page.locator("#rpOther")).toHaveCount(0);
+  const prefix = "Seen: C-002 · Smudge (listed as missing).";
+  await expect(page.locator("#rpNote")).toHaveAttribute("maxlength", String(280 - prefix.length - 1));   // prefix + note ≤ 280
+  if (process.env.SHOT_DIR) await page.screenshot({ path: process.env.SHOT_DIR + "/uirev-seen-form.png", fullPage: true });
+  await page.locator("#jcBackBtn").click();
+  await expect(page.locator(".pthero h1")).toHaveText("Smudge");                              // back on the cat, nothing sent
+  expect(named(calls, "jc_stray_report_add")).toHaveLength(0);
+  await page.locator("#caSeenRep").click();
+  await page.locator("#rpNote").fill("By the bins");
+  await page.locator("#rpPlace").fill("Souk car park");
+  await page.locator("#rpSend").click();
+  await expect(page.locator("h1")).toHaveText("Thanks for reporting");
+  expect(named(calls, "jc_stray_report_add")[0].args.p_fields)
+    .toEqual({ species: "cat", note: "Seen: C-002 · Smudge (listed as missing). By the bins", place: "Souk car park" });   // exact
+  await expect(page.locator("#rpWaText")).toHaveText("I've seen Smudge, listed as missing, and told the Cats coordinators on Commons.");
+});
+
+test("UI review #1: a seen report with no note of its own sends exactly the cat line", async ({ page }) => {
+  const b = backend([]);
+  b.st.cats.push(catRow(K2, "C-002", "Smudge", { status: "missing" }));
+  const { calls } = await open(page, b);
+  await page.locator(`[data-cat="${K2}"]`).click();
+  await page.locator("#caSeenRep").click();
+  await page.locator("#rpPlace").fill("Souk car park");
+  await page.locator("#rpSend").click();
+  await expect(page.locator("h1")).toHaveText("Thanks for reporting");
+  expect(named(calls, "jc_stray_report_add")[0].args.p_fields)
+    .toEqual({ species: "cat", note: "Seen: C-002 · Smudge (listed as missing).", place: "Souk car park" });
+});
+
+test("UI review #1: a stray report opened from the Cats tab is unchanged (no cat line, the other-animal line kept)", async ({ page }) => {
+  const b = backend([]);
+  await open(page, b);
+  await page.locator("#rpOpen").click();
+  await expect(page.locator("#rpSeen")).toHaveCount(0);
+  await expect(page.locator("#rpOther")).toBeVisible();
+  await expect(page.locator("#rpNote")).toHaveAttribute("maxlength", "280");
+});
+
+test("UI review #5: a report's Add as new cat has its own row; Already known and Not a stray share the next, one line each", async ({ page }) => {
+  const b = backend(["cats"], { queue: QUEUE });
+  await open(page, b);
+  await page.locator("#caTab_reports").click();
+  const card = page.locator('[data-report="' + RP1 + '"]');
+  const box = async (sel) => card.locator(sel).boundingBox();
+  const add = await box("[data-rqadd]"), known = await box("[data-rqknown]"), not = await box("[data-rqnot]");
+  expect(known.y).toBeGreaterThan(add.y + add.height - 1);                                    // the next row
+  expect(Math.abs(known.y - not.y)).toBeLessThan(2);
+  expect(Math.abs(known.height - not.height)).toBeLessThan(2);                                // same size: no 36px mini
+  expect(known.height).toBeLessThan(60);                                                      // one line, not two
+});

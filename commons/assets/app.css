@@ -274,7 +274,7 @@ main.jcpage, .jcpage #view, .jcpage [role="tabpanel"], .jcstack{display:flex; fl
 .ptwho{display:flex; flex-direction:column; gap:4px; min-width:0}
 .ptwho h1{margin:0; overflow-wrap:anywhere}
 /* facts (blocks.js jcFactsHtml): muted label, value */
-.facts{display:grid; grid-template-columns:auto 1fr; gap:6px 14px; margin:0; font-size:14px}
+.facts{display:grid; grid-template-columns:9.5em 1fr; gap:6px 14px; margin:0; font-size:14px}
 .facts dt{color:var(--jc-muted); font-weight:700}
 .facts dd{margin:0; overflow-wrap:anywhere}
 /* typed text keeps dir="auto" (a Latin name's letters stay in order); in Arabic it still lines up with the rest */

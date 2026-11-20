@@ -757,7 +757,7 @@ test("DS-4a: cats are photo cards with no heading repeating the tab; a missing c
   await expect(page.locator(`[data-cat="${K2}"] .chip.miss`)).toHaveText("Missing");
   if (process.env.SHOT_DIR) await page.screenshot({ path: process.env.SHOT_DIR + "/ds4a-cats-list.png", fullPage: true });
   await page.locator(`[data-cat="${K2}"]`).click();
-  await expect(page.locator("#caAlarm")).toHaveText("C-002 is missing");
+  await expect(page.locator("#caAlarm b")).toHaveText("C-002 is missing");
   await expect(page.locator(".pthero .chip.miss")).toHaveCount(0);                           // the alarm says it
   await page.locator("#jcBackBtn").click();
   await page.locator(`[data-cat="${K1}"]`).click();
@@ -867,7 +867,9 @@ test("DS-4b: cat editor — pills for sex / life stage / ear tip / sterilisation
   await expect(page.locator('[data-pill="sex"][aria-pressed="true"]')).toHaveText("Male");
   await expect(page.locator("#caCatForm > fieldset").first()).toHaveAttribute("id", "caPhotoBox");
   await expect(page.locator("#caCatForm > :last-child")).toHaveAttribute("id", "caCatSave");
-  await expect(page.locator("#caMergeBox ~ #caCatSave")).toHaveCount(1);                   // D14: merge above Save
+  await expect(page.locator("#caCatForm ~ #caMergeBox")).toHaveCount(1);                   // UI review #7: Merge is its own panel below the form
+  await expect(page.locator("#caCatForm #caMergeBox")).toHaveCount(0);
+  await expect(page.locator("#caCatForm h2.group")).toHaveText(["Where", "Health", "Status and record"]);   // UI review #6: the page's groups
   // D8: no control has two captions saying the same word
   const doubled = await page.locator("#caCatForm fieldset").evaluateAll((fs) => fs.filter((f) => {
     const lg = f.querySelector(":scope > legend"); if (!lg) return false;
@@ -1240,4 +1242,46 @@ test("CC-5: the vet form refuses what the server would (dates, unticked vaccine,
   await expect.poll(() => regReads).toBeGreaterThan(before);                      // the register is read again
   await page.locator("#caPg_about").click();
   await expect(page.locator("#caVacc li")).toContainText("Core (FVRCP)");
+});
+
+// UI review 2026-11-20 (docs/qa/cats-ui-review-2026-11-20.md)
+test("UI review #3: a missing cat's banner offers Report seeing to the programme; it opens the sighting with the cat chosen", async ({ page }) => {
+  await stubBackend(page, { rpc: logBackend(["cats_vol"], { activity: [] }) });
+  await signIn(page);
+  await page.goto("cats/");
+  await page.locator(`[data-cat="${K2}"]`).click();
+  await expect(page.locator("#caAlarm b")).toHaveText("C-002 is missing");
+  await expect(page.locator("#caAlarm #caAlarmSeen")).toHaveText("Report seeing C-002");    // on About, not one tab away
+  await expect(page.locator("#caSeenRep")).toHaveCount(0);
+  await page.locator("#caAlarmSeen").click();
+  await expect(page.locator("#caSCat")).toHaveValue(K2);
+});
+
+test("UI review #4: the cat page's label columns line up across About, Health and Where", async ({ page }) => {
+  await stubBackend(page, { rpc: member(["cats_vol"]) });
+  await signIn(page);
+  await page.goto("cats/");
+  await page.locator(`[data-cat="${K1}"]`).click();
+  const xs = await page.locator("#caFacts dd, #caHealth dd, #caWhere dd").evaluateAll((ds) => ds.map((d) => Math.round(d.getBoundingClientRect().left)));
+  expect(xs.length).toBeGreaterThan(5);
+  expect(new Set(xs).size).toBe(1);
+});
+
+test("UI review #9: the Activity help names residents' invoice view only to coordinators; #2: the help sheet is current", async ({ page }) => {
+  await stubBackend(page, { rpc: logBackend(["cats_vol"], { activity: [] }) });
+  await signIn(page);
+  await page.goto("cats/");
+  await page.locator("#caTab_log").click();
+  await expect(page.locator("#caLogHelp")).toHaveText("Feeding visits, sightings and vet visits, newest first. Kept as the programme's history.");
+  await page.locator("#jcHelpBtn").click();
+  await expect(page.locator("#jcHelp")).not.toContainText("come next");
+  await expect(page.locator("#jcHelp")).toContainText("seen a missing one");
+});
+
+test("UI review #9: a coordinator's Activity help adds what residents see", async ({ page }) => {
+  await stubBackend(page, { rpc: logBackend(["cats"], { activity: [] }) });
+  await signIn(page);
+  await page.goto("cats/");
+  await page.locator("#caTab_log").click();
+  await expect(page.locator("#caLogHelp")).toContainText("Residents see only \"Vaccinated\" and invoices you choose to show them.");
 });

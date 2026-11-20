@@ -23,10 +23,12 @@ function repPhone(v){
   if (/^00/.test(d)) d = "+" + d.slice(2);
   return /^\+[0-9]{8,15}$/.test(d) ? d : null;
 }
-function openReport(){
+/* seen: a missing cat a resident has seen (UI review #1) — { id, code, name }; the report names it in its note, and a
+   coordinator links it with Already known. No cat field on the server yet, so nothing new is sent */
+function openReport(seen){
   if (busy) return;
   rep = { id: repId(), note: "", place: "", w: { lat: null, lng: null, picking: false }, photo: null, shrinking: null,
-          wa: false, phone: "", confirm: false };
+          wa: false, phone: "", confirm: false, seen: seen && seen.id ? seen : null };
   show("report");
   try { window.scrollTo(0, 0); } catch(e){}
 }
@@ -52,8 +54,10 @@ function repWrite(b, call, done, fail){
 function reportView(){
   if (!rep) return show("home");
   takeMap();
-  jcBack(function(){ if (busy) return; rep = null; show("home"); });
+  jcBack(function(){ if (busy) return; var from = rep.seen; rep = null; if (from) { catId = from.id; show("cat"); } else show("home"); });
   var r = rep, off = busy ? ' disabled' : '';
+  var seenTag = r.seen ? [r.seen.code, r.seen.name].filter(Boolean).join(" · ") : "";
+  var noteMax = r.seen ? Math.max(40, 280 - jcFmt("ca_rp_seen_note", { c: seenTag }).length - 1) : 280;
   var lock = busy || r.confirm ? ' disabled' : '';     /* the prompt is open: what was agreed to can't change behind it */
   var send = r.confirm
     ? '<div class="panel" id="rpConfirm" role="group" aria-labelledby="rpConfirmH" aria-describedby="rpC1 rpC2 rpC3"><b id="rpConfirmH" tabindex="-1">' + esc(jcT("ca_rp_confirm_h")) + '</b>' +
@@ -62,10 +66,12 @@ function reportView(){
       '<button class="btn ghost" type="button" id="rpSendNoPhoto"' + off + '>' + esc(jcT("ca_rp_send_nophoto")) + '</button>' +
       '<button class="btn ghost" type="button" id="rpConfirmBack"' + off + '>' + esc(jcT("acct_back")) + '</button></div></div>'
     : '<button class="btn" type="submit" id="rpSend"' + (busy || r.shrinking || r.w.picking ? ' disabled' : '') + '>' + esc(jcT("ca_rp_send")) + '</button>';
-  el("view").innerHTML = '<h1>' + esc(jcT("ca_rp_title")) + '</h1><p class="help">' + esc(jcT("ca_rp_help")) + '</p>' +
-    '<p class="help" id="rpOther">' + esc(jcT("ca_rp_other")) + '</p>' + msgBox() +
+  el("view").innerHTML = '<h1 dir="auto">' + esc(r.seen ? jcFmt("ca_rp_seen_title", { n: r.seen.name || r.seen.code }) : jcT("ca_rp_title")) + '</h1>' +
+    (r.seen ? '<p class="notice" id="rpSeen">' + esc(jcFmt("ca_rp_seen_about", { c: "\u2068" + seenTag + "\u2069" })) + '</p>' : '') +
+    '<p class="help">' + esc(jcT("ca_rp_help")) + '</p>' +
+    (r.seen ? '' : '<p class="help" id="rpOther">' + esc(jcT("ca_rp_other")) + '</p>') + msgBox() +
     '<form class="panel" id="rpForm" novalidate>' +
-    '<label>' + esc(jcT("ca_rp_note")) + '<textarea id="rpNote" maxlength="280" dir="auto"' + lock + '></textarea></label>' +
+    '<label>' + esc(jcT("ca_rp_note")) + '<textarea id="rpNote" maxlength="' + noteMax + '" dir="auto"' + lock + '></textarea></label>' +
     '<fieldset id="rpWhere"><legend>' + esc(jcT("ca_rp_where")) + '</legend>' + jcWhereHtml(r.w, "rpW", lock, {}) +
       (r.w.picking ? '' : '<label>' + esc(jcT("ca_rp_place")) + '<input type="text" id="rpPlace" maxlength="120" dir="auto" autocomplete="off"' + lock + '></label>' +
         '<p class="help">' + esc(jcT("ca_rp_where_help")) + '</p>') + '</fieldset>' +
@@ -132,11 +138,13 @@ function repSend(withPhoto){
   var r = rep;
   if (!r || busy || r.shrinking || r.w.picking || !repCheck()) return;   /* never a photo other than the one agreed to */
   var fields = { species: "cat" };
-  if (r.note.trim()) fields.note = r.note.trim();
+  var note = r.note.trim();
+  if (r.seen) note = jcFmt("ca_rp_seen_note", { c: [r.seen.code, r.seen.name].filter(Boolean).join(" · ") }) + (note ? " " + note : "");
+  if (note) fields.note = note.slice(0, 280);           /* the server's cap: never cut silently mid-way on its side */
   if (r.place.trim()) fields.place = r.place.trim();
   if (r.w.lat != null) { fields.lat = r.w.lat; fields.lng = r.w.lng; }
   if (r.wa) fields.contact = repPhone(r.phone);
-  var photo = withPhoto ? r.photo : null, where = r.place.trim();
+  var photo = withPhoto ? r.photo : null, where = r.place.trim(), seen = r.seen;
   repWrite(el(withPhoto ? "rpSendPhoto" : r.confirm ? "rpSendNoPhoto" : "rpSend"), function(){
     /* the same id on a retry: the server returns the first report, never a second */
     return rpc("jc_stray_report_add", { p_id: r.id, p_fields: fields }).then(function(){
@@ -145,7 +153,8 @@ function repSend(withPhoto){
     });
   }, function(x){
     rep = null; myReps = undefined; myRepsSeq++; myRepsBusy = false;
-    repDone = { text: where ? jcFmt("ca_rp_wa_msg_place", { w: where }) : jcT("ca_rp_wa_msg") };
+    repDone = { text: seen ? jcFmt("ca_rp_wa_msg_seen", { n: seen.name || seen.code })
+      : where ? jcFmt("ca_rp_wa_msg_place", { w: where }) : jcT("ca_rp_wa_msg") };
     show("repdone");
     try { window.scrollTo(0, 0); } catch(e){}
     if (x && x.photoErr) jcSay("err", jcFmt("ca_rp_photo_failed", { why: jcErrTextFor("ca_err_", x.photoErr) }));
@@ -175,7 +184,7 @@ function repCtaHtml(){
     '<div class="row"><button class="btn ghost" type="button" id="rpOpen"' + (busy ? ' disabled' : '') + '>' + esc(jcT("ca_rp_cta")) + '</button></div>' +
     '<div id="rpMineBox">' + myRepsHtml() + '</div>';
 }
-function wireRepCta(){ on("rpOpen", openReport); wireMyReps(); }
+function wireRepCta(){ on("rpOpen", function(){ openReport(); }); wireMyReps(); }
 function loadMyReps(){
   myRepsBusy = true;
   var seq = ++myRepsSeq;                                 /* an older read never overwrites a newer state */

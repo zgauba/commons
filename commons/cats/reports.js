@@ -84,9 +84,9 @@ function rqCard(r){
       '<button class="btn ghost" type="button" id="rqKnownKeep">' + esc(jcT("ct_cancel")) + '</button></div></fieldset>';
   }
   return h + '<div class="row">' +
-    '<button class="btn small" type="button" data-rqadd="' + esc(r.id) + '"' + off + '>' + esc(jcT("ca_rq_add")) + '</button>' +
+    '<button class="btn small rqMain" type="button" data-rqadd="' + esc(r.id) + '"' + off + '>' + esc(jcT("ca_rq_add")) + '</button>' +
     '<button class="btn ghost small" type="button" data-rqknown="' + esc(r.id) + '"' + off + '>' + esc(jcT("ca_rq_known")) + '</button>' +
-    '<button class="mini danger" type="button" id="rqNot-' + esc(r.id) + '" data-rqnot="' + esc(r.id) + '"' + off + '>' + esc(jcT("ca_rq_not")) + '</button></div>';
+    '<button class="btn ghost small danger" type="button" id="rqNot-' + esc(r.id) + '" data-rqnot="' + esc(r.id) + '"' + off + '>' + esc(jcT("ca_rq_not")) + '</button></div>';
 }
 function reportsTabHtml(){
   if (rq.open === undefined) rqLoad();

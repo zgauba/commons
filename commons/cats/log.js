@@ -176,7 +176,7 @@ function logWire(root){
 function logTabHtml(){
   var off = busy ? ' disabled' : '';
   return '<div class="acts"><button class="btn" type="button" id="caLogAct"' + off + '>' + esc(jcT("ca_l_log")) + '</button></div>' +
-    '<p class="help">' + esc(jcT("ca_l_tab_help")) + '</p>' +
+    '<p class="help" id="caLogHelp">' + esc(jcT("ca_l_tab_help")) + (canEditCats() ? ' ' + esc(jcT("ca_l_tab_help_coord")) : '') + '</p>' +
     jcChipsHtml({ id: "caLogChips", prefix: "caLk_", label: jcT("ca_tab_log"), current: actKind,
       items: LOG_KINDS.map(function(k){ return { key: k, text: jcT("ca_lk_" + k) }; }) }) +
     '<div id="caLogList">' + logBox("all:" + actKind) + '</div>';
