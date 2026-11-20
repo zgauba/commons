@@ -66,7 +66,8 @@ begin
   if (v ->> 'upcoming')::int <> 2 or (v ->> 'next_24h')::int <> 1 or (v ->> 'created_24h')::int <> 4 then
     raise exception 'FAIL N02e bookings: %', v; end if;
   v := (select metrics from jc_snapshots where community_id = 'testville6' and module = 'pets' and bucket = v_bucket);
-  if (v ->> 'owned')::int <> 1 or (v ->> 'strays')::int <> 1 or (v ->> 'missing')::int <> 1 then
+  -- CC-7d: no 'strays' key (the active stray row above is not counted anywhere)
+  if (v ->> 'owned')::int <> 1 or v ? 'strays' or (v ->> 'missing')::int <> 1 then
     raise exception 'FAIL N02f pets: %', v; end if;
   k := k + 6;
 

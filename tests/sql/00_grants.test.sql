@@ -27,7 +27,7 @@ declare
     -- S4
     'jc_pets_list', 'jc_pet_get', 'jc_pet_save', 'jc_pet_missing_set', 'jc_pet_archive',
     'jc_pet_sighting_add', 'jc_pet_photo_begin', 'jc_pet_photo_commit', 'jc_pet_photo_remove',
-    'jc_admin_pets_list', 'jc_admin_stray_save', 'jc_admin_pet_care_add', 'jc_admin_pet_archive',
+    'jc_admin_pets_list', 'jc_admin_pet_archive',   -- CC-7d dropped jc_admin_stray_save, jc_admin_pet_care_add
     'jc_admin_sighting_hide',
     -- T4
     'jc_admin_report', 'jc_health',
@@ -50,13 +50,14 @@ declare
     -- R4a-2 (per-person module admins by invite link)
     'jc_module_admin_link_create', 'jc_module_admin_accept', 'jc_module_admins_list', 'jc_module_admin_revoke',
     -- R5a (pets to spec)
-    'jc_admin_pet_care_set', 'jc_pets_group_get', 'jc_admin_pets_group_set',
+    'jc_pets_group_get',   -- CC-7d dropped jc_admin_pet_care_set
+    'jc_admin_pets_group_set',
     -- RM-a (renamable modules)
     'jc_admin_module_label_set',
     -- R5b-2b-0 (pets alerts for the hub)
     'jc_pets_alerts',
     -- report a new stray (PR 1a)
-    'jc_stray_report_add', 'jc_stray_reports_mine', 'jc_admin_stray_reports_list', 'jc_admin_stray_report_close',
+    'jc_stray_report_add', 'jc_stray_reports_mine',   -- CC-7d dropped jc_admin_stray_reports_list / _close
     'jc_stray_report_contact_clear',
     -- report a new stray (PR 1b: photos)
     'jc_stray_report_photo_begin', 'jc_stray_report_photo_commit', 'jc_stray_report_photo_remove',

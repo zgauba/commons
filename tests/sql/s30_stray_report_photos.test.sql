@@ -1,19 +1,21 @@
 -- Report a new stray, PR 1b (20261116140000_stray_report_photos.sql): an optional photo on a report — who may write /
--- read it, replace / withdraw, move to the stray on Add / Already known, retire on Not a stray, nightly retention.
+-- read it, replace / withdraw, retire on Not a stray, nightly retention. CC-7d: Organizer Tools' close + list are gone
+-- (the moves to a Pets stray, P08 / P09 / P12e / P14d, went with them — the Cats queue's moves are s38 RP02 / RP03 /
+-- RP05j); the organizer here is a community admin, who reads through the Cats rule.
 -- Own communities (testville30 / testville30b) — never jubail. Rolled back by build_dryrun.sh (storage rows included).
 do $t$
 declare
   r1 uuid := '00000000-0000-4000-8000-000000003001';  -- reporter, home 1
   r2 uuid := '00000000-0000-4000-8000-000000003002';  -- another resident, home 2
-  a1 uuid := '00000000-0000-4000-8000-000000003003';  -- Pets admin of testville30
-  o1 uuid := '00000000-0000-4000-8000-000000003004';  -- Pets admin of testville30b
+  a1 uuid := '00000000-0000-4000-8000-000000003003';  -- community admin of testville30 (CC-7d: was Pets admin)
+  o1 uuid := '00000000-0000-4000-8000-000000003004';  -- community admin of testville30b
   q1 uuid := '00000000-0000-4000-8000-0000000030a1';
   q2 uuid := '00000000-0000-4000-8000-0000000030a2';
   q3 uuid := '00000000-0000-4000-8000-0000000030a3';
   q4 uuid := '00000000-0000-4000-8000-0000000030a4';
   q5 uuid := '00000000-0000-4000-8000-0000000030a5';
   v jsonb; k int := 0; msg text; n int;
-  v_cat uuid; v_dog uuid; v_p1 text; v_p2 text; v_p3 text; v_p4 text; v_pd text;
+  v_cat uuid; v_p1 text; v_p2 text; v_p3 text; v_p4 text;
   v_meta jsonb := '{"size": 2048, "mimetype": "image/jpeg"}';
 begin
   execute $f$create function pg_temp.s30_as(u uuid) returns void language sql as
@@ -29,21 +31,18 @@ begin
     ('testville30b', 'Testville 30b', 25.00, 55.00, '{"pets": {"enabled": true}, "cats": {"enabled": true}}');
   insert into jc_villages (community_id, key, name_en) values ('testville30', 'north', 'North');
   perform jc_code_set('testville30', 'join', 'S30-JOIN-CODE-01');
-  perform jc_code_set('testville30', 'pets', 'S30-PETS-ADMIN-01');
+  perform jc_code_set('testville30', 'community', 'S30-COMMUNITY-01');
   perform jc_code_set('testville30b', 'join', 'S30-JOIN-CODE-02');
-  perform jc_code_set('testville30b', 'pets', 'S30-PETS-ADMIN-02');
+  perform jc_code_set('testville30b', 'community', 'S30-COMMUNITY-02');
   execute 'set local role authenticated';
   perform pg_temp.s30_as(r1); perform jc_join('testville30', 'S30-JOIN-CODE-01'); perform jc_home_claim('north', 'villa', null, '1');
   perform pg_temp.s30_as(r2); perform jc_join('testville30', 'S30-JOIN-CODE-01'); perform jc_home_claim('north', 'villa', null, '2');
-  perform pg_temp.s30_as(o1); perform jc_join('testville30b', 'S30-JOIN-CODE-02'); perform jc_admin_unlock('S30-PETS-ADMIN-02');
-  perform pg_temp.s30_as(a1); perform jc_join('testville30', 'S30-JOIN-CODE-01'); perform jc_admin_unlock('S30-PETS-ADMIN-01');
-  v_cat := (jc_admin_stray_save(null, '{"species": "cat", "name": "S30 cat"}') ->> 'id')::uuid;   -- no photo
-  v_dog := (jc_admin_stray_save(null, '{"species": "dog", "name": "S30 dog"}') ->> 'id')::uuid;   -- gets a photo
-  v_pd := jc_pet_photo_begin(v_dog, 'jpg') ->> 'path';
-  execute 'reset role';
-  insert into storage.objects (bucket_id, name, owner, metadata) values ('pet-photos', v_pd, a1, v_meta);
+  perform pg_temp.s30_as(o1); perform jc_join('testville30b', 'S30-JOIN-CODE-02'); perform jc_admin_unlock('S30-COMMUNITY-02');
+  perform pg_temp.s30_as(a1); perform jc_join('testville30', 'S30-JOIN-CODE-01'); perform jc_admin_unlock('S30-COMMUNITY-01');
+  execute 'reset role';   -- CC-7d: a stray row as postgres (P10c's two-owner check + P15's archived pet)
+  insert into jc_pets (community_id, kind, species, name, care_state) values ('testville30', 'stray', 'cat', 'S30 cat', 'known_fine')
+    returning id into v_cat;
   execute 'set local role authenticated';
-  perform jc_pet_photo_commit(v_dog);
   perform pg_temp.s30_as(r1);
   perform jc_stray_report_add(q1, '{"species": "cat", "place": "By the gate"}');
   perform jc_stray_report_add(q2, '{"species": "cat", "place": "Marina"}');
@@ -108,8 +107,8 @@ begin
   if not jc_private.pet_photo_can_read(v_p1) then raise exception 'FAIL P04a reporter'; end if;
   perform pg_temp.s30_as(a1);
   if not jc_private.pet_photo_can_read(v_p1) then raise exception 'FAIL P04b organizer'; end if;
-  if (select x ->> 'photo_path' from jsonb_array_elements(jc_admin_stray_reports_list('open')) x where x ->> 'id' = q1::text) <> v_p1 then
-    raise exception 'FAIL P04c organizer list'; end if;
+  if (select x ->> 'photo_path' from jsonb_array_elements(jc_cat_reports_list('open')) x where x ->> 'id' = q1::text) <> v_p1 then
+    raise exception 'FAIL P04c organizer list (the Cats queue)'; end if;
   perform pg_temp.s30_as(r2);
   if jc_private.pet_photo_can_read(v_p1) then raise exception 'FAIL P04d another resident reads'; end if;
   perform pg_temp.s30_as(o1);
@@ -157,7 +156,7 @@ begin
   execute 'set local role authenticated';
   perform jc_stray_report_photo_commit(q2);
   perform pg_temp.s30_as(a1);
-  v := jc_admin_stray_report_close(q2, 'not_stray', null);
+  v := jc_cat_report_close(q2, 'not_stray', null);
   if v -> 'photo_path' <> 'null'::jsonb then raise exception 'FAIL P07a: %', v; end if;
   perform pg_temp.s30_as(r1);
   if jc_private.pet_photo_can_read(v_p3) then raise exception 'FAIL P07b readable after close'; end if;
@@ -165,34 +164,7 @@ begin
   if (select state from jc_pet_photos where path = v_p3) <> 'retired' then raise exception 'FAIL P07c row'; end if;
   k := k + 3;
 
-  -- ---------- P08 Add as a stray (no photo yet): the photo moves to the stray and is public to members ----------
-  execute 'set local role authenticated';
-  perform pg_temp.s30_as(r1);
-  v_p4 := jc_stray_report_photo_begin(q3, 'jpg') ->> 'path';
-  execute 'reset role';
-  insert into storage.objects (bucket_id, name, owner, metadata) values ('pet-photos', v_p4, r1, v_meta);
-  execute 'set local role authenticated';
-  perform jc_stray_report_photo_commit(q3);
-  perform pg_temp.s30_as(a1);
-  perform jc_admin_stray_report_close(q3, 'added', v_cat);
-  execute 'reset role';
-  if (select photo_path from jc_pets where id = v_cat) is distinct from v_p4 then raise exception 'FAIL P08a stray photo'; end if;
-  if not exists (select 1 from jc_pet_photos where path = v_p4 and pet_id = v_cat and report_id is null and state = 'current') then
-    raise exception 'FAIL P08b ledger: %', (select row_to_json(x) from jc_pet_photos x where path = v_p4); end if;
-  if (select photo_path from jc_stray_reports where id = q3) is not null then raise exception 'FAIL P08c report keeps it'; end if;
-  if not exists (select 1 from jc_admin_log where action = 'stray_report_close' and target ->> 'report_id' = q3::text
-                  and (target -> 'photo_moved')::boolean) then raise exception 'FAIL P08d log'; end if;
-  execute 'set local role authenticated';
-  perform pg_temp.s30_as(r2);
-  if not jc_private.pet_photo_can_read(v_p4) then raise exception 'FAIL P08e members can''t see the stray''s photo'; end if;
-  k := k + 5;
-
-  -- ---------- P09 a retry moves nothing again; Already known on a stray WITH a photo retires the report's ----------
-  perform pg_temp.s30_as(a1);
-  perform jc_admin_stray_report_close(q3, 'added', v_cat);
-  execute 'reset role';
-  if (select count(*) from jc_admin_log where action = 'stray_report_close' and target ->> 'report_id' = q3::text) <> 1
-     or (select photo_path from jc_pets where id = v_cat) is distinct from v_p4 then raise exception 'FAIL P09a retry'; end if;
+  -- ---------- (CC-7d) q4: a photo, then closed Not a stray through the Cats queue (P12's unpurged closed report) ----------
   execute 'set local role authenticated';
   perform pg_temp.s30_as(r1);
   v_p1 := jc_stray_report_photo_begin(q4, 'jpg') ->> 'path';
@@ -201,11 +173,8 @@ begin
   execute 'set local role authenticated';
   perform jc_stray_report_photo_commit(q4);
   perform pg_temp.s30_as(a1);
-  perform jc_admin_stray_report_close(q4, 'known', v_dog);
+  perform jc_cat_report_close(q4, 'not_stray', null);
   execute 'reset role';
-  if (select photo_path from jc_pets where id = v_dog) is distinct from v_pd then raise exception 'FAIL P09b stray photo replaced'; end if;
-  if not exists (select 1 from jc_pet_photos where path = v_p1 and report_id = q4 and state = 'retired') then raise exception 'FAIL P09c not retired'; end if;
-  k := k + 3;
 
   -- ---------- P10 closed reports take no photo; the ledger needs exactly one owner ----------
   execute 'set local role authenticated';
@@ -243,8 +212,7 @@ begin
   if exists (select 1 from jc_stray_reports where id = q2) or exists (select 1 from jc_pet_photos where report_id = q2) then
     raise exception 'FAIL P12c purged report not deleted'; end if;
   if not exists (select 1 from jc_stray_reports where id = q4) then raise exception 'FAIL P12d q4 (unpurged) deleted'; end if;
-  if not exists (select 1 from jc_pet_photos where path = v_p4 and pet_id = v_cat) then raise exception 'FAIL P12e the moved photo went'; end if;
-  k := k + 5;
+  k := k + 4;
 
   -- ---------- P13 write window: closed after commit, after 15 minutes; reads stop while Cats is off (reporter too; CC-7a) ----------
   execute 'set local role authenticated';
@@ -269,32 +237,26 @@ begin
   update jc_communities set modules = '{"pets": {"enabled": true}, "cats": {"enabled": true}}' where id = 'testville30';
   k := k + 3;
 
-  -- ---------- P14 the reporter leaves: photo hidden from organizers at once, never moved to a stray, retired overnight ----------
+  -- ---------- P14 the reporter leaves: photo hidden from organizers at once, retired overnight ----------
   delete from jc_home_members where user_id = r1;
   delete from jc_accounts where user_id = r1;                         -- as jc_account_delete leaves things for this table
   execute 'set local role authenticated';
   perform pg_temp.s30_as(a1);
   if jc_private.pet_photo_can_read(v_p1) then raise exception 'FAIL P14a organizer reads a departed reporter''s photo'; end if;
-  if (select x -> 'photo_path' from jsonb_array_elements(jc_admin_stray_reports_list('open')) x
+  if (select x -> 'photo_path' from jsonb_array_elements(jc_cat_reports_list('open')) x
        where x ->> 'id' = '00000000-0000-4000-8000-0000000030b1') <> 'null'::jsonb then raise exception 'FAIL P14b list shows it'; end if;
-  v_dog := (jc_admin_stray_save(null, '{"species": "dog", "name": "S30 pup"}') ->> 'id')::uuid;
   execute 'reset role';
   -- (a) nightly: retired + cleared
   perform jc_pets_retention();
   if (select photo_path from jc_stray_reports where id = '00000000-0000-4000-8000-0000000030b1') is not null
      or (select state from jc_pet_photos where path = v_p1) <> 'retired' then raise exception 'FAIL P14c not retired overnight'; end if;
-  -- (b) close before the nightly run: put the photo back as postgres, then Add — it must retire, not move
-  update jc_pet_photos set state = 'current', retired_at = null where path = v_p1;
-  update jc_stray_reports set photo_path = v_p1 where id = '00000000-0000-4000-8000-0000000030b1';
-  execute 'set local role authenticated';
-  perform jc_admin_stray_report_close('00000000-0000-4000-8000-0000000030b1', 'added', v_dog);
-  execute 'reset role';
-  if (select photo_path from jc_pets where id = v_dog) is not null or (select state from jc_pet_photos where path = v_p1) <> 'retired' then
-    raise exception 'FAIL P14d a departed reporter''s photo moved to a stray'; end if;
-  k := k + 4;
+  k := k + 3;
 
   -- ---------- P15 nightly: a current photo left on an archived pet is retired (close-vs-archive race, db M1) ----------
   -- jc_pet_retire's pets update, after the move (soft archive: the move landed after retire chose what to keep → not kept)
+  -- CC-7d: no close moves a photo to a pet any more; the photo is put there as postgres to keep the nightly rule pinned
+  v_p4 := 'testville30/' || v_cat || '/race.jpg';
+  insert into jc_pet_photos (path, community_id, pet_id, created_by, state) values (v_p4, 'testville30', v_cat, r2, 'current');
   update jc_pets set status = 'archived', photo_path = null, archived_at = now(), archived_how = 'organizer' where id = v_cat;
   perform jc_pets_retention();
   if (select state from jc_pet_photos where path = v_p4) <> 'retired' then raise exception 'FAIL P15 archived pet''s photo kept'; end if;

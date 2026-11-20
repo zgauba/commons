@@ -177,7 +177,10 @@
   (areas, stations, cats, volunteers, vet visits as CSV; never committed), then bulk-loads it. **CC-7 goes first**, on
   the sample data. Nothing real is lost by the swap: the 9 Pets strays (live count 2026-11-20; the plan said 7) are test
   data (archived, not converted), and Cats is on only for `e2e`.
-- **CC-7 planned 2026-11-20**: see "CC-7 plan" below (4 PRs: 7a DB · 7b app · 7c app · 7d DB).
+- **CC-7 done 2026-11-20** (plan below; 4 PRs): **7a** #184 `20261120100000_cc7a_cat_reports` applied (reports → Cats queue; 1928 checks) · **7b** #185 Cats page: Report a stray cat + My reports (residents), Reports tab (coordinators + community admins) · **7c** #186 Pets just for pets (Strays tab, old report form, Reported strays, stray editor, care record / quick log, Strays / Needs help / Homes' pets chips removed; redirects) · **7d** #187 `20261120140000_cc7d_strays_off` applied after 7c was live (9 test strays archived, 5 stray RPCs dropped, owned-only lists, Cats-only report photos; 1857 checks). Reviews: `docs/qa/cc-7a-…`, `cc-7b-…`, `cc-7c-…`, `cc-7d-…-2026-11-20.md`.
+  - Decisions taken in CC-7: D1 cat only; D2 Report on the Cats page (Pets links to it); D3 photo moves only on Add as new cat; a close writes one sighting with no resident text (security M1); the Cats page's programme view is the Cats admin area.
+  - Accepted for later: typed Latin text in Arabic dated-entry cards is left-aligned (Activity + Reports alike; one shared app.css fix); Organizer Tools' "No animals yet." copy; signed-out `admin/?open=reports` lands on Cats home, not Reports.
+  - **Next: CC-6 import** (Zee builds the CSVs offline). Remove the `e2e` sample cats / stations before any real import there.
 
 ## CC-4 plan — visits + sightings (2026-11-18; Zee pre-authorised apply + merge for CC-4 only)
 

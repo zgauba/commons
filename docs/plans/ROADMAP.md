@@ -264,7 +264,7 @@ plus the unknown count.
 
 **Build plan: `docs/plans/CC-community-cats.md`** (`/plan-change` 2026-11-17, approved): Desktop layout → Photo viewer →
 CC-1 foundation (module key + coordinator / volunteer roles) → CC-2 areas + stations → CC-3 cat register → CC-4
-visits + sightings → CC-5 vet log → CC-6 import → CC-7 Pets just for pets (strays removed, **no data move**: today's
+visits + sightings → CC-5 vet log → CC-6 import → CC-7 Pets just for pets (**CC-1…5 and CC-7 done by 2026-11-20; CC-6 import next**) (strays removed, **no data move**: today's
 strays are test data; Pets is left as is until then — Zee 2026-11-17). Testers told at CC-4 that Cats is the place for
 strays and Pets test strays won't carry over. Decisions recorded there (Zee
 2026-11-17): volunteers are an invite-link role on the Cats page only (no Organizer Tools); **no non-cat strays are

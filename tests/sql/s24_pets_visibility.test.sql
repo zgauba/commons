@@ -46,10 +46,13 @@ begin
   perform pg_temp.s24_as(ad); perform jc_join('testville24', 'S24-JOIN-CODE-01'); perform jc_home_claim('north', 'villa', null, '3');
   perform jc_admin_unlock('S24-PETS-ADMIN-01');
   perform jc_pet_save(null, '{"species": "dog", "name": "Bo"}');   -- owned pet at an unpinned home → sorts last
-  v_cat := (jc_admin_stray_save(null, '{"species": "cat", "name": "Snow", "territory_lat": 24.62, "territory_lng": 54.52}') ->> 'id')::uuid;
-  v_far := (jc_admin_stray_save(null, '{"species": "cat", "name": "Amber", "territory_lat": 24.60, "territory_lng": 54.50}') ->> 'id')::uuid;
   perform pg_temp.s24_as(x1); perform jc_join('testville24b', 'S24-JOIN-CODE-02');
   execute 'reset role';
+  -- strays inserted as postgres (CC-7d: the stray editor is gone; jc_pet_get keeps its stray branch for the rows left)
+  insert into jc_pets (community_id, kind, species, name, care_state, territory_lat, territory_lng)
+  values ('testville24', 'stray', 'cat', 'Snow', 'known_fine', 24.62, 54.52) returning id into v_cat;
+  insert into jc_pets (community_id, kind, species, name, care_state, territory_lat, territory_lng)
+  values ('testville24', 'stray', 'cat', 'Amber', 'known_fine', 24.60, 54.50) returning id into v_far;
   if (select wanderer from jc_pets where id = v_ace) is not true then raise exception 'FAIL fixture: Ace not a wanderer'; end if;
   execute 'set local role authenticated';
 
@@ -160,9 +163,11 @@ begin
   perform pg_temp.s24_as(o2);
   v := jc_pets_list('owned');
   if pg_temp.s24_names(v) <> 'Ziggy,Ace,Biscuit,Bo' then raise exception 'FAIL V07a nearest owned: %', pg_temp.s24_names(v); end if;
-  -- strays: Snow's territory is the farthest, but her last sighting (next to o2) puts her first; Amber at her territory
-  v := jc_pets_list('strays');
-  if pg_temp.s24_names(v) <> 'Snow,Amber' then raise exception 'FAIL V07b nearest strays: %', pg_temp.s24_names(v); end if;
+  -- CC-7d: strays left Pets — never on the board, even an active stray row; the 'strays' filter is refused
+  if exists (select 1 from jsonb_array_elements(jc_pets_list('all')) x where (x ->> 'id')::uuid in (v_cat, v_far)) then
+    raise exception 'FAIL V07b a stray on the board: %', pg_temp.s24_names(jc_pets_list('all')); end if;
+  msg := null; begin perform jc_pets_list('strays'); exception when others then msg := sqlerrm; end;
+  if msg is distinct from 'BAD_FILTER' then raise exception 'FAIL V07b2 strays filter: %', msg; end if;
   perform pg_temp.s24_as(ad);
   if pg_temp.s24_names(jc_pets_list('owned')) <> 'Ace,Biscuit,Bo,Ziggy' then
     raise exception 'FAIL V07c no pin → name order: %', pg_temp.s24_names(jc_pets_list('owned')); end if;
@@ -174,7 +179,7 @@ begin
   if exists (select 1 from jsonb_array_elements(jc_pets_list('all')) x where x -> 'home' ? 'lat' or x -> 'home' ? 'lng' or x ? 'dist') then
     raise exception 'FAIL V07e coordinates on a card'; end if;
   perform pg_temp.s24_as(o1); perform jc_pet_missing_set(v_dog, false, null);
-  k := k + 5;
+  k := k + 6;   -- CC-7d: + V07b2
 
   -- ---------- V08 alerts: missing list for all; seen_out for the household only (24 h, not missing) ----------
   perform pg_temp.s24_as(o3); perform jc_pet_missing_set(v_zig, true, null);

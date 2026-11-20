@@ -142,15 +142,13 @@ begin
                 and (has_function_privilege('authenticated', p.oid, 'execute') or has_function_privilege('anon', p.oid, 'execute'))
                 and pg_get_functiondef(p.oid) ~* '\mreporter(_home)?\M'
                 and p.proname not in ('jc_entry_report', 'jc_pet_get', 'jc_pet_sighting_add',
-                                      -- stray reports: records the caller / filters to the caller's own (s29 guards the
-                                      -- organizer side, which shows the reporter's home by design — Zee 2026-11-16)
+                                      -- stray reports: records the caller / filters to the caller's own (s38 guards the
+                                      -- coordinator side, which shows the reporter's home by design — Zee 2026-11-16)
                                       'jc_stray_report_add', 'jc_stray_reports_mine', 'jc_stray_report_contact_clear',
                                       -- report photos (PR 1b): the reporter's own report / the storage rules (s30 P01/P04)
                                       'jc_stray_report_photo_begin', 'jc_stray_report_photo_commit', 'jc_stray_report_photo_remove',
                                       'pet_photo_can_read', 'pet_photo_can_write',
-                                      -- organizer close: checks the reporter is still a member; returns only the
-                                      -- organizer view (s29 SR17b keeps that to the two organizer RPCs)
-                                      'jc_admin_stray_report_close',
+                                      -- (CC-7d dropped Organizer Tools' jc_admin_stray_report_close)
                                       -- CC-7a the Cats queue's close: the same checks (s38 RP05h-j)
                                       'jc_cat_report_close')) then
     raise exception 'FAIL H07a a new client function touches reporter: %',
@@ -159,7 +157,7 @@ begin
           and has_function_privilege('authenticated', p.oid, 'execute') and pg_get_functiondef(p.oid) ~* '\mreporter(_home)?\M'
           and p.proname not in ('jc_entry_report', 'jc_pet_get', 'jc_pet_sighting_add', 'jc_stray_report_add', 'jc_stray_reports_mine', 'jc_stray_report_contact_clear',
                                'jc_stray_report_photo_begin', 'jc_stray_report_photo_commit', 'jc_stray_report_photo_remove',
-                               'pet_photo_can_read', 'pet_photo_can_write', 'jc_admin_stray_report_close'));
+                               'pet_photo_can_read', 'pet_photo_can_write', 'jc_cat_report_close'));
   end if;
   -- (b) no table access to the reports, no policy, and no client function returns their rows
   if has_table_privilege('anon', 'public.jc_entry_reports', 'select') or has_table_privilege('authenticated', 'public.jc_entry_reports', 'select')

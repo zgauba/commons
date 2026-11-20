@@ -27,11 +27,13 @@ begin
     perform set_config('request.jwt.claims', json_build_object('sub', v_id, 'role', 'authenticated')::text, true);
     perform jc_admin_unlock('S26-PETS-ADMIN-01');
   end loop;
-  perform set_config('request.jwt.claims', json_build_object('sub', m1, 'role', 'authenticated')::text, true);
-  for i in 1..23 loop
-    v_ids := v_ids || (jc_admin_stray_save(null, jsonb_build_object('species', 'cat', 'name', 'S26 cat ' || i)) ->> 'id')::uuid;
-  end loop;
   execute 'reset role';
+  -- the animals: stray rows inserted as postgres (CC-7d dropped the stray editor; archive / hide don't care about kind)
+  for i in 1..23 loop
+    insert into jc_pets (community_id, kind, species, name, care_state, created_by)
+    values ('testville26', 'stray', 'cat', 'S26 cat ' || i, 'known_fine', m1) returning id into v_id;
+    v_ids := v_ids || v_id;
+  end loop;
   for i in 1..23 loop
     insert into jc_pet_sightings (community_id, pet_id, note) values ('testville26', v_ids[23], 'S26 sighting ' || i)
     returning id into v_sid;
