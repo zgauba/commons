@@ -16,7 +16,7 @@ var OPEN_EVENT = new URLSearchParams(location.search).get("event");
 var EV_SHOWS = ["all", "now", "upcoming", "past"];   /* All first, as on Pets (Zee 2026-11-14) */
 var evShow = new URLSearchParams(location.search).get("show");   /* OT-1: the Events chip (?tab=events&show=past); null = the default */
 var evQ = "";                                                     /* OT-1: the Events search, kept across redraws */
-var PA_SHOWS = ["all", "homes", "missing", "archived"];   /* CC-7c: Strays / Needs help left with the strays */
+var PA_SHOWS = ["all", "missing", "archived"];   /* CC-7c: Strays / Needs help / Homes' pets left with the strays */
 var paShow = PA_SHOWS.indexOf(evShow) >= 0 ? evShow : "all";     /* OT-3: the Pets chip (?tab=pets&show=missing) */
 var paQ = "";                                                     /* OT-3: the Pets search */
 var OPEN_COURT = new URLSearchParams(location.search).get("court");   /* from a court's Admin button on Courts */
@@ -1844,7 +1844,7 @@ function petRow(p){
     '<a class="btn ghost small" href="../pets/?pet=' + encodeURIComponent(p.id) + '">' + esc(jcT("pa_view")) + '</a></div></li>';
 }
 /* OT-3 (Zee 2026-11-14): the group link is a settings row with its own screen in plain words; the pets get chips
-   (All · Homes' pets · Missing · Archived, with counts) and a search, as Events. CC-7c: Reported strays moved to the
+   (All · Missing · Archived, with counts) and a search, as Events. CC-7c: Reported strays moved to the
    Cats page's Reports tab. */
 function paGroupRow(){
   var d = pa.link === undefined ? "pa_row_unread" : pa.link ? "pa_row_set" : "pa_row_none";
@@ -1858,7 +1858,6 @@ function paParts(){
   var live = pa.list.filter(function(p){ return p.status === "active"; });
   var all = {
     all: live,
-    homes: live,
     missing: live.filter(function(p){ return p.missing === true; }),
     archived: pa.list.filter(function(p){ return p.status !== "active"; })
   };

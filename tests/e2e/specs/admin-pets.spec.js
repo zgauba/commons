@@ -150,15 +150,19 @@ test("the pets: villages A–Z, then name; chips; Archived apart, names only; st
   await expect(page.locator("#paArchived a, #paArchived button")).toHaveCount(0);   // past the 30 days (no restorable_until): names only
 });
 
-test("CC-7c: no Reported strays row, no Add a Stray, no Strays / Needs help chips; an old ?show=strays is All; no stray RPC", async ({ page }) => {
+test("CC-7c: no Reported strays row, no Add a Stray, no Strays / Needs help / Homes' pets chips; old ?show= links are All; no stray RPC", async ({ page }) => {
   const b = backend();
   const { calls } = await stubBackend(page, { rpc: b.rpc });
   await signIn(page);
   await page.goto("admin/?tab=pets&show=strays");
   await expect(page.locator("#paChips")).toBeVisible();
-  await expect(page.locator("#paChips button")).toHaveText(["All 5", "Homes' pets 5", "Missing 1", "Archived 1"]);
+  await expect(page.locator("#paChips button")).toHaveText(["All 5", "Missing 1", "Archived 1"]);
   await expect(page.locator("#paShow-all")).toHaveAttribute("aria-pressed", "true");
-  await expect(page.locator("#paShow-strays, #paShow-help")).toHaveCount(0);
+  await expect(page.locator("#paShow-strays, #paShow-help, #paShow-homes")).toHaveCount(0);
+  await page.goto("admin/?tab=pets&show=homes");                                       // the retired Homes' pets chip
+  await expect(page.locator("#paChips")).toBeVisible();
+  await expect(page.locator("#paShow-all")).toHaveAttribute("aria-pressed", "true");
+  expect(await rowIds(page, "#paListBox")).toEqual([ID(3), ID(2), ID(7), ID(4), ID(1)]);
   await expect(page.locator("#paGroupRows li")).toHaveCount(1);                       // the WhatsApp group row only
   await expect(page.locator("#paRepOpen, #paNew")).toHaveCount(0);
   await expect(page.locator("#view")).not.toContainText("Reported strays");
@@ -282,18 +286,17 @@ test("the pets right ends while the list is on its way: back to the lock, nothin
 });
 
 // ── OT-3: chips, search, the group screen ──
-test("chips: All · Homes' pets · Missing · Archived with counts; each shows its own; kept in the address", async ({ page }) => {
+test("chips: All · Missing · Archived with counts; each shows its own; kept in the address", async ({ page }) => {
   await openPets(page, backend());
-  await expect(page.locator("#paChips button")).toHaveText(["All 5", "Homes' pets 5", "Missing 1", "Archived 1"]);
+  await expect(page.locator("#paChips button")).toHaveText(["All 5", "Missing 1", "Archived 1"]);
   await expect(page.locator("#paShow-all")).toHaveAttribute("aria-pressed", "true");
+  expect(await rowIds(page, "#paListBox")).toEqual([ID(3), ID(2), ID(7), ID(4), ID(1)]);   // villages A–Z, then name
   await page.locator("#paShow-missing").click();
   await expect(page.locator("#paShow-missing")).toBeFocused();
   expect(await rowIds(page, "#paListBox")).toEqual([ID(2)]);
   await expect(page).toHaveURL(/tab=pets&show=missing/);
-  await page.locator("#paShow-homes").click();
-  expect(await rowIds(page, "#paListBox")).toEqual([ID(3), ID(2), ID(7), ID(4), ID(1)]);   // villages A–Z, then name
   await page.reload();
-  await expect(page.locator("#paShow-homes")).toHaveAttribute("aria-pressed", "true");
+  await expect(page.locator("#paShow-missing")).toHaveAttribute("aria-pressed", "true");
 });
 
 test("an empty chip says so in words", async ({ page }) => {
@@ -314,7 +317,7 @@ test("search: name, home or village narrows every count; the box keeps focus; as
   const box = page.locator("#paSearch");
   await box.fill("ginger");                                                         // a name
   expect(await rowIds(page, "#paListBox")).toEqual([ID(3)]);
-  await expect(page.locator("#paChips button")).toHaveText(["All 1", "Homes' pets 1", "Missing 0", "Archived 0"]);
+  await expect(page.locator("#paChips button")).toHaveText(["All 1", "Missing 0", "Archived 0"]);
   await expect(box).toBeFocused();
   await box.fill("villa 12");                                                       // a home
   expect(await rowIds(page, "#paListBox")).toEqual([ID(7), ID(4)]);

@@ -24,17 +24,17 @@ test("an old ?open=reports link goes to the Cats page's Reports tab — nothing 
   expect(calls.filter((c) => /stray/.test(c.name))).toEqual([]);
 });
 
-test("Organizer Tools → Pets: no Reported strays row, no Strays / Needs help chip, no Add a Stray; the old queue is never read", async ({ page }) => {
+test("Organizer Tools → Pets: no Reported strays row, no Strays / Needs help / Homes' pets chip, no Add a Stray; the old queue is never read", async ({ page }) => {
   const { calls } = await stubBackend(page, { rpc: backend().rpc });
   await signIn(page);
   await page.goto("admin/?tab=pets");
   await expect(page.locator("#paChips")).toBeVisible();
   await expect(page.locator("#paRepOpen")).toHaveCount(0);
   await expect(page.locator("#paGroupRows li")).toHaveCount(1);                  // the WhatsApp group row only
-  await expect(page.locator("#paChips button")).toHaveText(["All 0", "Homes' pets 0", "Missing 0", "Archived 0"]);
+  await expect(page.locator("#paChips button")).toHaveText(["All 0", "Missing 0", "Archived 0"]);
   await expect(page.locator("#paNew")).toHaveCount(0);
   await expect(page.locator("#view")).not.toContainText(/stray/i);
   await page.locator("#langBtn").click();
-  await expect(page.locator("#paChips button")).toHaveCount(4);
+  await expect(page.locator("#paChips button")).toHaveCount(3);
   expect(calls.filter((c) => /stray/.test(c.name))).toEqual([]);
 });
