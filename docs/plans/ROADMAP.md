@@ -370,6 +370,8 @@ blames streets)? Residents report an injured cat in the app? (No alerts exist: a
 unseen, so urgent = WhatsApp the coordinator, in-app = record after.) Who logs incidents: volunteers too, or
 coordinators only? Does "colony" need its own lifecycle (watched → TNVR'd → stable) or is a flagged sighting enough?
 Needs `/plan-change` (M1 Localized; M2 cross-layer: new table, maybe resident-facing).
+- **Backfill:** patterns need months of steady logging. Ask her whether past road cases (her records, WhatsApp history) can be loaded with the CC-6 import so the incident map isn't empty on day one.
+- Testers were told (tester guide, "Coming next") that these are being designed, with no date.
 
 ### Events: per-event organizers draft, admin approves  ·  idea (2026-11-17)
 - Per-event organizers already exist (T5.2b: invite link, then they run that one event). They can't **create** or
