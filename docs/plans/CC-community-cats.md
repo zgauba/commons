@@ -277,8 +277,9 @@ links only a `jc_pets` stray (`pet_id`); live `e2e` has **9** active strays (not
    page's programme view is the Cats admin area** (CC-1: no Organizer Tools for Cats roles).
 3. **D3 — photo moves only on "Add as new cat"** (cap 4); "Already known" never adds the photo (look-alike cats).
 - Queue = Cats coordinators + community admins; **never volunteers** (a report carries the reporter's home + number).
-- "Added" / "Already known" write **one sighting** (place + location, report time; may be older than 14 days); the
-  resident's note is **never** copied (sightings are kept forever, reports are purged 30 days after close).
+- "Added" / "Already known" write **one sighting** (the report's pin, else the cat's usual area; report time; may be
+  older than 14 days). **Nothing the resident typed is copied** — no note, no place text (security review M1:
+  sightings are kept forever and volunteers read them; reports are purged 30 days after close).
 
 **Series (each its own PR; DB via `/db-rehearse`):**
 | PR | What |

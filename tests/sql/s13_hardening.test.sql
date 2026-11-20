@@ -150,7 +150,9 @@ begin
                                       'pet_photo_can_read', 'pet_photo_can_write',
                                       -- organizer close: checks the reporter is still a member; returns only the
                                       -- organizer view (s29 SR17b keeps that to the two organizer RPCs)
-                                      'jc_admin_stray_report_close')) then
+                                      'jc_admin_stray_report_close',
+                                      -- CC-7a the Cats queue's close: the same checks (s38 RP05h-j)
+                                      'jc_cat_report_close')) then
     raise exception 'FAIL H07a a new client function touches reporter: %',
       (select string_agg(p.proname, ', ') from pg_proc p join pg_namespace n on n.oid = p.pronamespace
         where n.nspname in ('public', 'jc_private') and p.prokind = 'f'

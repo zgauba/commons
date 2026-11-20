@@ -17,8 +17,8 @@ begin
   -- ---------- setup (as postgres) ----------
   insert into auth.users (id, email) values (r1, 'r1@s29.test'), (r2, 'r2@s29.test'), (a1, 'a1@s29.test'), (o1, 'o1@s29.test'), (r3, 'r3@s29.test');
   insert into jc_communities (id, name_en, map_lat, map_lng, modules) values
-    ('testville29', 'Testville 29', 25.0, 55.0, '{"pets": {"enabled": true}}'),
-    ('testville29b', 'Testville 29b', 25.0, 55.0, '{"pets": {"enabled": true}}');
+    ('testville29', 'Testville 29', 25.0, 55.0, '{"pets": {"enabled": true}, "cats": {"enabled": true}}'),
+    ('testville29b', 'Testville 29b', 25.0, 55.0, '{"pets": {"enabled": true}, "cats": {"enabled": true}}');
   insert into jc_villages (community_id, key, name_en) values ('testville29', 'north', 'North');
   perform jc_code_set('testville29', 'join', 'S29-JOIN-CODE-01');
   perform jc_code_set('testville29', 'pets', 'S29-PETS-ADMIN-01');
@@ -55,7 +55,7 @@ begin
 
   -- ---------- SR02 the same id again (a doubled tap) → the same report, one row; another user's id → refused ----------
   execute 'set local role authenticated';
-  v := jc_stray_report_add(id1, jsonb_build_object('species', 'dog', 'place', 'Somewhere else'));
+  v := jc_stray_report_add(id1, jsonb_build_object('species', 'cat', 'place', 'Somewhere else'));
   if v ->> 'id' <> id1::text or v ->> 'species' <> 'cat' then raise exception 'FAIL SR02a idempotent: %', v; end if;
   perform set_config('request.jwt.claims', json_build_object('sub', r2, 'role', 'authenticated')::text, true);
   v_err := null; begin perform jc_stray_report_add(id1, jsonb_build_object('species', 'cat', 'place', 'Gate')); exception when others then v_err := sqlerrm; end;
@@ -69,7 +69,7 @@ begin
   perform set_config('request.jwt.claims', json_build_object('sub', r1, 'role', 'authenticated')::text, true);
   v_err := null; begin perform jc_stray_report_add(id2, jsonb_build_object('species', 'cat', 'note', 'No place')); exception when others then v_err := sqlerrm; end;
   if v_err is distinct from 'BAD_FIELDS' then raise exception 'FAIL SR03a no location: %', v_err; end if;
-  v := jc_stray_report_add(id2, jsonb_build_object('species', 'dog', 'place', 'Behind the clubhouse'));
+  v := jc_stray_report_add(id2, jsonb_build_object('place', 'Behind the clubhouse'));   -- CC-7a: species optional, always cat
   if (v -> 'has_contact')::boolean is not false then raise exception 'FAIL SR03b place only: %', v; end if;
   k := k + 2;
 
@@ -77,7 +77,7 @@ begin
   i := 0;
   for v in select x from jsonb_array_elements(jsonb_build_array(
       jsonb_build_object('species', 'cat', 'place', 'X', 'name', 'Tom'),              -- unknown key
-      jsonb_build_object('place', 'X'),                                                -- no species
+      jsonb_build_object('species', 'dog', 'place', 'X'),                              -- CC-7a (D1): cats only
       jsonb_build_object('species', 'lion', 'place', 'X'),                             -- bad species
       jsonb_build_object('species', 'cat', 'lat', 25.0),                               -- lat without lng
       jsonb_build_object('species', 'cat', 'lat', 95.0, 'lng', 55.0),                  -- out of range
@@ -96,16 +96,16 @@ begin
   if v_err is distinct from 'BAD_FIELDS' then raise exception 'FAIL SR04 null id: %', v_err; end if;
   k := k + i + 1;
 
-  -- ---------- SR05 Pets off → MODULE_OFF for residents ----------
+  -- ---------- SR05 Cats off → MODULE_OFF for residents (CC-7a: reports follow Cats, not Pets) ----------
   execute 'reset role';
-  update jc_communities set modules = '{"pets": {"enabled": false}}' where id = 'testville29';
+  update jc_communities set modules = '{"pets": {"enabled": true}, "cats": {"enabled": false}}' where id = 'testville29';
   execute 'set local role authenticated';
   v_err := null; begin perform jc_stray_report_add(gen_random_uuid(), jsonb_build_object('species', 'cat', 'place', 'X')); exception when others then v_err := sqlerrm; end;
   if v_err is distinct from 'MODULE_OFF' then raise exception 'FAIL SR05a add: %', v_err; end if;
   v_err := null; begin perform jc_stray_reports_mine(); exception when others then v_err := sqlerrm; end;
   if v_err is distinct from 'MODULE_OFF' then raise exception 'FAIL SR05b mine: %', v_err; end if;
   execute 'reset role';
-  update jc_communities set modules = '{"pets": {"enabled": true}}' where id = 'testville29';
+  update jc_communities set modules = '{"pets": {"enabled": true}, "cats": {"enabled": true}}' where id = 'testville29';
   k := k + 2;
 
   -- ---------- SR06 5 a day per reporter; a day later it opens again ----------
@@ -250,7 +250,7 @@ begin
   if (select job from jc_maintenance_log order by id desc limit 1) <> 'pets_purge' then raise exception 'FAIL SR16f not logged'; end if;
   k := k + 6;
 
-  -- ---------- SR17 the reporter's home + number reach clients only through the two organizer RPCs ----------
+  -- ---------- SR17 the reporter's home + number reach clients only through the organizer RPCs (+ the Cats queue, CC-7a) ----------
   -- (a) every client-callable call of the helper passes a literal true / false (security L2: no computed flag)
   if exists (select 1 from pg_proc p join pg_namespace n on n.oid = p.pronamespace
               where n.nspname in ('public', 'jc_private') and p.prokind = 'f' and has_function_privilege('authenticated', p.oid, 'execute')
@@ -261,7 +261,8 @@ begin
   if (select array_agg(p.proname::text order by p.proname) from pg_proc p join pg_namespace n on n.oid = p.pronamespace
        where n.nspname in ('public', 'jc_private') and p.prokind = 'f' and has_function_privilege('authenticated', p.oid, 'execute')
          and pg_get_functiondef(p.oid) ~* 'jc_stray_report_json\(\s*\w+\s*,\s*true\s*\)')
-     is distinct from array['jc_admin_stray_report_close', 'jc_admin_stray_reports_list'] then
+     is distinct from array['jc_admin_stray_report_close', 'jc_admin_stray_reports_list',
+                            'jc_cat_report_close', 'jc_cat_reports_list'] then              -- CC-7a: the Cats queue
     raise exception 'FAIL SR17b admin view reachable from more than the organizer RPCs'; end if;
   if exists (select 1 from pg_policies where tablename = 'jc_stray_reports')
      or has_any_column_privilege('authenticated', 'public.jc_stray_reports', 'select')
