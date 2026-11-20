@@ -45,9 +45,9 @@ test("module off: the kill switch — a notice, no pets RPC, no Pets in the bar,
 test("Pets tab: owned pets only, missing on top, the server's (nearest-first) order kept, species / wanderer chips", async ({ page }) => {
   const b = backend({ serverOrder: true, extra: [{ id: ID(7), kind: "owned", species: "bird", name: "Kiwi", home: { id: "h9", village: "ain-al-maha", building: "B2", number: "304", noHome: true } }] });
   const { calls } = await open(page, b);
-  await expect(page.locator('[role="tab"]')).toHaveText(["Pets", "Strays", "My Pets"]);
+  await expect(page.locator('[role="tab"]')).toHaveText(["Pets", "My Pets"]);          // CC-7c: no Strays tab
   await expect(page.locator("#pttab-pets")).toHaveAttribute("aria-selected", "true");
-  await expect(page.locator("#ptMissing li")).toHaveCount(1);
+  await expect(page.locator("#ptMissing li")).toHaveCount(2);                          // Luna + Ginger (a neighbour's)
   const luna = page.locator(`#ptMissing [data-pet="${ID(2)}"]`);
   await expect(luna).toContainText("Cat · Pet");
   await expect(luna).toContainText("Home 40 · Seef Al Jubail");
@@ -57,7 +57,10 @@ test("Pets tab: owned pets only, missing on top, the server's (nearest-first) or
   // owned only, in the order the server sent (nearest my home pin) — not re-sorted A–Z; no strays here
   await expect(page.locator("#ptList b")).toHaveText(["Rex", "Mochi", "Kiwi"]);
   await expect(page.locator("#ptSorted")).toHaveText("Sorted by: nearest your home");
-  await expect(page.locator("#view")).not.toContainText("Ginger");
+  // the strays the server still sends (until CC-7d) never show
+  await expect(page.locator("#view")).not.toContainText("Sandy");
+  await expect(page.locator("#view")).not.toContainText("Biscuit");
+  await expect(page.locator("#view")).not.toContainText("Stray");
   await expect(page.locator("#view")).not.toContainText("Community animal");
   // the server sends no home (defensive: render only what arrives) → the card shows none
   expect((await page.locator(`[data-pet="${ID(7)}"]`).innerText()).replace(/\s+/g, " ").trim()).toBe("Kiwi Bird · Pet");
@@ -66,7 +69,7 @@ test("Pets tab: owned pets only, missing on top, the server's (nearest-first) or
     await page.locator("#ptF-" + f).click();
     await expect(page.locator("#ptF-" + f)).toHaveAttribute("aria-pressed", "true");
     await expect(page.locator("#ptList b")).toHaveText(names);
-    await expect(page.locator("#ptMissing li")).toHaveCount(1);            // missing stays on top under every filter
+    await expect(page.locator("#ptMissing li")).toHaveCount(2);            // missing stays on top under every filter
   }
   await expect(page.locator('#tabbar a[data-tab="pets"]')).toHaveAttribute("aria-current", "page");
   if (process.env.SHOT_DIR) await page.screenshot({ path: process.env.SHOT_DIR + "/pt-list.png", fullPage: true });
@@ -79,60 +82,54 @@ test("Pets tab: no home pin → name order said plainly; an old ?tab=list link o
   await expect(page.locator("#ptSorted")).toHaveText("Sorted by: name. Pin your home on My Home to see the nearest first.");
 });
 
-const GINGER_SEEN = { lat: 24.5310, lng: 54.4320, at: "2026-11-11T04:30:00Z" };   // 2 h before NOW
-function straysBackend() {
-  return backend({ serverOrder: true, pets: [
+// CC-7c: the server still sends strays until CC-7d archives them; the page shows owned pets only
+function straysBackend(opts = {}) {
+  return backend(Object.assign({ serverOrder: true, pets: [
     { id: ID(3), kind: "stray", species: "cat", name: "Ginger", care_state: "under_care", territory: "Behind the mosque",
-      territory_lat: 24.60, territory_lng: 54.50, last_seen: GINGER_SEEN, last_seen_at: GINGER_SEEN.at },
-    { id: ID(4), kind: "stray", species: "dog", name: "Sandy", care_state: "known_fine", territory: "The marina", territory_lat: 24.50, territory_lng: 54.40 },
-    { id: ID(8), kind: "stray", species: "cat", name: "Pepper", care_state: "needs_help" },                       // no location yet
-    { id: ID(5), kind: "stray", species: "cat", name: "Biscuit", care_state: "rehomed", territory_lat: 24.52, territory_lng: 54.41 },
+      territory_lat: 24.60, territory_lng: 54.50 },
+    { id: ID(4), kind: "stray", species: "dog", name: "Sandy", care_state: "needs_help", territory: "The marina", territory_lat: 24.50, territory_lng: 54.40 },
     { id: ID(1), kind: "owned", species: "dog", name: "Rex", home: V40 },
-  ] });
+  ] }, opts));
 }
 
-test("Strays tab: one coloured pin per stray (latest sighting, else territory), rehomed off the map, cards below — Needs help first", async ({ page }) => {
-  await open(page, straysBackend(), { q: "?tab=strays" });
-  await expect(page.locator("#pttab-strays")).toHaveAttribute("aria-selected", "true");
-  await expect(page.locator("#ptmap")).toHaveAttribute("aria-label", "Map of strays");
-  // Ginger (sighting) + Sandy (territory); Pepper has no location; Biscuit is rehomed
-  await expect(page.locator("#ptmap path.leaflet-interactive")).toHaveCount(2);
-  const fills = await page.locator("#ptmap path.leaflet-interactive").evaluateAll((ps) => ps.map((p) => p.getAttribute("fill")));
-  expect(fills).toEqual(["#3e9b76", "#a9a294"]);                          // Under care = the normal pin; Known and fine = neutral
-  await expect(page.locator("#ptUnplaced")).toHaveText("1 not on the map yet — see below");
-  await expect(page.locator("#ptStrays b")).toHaveText(["Pepper", "Ginger", "Sandy", "Biscuit"]);
-  await expect(page.locator(`#ptStrays [data-pet="${ID(4)}"]`)).toContainText("Dog · Stray");
-  await expect(page.locator(`#ptStrays [data-pet="${ID(4)}"] .chip`)).toHaveText("Known and fine");
-  await expect(page.locator(`#ptStrays [data-pet="${ID(8)}"] .chip.warn`)).toHaveText("Needs help");
-  await expect(page.locator(`#ptStrays [data-pet="${ID(3)}"]`)).toContainText("Last seen 2 h ago");
-  await expect(page.locator("#view")).not.toContainText("Rex");
-  // names at every zoom (Zee 2026-11-17); Hide Names / Show Names toggles them and is remembered
-  await expect(page.locator("#ptmap")).not.toHaveClass(/nolabels/);
-  await expect(page.locator("#ptmap .bklabel")).toHaveText(["Ginger", "Sandy"]);
-  await expect(page.locator("#namesBtn")).toHaveText("Hide Names");
-  await page.locator("#namesBtn").click();
-  await expect(page.locator("#ptmap")).toHaveClass(/nolabels/);
-  await expect(page.locator("#namesBtn")).toHaveText("Show Names");
-  await expect(page.locator("#namesBtn")).toHaveAttribute("aria-pressed", "false");
-  await page.reload();
-  await expect(page.locator("#ptmap")).toHaveClass(/nolabels/);              // remembered on this phone
-  await page.locator("#namesBtn").click();
-  await expect(page.locator("#ptmap")).not.toHaveClass(/nolabels/);
-  // the key
-  await page.locator("#labelsBtn").click();
-  await expect(page.locator("#ptKey .legend .chip")).toHaveText(["Needs help", "Under care", "Known and fine"]);
-  await page.locator("#ptKeyClose").click();
-  await expect(page.locator("#ptKey")).not.toBeVisible();
-  if (process.env.SHOT_DIR) await page.screenshot({ path: process.env.SHOT_DIR + "/pt-strays.png", fullPage: true });
-  // a pin → its popup → Open → the stray's page
-  await tapWhenStill(page, page.locator("#ptmap path.leaflet-interactive").first());
-  await expect(page.locator(".leaflet-popup")).toContainText("Ginger");
-  await expect(page.locator(".leaflet-popup")).toContainText("Cat · Under care");
-  await page.locator(".leaflet-popup [data-popopen]").click();
-  await expect(page.locator("h1")).toHaveText("Ginger");
-  await page.locator("#jcBackBtn").click();
-  await expect(page.locator("#pttab-strays")).toHaveAttribute("aria-selected", "true");
-  await expect(page.locator("#ptmap path.leaflet-interactive")).toHaveCount(2);           // a fresh map, not a dead one
+test("CC-7c: an old ?tab=strays link lands on the Pets tab; strays the server still sends never show; no stray-report calls", async ({ page }) => {
+  const { calls } = await open(page, straysBackend(), { q: "?tab=strays" });
+  await expect(page.locator('[role="tab"]')).toHaveText(["Pets", "My Pets"]);
+  await expect(page.locator("#pttab-pets")).toHaveAttribute("aria-selected", "true");
+  await expect(page.locator("#ptList b")).toHaveText(["Rex"]);
+  await expect(page.locator("#view")).not.toContainText("Ginger");
+  await expect(page.locator("#view")).not.toContainText("Sandy");
+  await expect(page.locator("#ptmap")).toHaveCount(0);
+  expect(new URL(page.url()).search).toBe("");                                   // the address follows: no dead ?tab=strays
+  expect(calls.filter((c) => /stray/.test(c.name))).toEqual([]);                 // no report form, My reports or queue here
+});
+
+test("CC-7c: a stray's old link (the server still answers) lands on the list as not found, never a stray page", async ({ page }) => {
+  await open(page, straysBackend(), { q: "?pet=" + ID(4) });
+  await expect(page.locator("#pttab-pets")).toHaveAttribute("aria-selected", "true");
+  await expect(page.locator("#msg")).toHaveText("That pet isn't listed any more.");
+  await expect(page.locator("h1")).not.toHaveText("Sandy");
+  await expect(page.locator("#view")).not.toContainText("Needs help");
+});
+
+test("CC-7c: the Pets tab's 'Report a stray cat' line goes to the Cats page's form — only while Cats is on", async ({ page }) => {
+  await open(page, straysBackend({ cats: true }));
+  await expect(page.locator("#ptList b")).toHaveText(["Rex"]);
+  await expect(page.locator("#rpOpen")).toHaveText("Report a stray cat");
+  await expect(page.locator("#rpOpen")).toHaveAttribute("href", "../cats/?report=1");
+  await expect(page.locator("#rpCtaHelp")).toHaveText("Stray cat reports go to the Cats coordinators, on the Cats page.");
+  await page.locator("#pttab-mine").click();
+  await expect(page.locator("#rpOpen")).toHaveCount(0);                          // the Pets tab only
+  await page.locator("#pttab-pets").click();
+  await page.locator("#langBtn").click();
+  await expect(page.locator("#rpOpen")).toHaveText("أبلغ عن قطة ضالّة");
+});
+
+test("CC-7c: Cats off → no Report a stray cat line on Pets", async ({ page }) => {
+  await open(page, straysBackend());
+  await expect(page.locator("#ptList b")).toHaveText(["Rex"]);
+  await expect(page.locator("#rpOpen")).toHaveCount(0);
+  await expect(page.locator("#rpCtaHelp")).toHaveCount(0);
 });
 
 test("My Pets: my pet seen out on its own in the last 24 h → an amber line; older → none; the hub card says it too", async ({ page }) => {
@@ -152,19 +149,14 @@ test("My Pets: my pet seen out on its own in the last 24 h → an amber line; ol
 });
 
 for (const lang of ["en", "ar"]) {
-  test(`axe ${lang}: Pets, Strays (map + key open) and My Pets have no violations`, async ({ page }) => {
-    await open(page, straysBackend(), { lang });
+  test(`axe ${lang}: Pets (with the Cats report line) and My Pets have no violations`, async ({ page }) => {
+    await open(page, straysBackend({ cats: true }), { lang });
     const scan = async () => (await new AxeBuilder({ page }).disableRules(["region"]).analyze()).violations.map((v) => v.id + ": " + v.nodes.map((n) => n.target).join(" | "));
     await expect(page.locator("#ptSorted")).toBeVisible();
+    await expect(page.locator("#rpOpen")).toBeVisible();
     expect(await scan()).toEqual([]);
-    await page.locator("#pttab-strays").click();
-    await expect(page.locator("#ptmap path.leaflet-interactive")).toHaveCount(2);
-    expect(await scan()).toEqual([]);
-    await page.locator("#labelsBtn").click();
-    await expect(page.locator("#ptKey")).toBeVisible();
-    expect(await scan()).toEqual([]);
-    await page.locator("#ptKeyClose").click();
     await page.locator("#pttab-mine").click();
+    await expect(page.locator("#pttab-mine")).toHaveAttribute("aria-selected", "true");
     expect(await scan()).toEqual([]);
   });
 }
@@ -315,37 +307,20 @@ for (const [label, group] of [["none set", null], ["not a WhatsApp invite", "htt
   });
 }
 
-test("care v2: an auto-logged status change shows the status in the reader's language (no note)", async ({ page }) => {
+// CC-7c: was "a stray: care record, territory, care log, sightings…" — the stray parts left; the shared sightings
+// behaviour is kept, on a neighbour's missing pet (Ginger)
+test("a neighbour's missing pet: no care record / territory / log; sightings with no reporter (only \"your report\" on my own)", async ({ page }) => {
   const b = backend();
-  b.st.pets.find((p) => p.id === ID(3)).care_log.unshift({ kind: "state", note: null, state: "needs_help", at: "2026-11-11T05:00:00Z" });
-  await open(page, b, { q: "?pet=" + ID(3) });
-  await expect(page.locator("#ptLog li")).toHaveCount(2);
-  await expect(page.locator("#ptLog li").first().locator(".meta")).toContainText("Status change");
-  await expect(page.locator("#ptLog li").first()).toContainText("Needs help");
-  await expect(page.locator("#ptLog li").nth(1)).toContainText("Morning round");          // a note row as before
-});
-
-test("a stray: care record, territory, care log, sightings with no reporter (only \"your report\" on my own); rehomed = closed", async ({ page }) => {
-  const b = backend();
-  await open(page, b, { q: "?pet=" + ID(3) });
-  await expect(page.locator(".pthero .meta")).toHaveText("Cat · Stray");
-  await expect(page.locator(".pthero .chip")).toHaveCount(0);             // its status is in the facts, not repeated
-  await expect(page.locator("#ptFacts")).toContainText("Under care");
-  await expect(page.locator("#ptFacts")).toContainText("Behind the mosque");
-  await expect(page.locator("#ptCare li")).toHaveCount(4);
-  await expect(page.locator('[data-care="sterilized"]')).toContainText("Done · ⁦1 Oct 2026⁩");
-  await expect(page.locator('[data-care="sterilized"]')).toContainText("Clinic A");
-  await expect(page.locator('[data-care="vaccination"] .st')).toHaveText("Due");
-  await expect(page.locator('[data-care="dewormed"] .st')).toHaveText("Not recorded");
-  await expect(page.locator("#ptLog li")).toContainText("Fed · Tue 10 Nov · ⁦09:00⁩");
-  // R5b-2b-1: About first (a stray that isn't missing); Sightings is its own tab, with the count
+  await open(page, b, { q: "?pet=" + ID(3) + "&show=about" });
+  await expect(page.locator(".pthero .meta")).toHaveText("Cat · Pet");
+  await expect(page.locator("#ptFacts")).toContainText("Home 41 · Seef Al Jubail");
+  await expect(page.locator("#ptFacts")).not.toContainText("Under care");
+  await expect(page.locator("#ptCare")).toHaveCount(0);
+  await expect(page.locator("#ptLog")).toHaveCount(0);
   await expect(page.locator('[role="tab"]')).toHaveText(["About", "Sightings (3)", "Map"]);
-  await expect(page.locator("#ptpg-about")).toHaveAttribute("aria-selected", "true");
-  await expect(page.locator("#ptSightings")).toHaveCount(0);
   await page.locator("#ptpg-sightings").click();
   await expect(page.locator("#ptpg-sightings")).toBeFocused();
   expect(new URL(page.url()).search).toBe("?pet=" + ID(3) + "&show=sightings");
-  await expect(page.locator("#ptCare")).toHaveCount(0);
   const s = page.locator("#ptSightings li");
   await expect(s).toHaveCount(3);
   await expect(s.nth(0)).toContainText("By the bins");
@@ -356,12 +331,7 @@ test("a stray: care record, territory, care log, sightings with no reporter (onl
   await expect(s.nth(2)).toContainText("Sleeping in the shade");
   await expect(s.nth(2)).not.toContainText("your report");               // reporter erased: never guessed as mine
   await expect(page.locator("#ptSight")).toHaveText("Report seeing Ginger");
-  await expect(page.locator("#ptWaText")).toContainText("Ginger (Cat), one of our community's animals:");
-  if (process.env.SHOT_DIR) await page.screenshot({ path: process.env.SHOT_DIR + "/pt-stray.png", fullPage: true });
-  await page.goto("pets/?pet=" + ID(5));
-  await expect(page.locator("h1")).toHaveText("Biscuit");
-  await expect(page.locator("#ptSight")).toHaveCount(0);
-  await expect(page.locator("#ptShare")).toHaveCount(0);
+  await expect(page.locator("#ptWaText")).toContainText("Missing: Ginger (Cat). Seen them?");
 });
 
 test("My Pets: add (exact fields), then edit, then remove; the pet opens after adding", async ({ page }) => {
@@ -433,14 +403,17 @@ test("the Edit form says neighbors see my home — no hiding option offered (HH)
 });
 
 test("review: a shared ?show= belongs to the shared pet only — after Back, the same pet opens on its own default (About)", async ({ page }) => {
-  const b = backend();
-  await open(page, b, { q: "?pet=" + ID(3) + "&tab=strays&show=sightings" });
+  // CC-7c: was a stray from the Strays tab; now my own pet (at home, not a wanderer: it has a Sightings tab) from My Pets
+  const BRUNO = XID("a9");
+  const b = backend({ extra: [{ id: BRUNO, kind: "owned", species: "dog", name: "Bruno", home: MINE_HOME }] });
+  await open(page, b, { q: "?pet=" + BRUNO + "&tab=mine&show=sightings" });
   await expect(page.locator("#ptpg-sightings")).toHaveAttribute("aria-selected", "true");
   await page.locator("#jcBackBtn").click();
-  await page.locator(`[data-open="${ID(3)}"]`).click();
+  await expect(page.locator("#pttab-mine")).toHaveAttribute("aria-selected", "true");
+  await page.locator(`[data-open="${BRUNO}"]`).click();
   await expect(page.locator("#ptpg-about")).toHaveAttribute("aria-selected", "true");
   await page.locator("#ptpg-about").click();
-  expect(new URL(page.url()).search).toBe("?pet=" + ID(3) + "&tab=strays&show=about");   // a chosen tab (and the list tab to return to) kept for a reload
+  expect(new URL(page.url()).search).toBe("?pet=" + BRUNO + "&tab=mine&show=about");   // a chosen tab (and the list tab to return to) kept for a reload
 });
 
 test("missing switch: one call (no show-home step — HH); the alarm is up; Found takes it down", async ({ page }) => {
@@ -648,15 +621,14 @@ test("Arabic + a renamed section: title and help follow the community's name; a 
   await expect(page.locator("#jcHelp h2")).toHaveText("مخالب");
 });
 
-test("axe: list, a stray's page and the edit form have no violations", async ({ page }) => {
+test("axe: list, a pet's page and the edit form have no violations", async ({ page }) => {
   const b = backend();
   await open(page, b);
   await expect(page.locator("#ptList")).toBeVisible();
   const scan = async () => (await new AxeBuilder({ page }).disableRules(["region"]).analyze()).violations.map((v) => v.id + ": " + v.nodes.map((n) => n.target).join(" | "));
   expect(await scan()).toEqual([]);
-  await page.locator("#pttab-strays").click();
-  await page.locator(`[data-open="${ID(3)}"]`).click();
-  await expect(page.locator("#ptCare")).toBeVisible();
+  await page.locator(`[data-open="${ID(1)}"]`).click();                     // CC-7c: was a stray's page (care record)
+  await expect(page.locator("#ptFacts")).toBeVisible();
   expect(await scan()).toEqual([]);
   await page.goto("pets/?tab=mine");
   await page.locator("#ptAdd").click();
@@ -701,18 +673,18 @@ test("missing pet, Map tab: newest big with 'Latest · 20 min ago', within 48 h 
   await expect(page.locator("#ptSightings li").nth(1).locator(".ptmini")).toHaveCount(0);       // no location, no map
 });
 
-test("Map tab with nothing to place says so; a stray's territory spot is a dashed ring; at most 10 small maps (the rest keep the link)", async ({ page }) => {
+// CC-7c: the stray's territory ring left with the strays; the rest is a missing pet's (owned, a neighbour's)
+test("Map tab with nothing to place says so; no Map tab for a pet at home; at most 10 small maps (the rest keep the link)", async ({ page }) => {
   const many = Array.from({ length: 12 }, (_, i) => ({ id: 200 + i, note: "s" + i, lat: 24.53 + i / 1000, lng: 54.43, seen_at: new Date(NOW - (i + 1) * 3600e3).toISOString(), by_me: false }));
   const b = backend({ extra: [
-    { id: XID("d1"), kind: "stray", species: "cat", name: "Smudge", care_state: "needs_help", territory: "The park", territory_lat: 24.535, territory_lng: 54.435 },
-    { id: XID("d2"), kind: "stray", species: "dog", name: "Lots", care_state: "under_care", sightings: many },
+    { id: XID("d2"), kind: "owned", species: "dog", name: "Lots", home: V40, missing: true, missing_since: "2026-11-09T00:00:00Z", sightings: many },
   ] });
   await open(page, b, { q: "?pet=" + ID(2) + "&show=map" });                 // Luna: missing, nothing with a location
   await expect(page.locator("#ptMapNone")).toHaveText("No sightings of Luna with a location yet.");
   await expect(page.locator("#ptpmap")).toHaveCount(0);
-  await page.goto("pets/?pet=" + XID("d1") + "&show=map");
-  await expect(page.locator("#ptpmap .ptterr")).toHaveCount(1);
-  await expect(page.locator("#ptMapKey")).toContainText("The dashed ring is its usual spot.");
+  await page.goto("pets/?pet=" + ID(1) + "&show=map");                       // Rex: at home → no Map tab, About instead
+  await expect(page.locator("#ptpg-map")).toHaveCount(0);
+  await expect(page.locator("#ptpmap")).toHaveCount(0);
   await page.goto("pets/?pet=" + XID("d2") + "&show=sightings");
   await expect(page.locator("#ptSightings li")).toHaveCount(12);
   await expect(page.locator("#ptSightings .ptmini")).toHaveCount(10);
@@ -723,7 +695,7 @@ test("Map tab with nothing to place says so; a stray's territory spot is a dashe
 test("review: small maps are lazy (only near the screen), the server's order isn't trusted, and a redraw leaves no stray maps", async ({ page }) => {
   // 12 located sightings sent OLDEST first: the page still puts the newest on top
   const many = Array.from({ length: 12 }, (_, i) => ({ id: 300 + i, note: "s" + i, lat: 24.53 + i / 1000, lng: 54.43, seen_at: new Date(NOW - (12 - i) * 3600e3).toISOString(), by_me: false }));
-  const b = backend({ extra: [{ id: XID("f1"), kind: "stray", species: "dog", name: "Lots", care_state: "under_care", sightings: many }] });
+  const b = backend({ extra: [{ id: XID("f1"), kind: "owned", species: "dog", name: "Lots", home: V40, missing: true, missing_since: "2026-11-09T00:00:00Z", sightings: many }] });
   await open(page, b, { q: "?pet=" + XID("f1") + "&show=sightings" });
   await expect(page.locator("#ptSightings li").first()).toContainText("s11");
   await expect(page.locator("#ptSightings .ptmini").first()).toHaveClass(/leaflet-container/);
@@ -1070,46 +1042,14 @@ test("R5c-2: a just-picked photo can be dropped before Save; no Remove on a pet 
 });
 
 // ── NF-2: nearest first (docs/plans/nearest-first.md) ──
-test("NF-2 Strays: server order from my home pin; Use Where I Am re-sorts the cards (Needs help still first), ≈ distance on each", async ({ page, context }) => {
-  await context.grantPermissions(["geolocation"]);
-  await context.setGeolocation({ latitude: 24.5000, longitude: 54.4000 });   // at Sandy's marina
-  await open(page, straysBackend(), { q: "?tab=strays" });
-  await expect(page.locator("#ptStraysSorted")).toHaveText("Sorted by: nearest your home");
-  await expect(page.locator("#ptStrays b")).toHaveText(["Pepper", "Ginger", "Sandy", "Biscuit"]);
-  await expect(page.locator(`#ptStrays [data-pet="${ID(3)}"]`)).toContainText("≈ 90 m");          // Ginger's last spot from Villa 12 (≈ 91 m)
-  await expect(page.locator(`#ptStrays [data-pet="${ID(8)}"]`)).not.toContainText("≈");           // Pepper: no spot
-  await page.locator("#sortHereBtn").click();
-  await expect(page.locator("#ptStraysSorted")).toHaveText("Sorted by: nearest where you are now");
-  await expect(page.locator("#ptStrays b")).toHaveText(["Pepper", "Sandy", "Ginger", "Biscuit"]);
-  await expect(page.locator(`#ptStrays [data-pet="${ID(4)}"]`)).toContainText("≈ 0 m");
-  await page.locator("#sortHereBtn").click();                                                       // Use My Home
-  await expect(page.locator("#ptStrays b")).toHaveText(["Pepper", "Ginger", "Sandy", "Biscuit"]);
-});
-
-test("NF-2 Strays: Find Me on the map re-sorts the cards under it; the map stays (same zoom, the blue dot)", async ({ page, context }) => {
-  await context.grantPermissions(["geolocation"]);
-  await context.setGeolocation({ latitude: 24.5000, longitude: 54.4000 });
-  await open(page, straysBackend(), { q: "?tab=strays" });
-  await expect(page.locator("#ptmap path.leaflet-interactive")).toHaveCount(2);
-  const box = await page.locator("#ptmap").evaluate((n) => (n.dataset.mark = "same", "ok"));
-  expect(box).toBe("ok");
-  await page.locator("#locateBtn").click();
-  await expect(page.locator("#ptStraysSorted")).toHaveText("Sorted by: nearest where you are now");
-  await expect(page.locator("#ptStrays b")).toHaveText(["Pepper", "Sandy", "Ginger", "Biscuit"]);
-  await expect(page.locator("#ptmap")).toHaveAttribute("data-mark", "same");                     // not redrawn
-  await expect(page.locator("#ptmap path.leaflet-interactive")).toHaveCount(3);                  // + the blue dot
-  // the re-drawn cards still open their pet
-  await page.locator(`#ptStrays [data-open="${ID(4)}"]`).click();
-  await expect(page).toHaveURL(new RegExp("pet=" + ID(4)));
-});
-
 test("NF-2 Pets tab: the owned pets' line is the shared one, with no button (their homes never reach the phone)", async ({ page }) => {
   await open(page, backend(), { q: "?tab=pets" });
   await expect(page.locator("#ptSorted")).toHaveText("Sorted by: nearest your home");
   await expect(page.locator("#sortHereBtn")).toHaveCount(0);
   await page.locator("#jcHelpBtn").click();
   await expect(page.locator("#jcHelp li")).toHaveCount(4);
-  await expect(page.locator("#jcHelp")).toContainText("Your location stays on your phone");
+  await expect(page.locator("#jcHelp")).not.toContainText("Strays");                 // CC-7c: help says where stray cats go now
+  await expect(page.locator("#jcHelp")).toContainText("Report a stray cat");
 });
 
 // ── R5d-1: the way into Organizer Tools → Pets, as on a court's page ──
@@ -1131,7 +1071,7 @@ test("Pets search: by name, within the chip; missing stays on top; opens a pet; 
   const box = page.locator("#ptSearch");
   await box.fill("mo");
   await expect(page.locator("#ptList b")).toHaveText(["Mochi"]);
-  await expect(page.locator("#ptMissing li")).toHaveCount(1);              // a missing pet is never searched away
+  await expect(page.locator("#ptMissing li")).toHaveCount(2);              // missing pets (Luna, Ginger) are never searched away
   await expect(box).toBeFocused();
   await page.locator("#ptF-dogs").click();                                  // the chip and the search work together
   await expect(page.locator("#ptSearch")).toHaveValue("mo");
@@ -1146,16 +1086,19 @@ test("Pets search: by name, within the chip; missing stays on top; opens a pet; 
 });
 
 // DS-3b (docs/plans/DS-3-shared-pieces.md): the pet page is built from the shared pieces (blocks.js), and in Arabic a
-// Latin fact value ("Behind the mosque") lines up on the right with the Arabic labels, as the name does
+// Latin fact value (a home's building "B2") lines up on the right with the Arabic labels, as the name does
 test("DS-3b: the pet page uses the shared hero / facts / entries; Arabic facts line up right", async ({ page }) => {
   const b = backend();
-  await open(page, b, { q: "?pet=" + ID(3), lang: "ar" });
+  // CC-7c: was a stray (Latin territory "Behind the mosque" in the facts); now a pet whose home has a Latin building
+  b.st.pets.find((p) => p.id === ID(3)).home = { id: "h41", village: "seef-al-jubail", building: "B2", number: "41" };
+  await open(page, b, { q: "?pet=" + ID(3) + "&show=about", lang: "ar" });
   await expect(page.locator("html")).toHaveAttribute("dir", "rtl");
   await expect(page.locator(".pthero .ptwho h1")).toHaveAttribute("dir", "auto");
   const dds = await page.locator("#ptFacts dd").evaluateAll((els) => els.map((e) => [e.textContent, getComputedStyle(e).textAlign]));
-  expect(dds.some(([t]) => /mosque/.test(t))).toBe(true);
+  expect(dds.some(([t]) => /B2/.test(t))).toBe(true);
   for (const [, a] of dds) expect(a).toBe("right");
-  await expect(page.locator("#ptLog")).toHaveClass("bklist");
+  await page.locator("#ptpg-sightings").click();
+  await expect(page.locator("#ptSightings")).toHaveClass("bklist");
   await expect(page.locator("main")).toHaveClass("jcpage");
   const gap = await page.locator("[role=tabpanel]").evaluate((e) => getComputedStyle(e).rowGap);
   expect(gap).toBe("12px");

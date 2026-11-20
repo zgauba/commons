@@ -10,7 +10,7 @@
 .strip button[aria-pressed="true"]{border-color:var(--jc-accent); box-shadow:inset 0 0 0 1px var(--jc-accent)}
 .sheet-in{border-top:1px solid var(--jc-line); padding-top:8px; display:flex; flex-direction:column; gap:8px}
 /* the Map tab: the shared map look lives in assets/mapui.css (same classes as the event map) */
-/* the court name on its pin: .bklabel lives in assets/mapui.css (shared with the Strays map) */
+/* the court name on its pin: .bklabel lives in assets/mapui.css (shared with the other maps) */
 .bkhead{display:flex; flex-direction:column; gap:4px}
 .bkhead h1, .bkhead p{margin:0}
 .bkhead .meta{color:var(--jc-muted); font-size:14px}
