@@ -99,7 +99,7 @@
 | CC-4 | **Visits + sightings** (DB → app) | DB, app | feeding visit form (checks, headcount, tap register thumbnails, "flag a problem"); sightings as dated history, allowed before a cat is identified |
 | CC-5 | **Vet log** (DB → app) | DB, app | per visit: date, clinic, what was done, vaccine, given, next due, invoice number, Drive link (allow-listed `drive.google.com` / `docs.google.com` only). No amounts |
 | CC-6 | **Import her doc** | data only | one-time load of ~40 cats, ~20 stations, volunteers, run by Zee in the SQL editor from a local file; **never committed** (PII). Comes **before** strays leave Pets so the real records are in Cats first |
-| CC-7 | **Pets just for pets** (app → DB) | app, DB | Pets' Strays tab, stray editor and per-cat "fed" quick log removed; every stray report routes to Cats (decision 2); the stray-only Pets functions switched off; **Report a stray's Where step moves onto the shared `assets/where.js`** (CC-2 carry-over: pets.js `repWhereHtml` is still its own copy). **No data move:** the 7 strays in Pets are test data and are archived, not converted (Zee 2026-11-17); the real cats come from the import |
+| CC-7 | **Pets just for pets** (app → DB) | app, DB | Pets' Strays tab, stray editor and per-cat "fed" quick log removed; every stray report routes to Cats (decision 2); the stray-only Pets functions switched off; **Report a stray's Where step moves onto the shared `assets/where.js`** (CC-2 carry-over: pets.js `repWhereHtml` is still its own copy). **No data move:** the 9 strays in Pets (live 2026-11-20) are test data and are archived, not converted (Zee 2026-11-17); the real cats come from the import |
 
 - **Cost impact: $0.** No paid layer. Storage: Phase 1 photos are cat ID photos only (~40 cats × ~4 photos ×
   ~300 KB ≈ **48 MB**) against the 1 GB free tier; visit forms tag existing thumbnails and upload nothing.
@@ -173,6 +173,11 @@
     visit date). Drive links limited to Drive file / folder and Docs / Sheets / Slides paths (security L1).
   - Accepted for later: `invoices` per cat is unbounded (cap if payloads grow); a shared `jcExtLink` helper (Cats Drive link,
     `jcMapLink`, Pets) — extract when next touched.
+- **CC-6 on hold 2026-11-20** (Zee): Zee builds the data offline in the format at `docs/plans/CC-6-import-format.md`
+  (areas, stations, cats, volunteers, vet visits as CSV; never committed), then bulk-loads it. **CC-7 goes first**, on
+  the sample data. Nothing real is lost by the swap: the 9 Pets strays (live count 2026-11-20; the plan said 7) are test
+  data (archived, not converted), and Cats is on only for `e2e`.
+- **CC-7 planned 2026-11-20**: see "CC-7 plan" below (4 PRs: 7a DB · 7b app · 7c app · 7d DB).
 
 ## CC-4 plan — visits + sightings (2026-11-18; Zee pre-authorised apply + merge for CC-4 only)
 
@@ -253,6 +258,54 @@ policies, RPC-only, kept forever); new `jc_cat_vet_add` (coordinators; rate buck
 | 4 | Regression: feeding visits + sightings unchanged; `cats_vol` passes no other gate | s35 + existing `cats.spec.js` green unchanged |
 | 5 | Vet form + vet entries match Edit pet / Pet Sightings (EN + AR) | side-by-side `/shot` screenshots in the review doc |
 | 6 | Migration applied live with history row, live suite green (3 chunks), advisors no new kinds | live run output in review doc |
+
+## CC-7 plan — Pets just for pets (2026-11-20; Zee approved + pre-authorised apply + merge for all of CC-7)
+
+**Ships:** stray-cat reports move from Pets / Organizer Tools to Community Cats; Pets keeps owned pets only.
+
+**Inventory findings that shaped it (2026-11-20):** Cats had **no reports queue** (only Organizer Tools → Reported strays,
+gated on the `pets` admin scope); there is no resident "fed" button (the quick log is Organizer Tools only); the report
+form allows dog / bird / rabbit / other; `jc_stray_report_add` / `_mine` are gated on the `pets` module; a closed report
+links only a `jc_pets` stray (`pet_id`); live `e2e` has **9** active strays (not 7), 3 reports (all closed `added`),
+4 care-log rows; `jc_snapshot_run` writes a `strays` count; `jc_pets_list` has `strays` + `community` filters.
+
+**Decisions (Zee 2026-11-20):**
+1. **D1 — cat only.** "Report a stray cat": no species choice; one line for other animals ("Stray dog or another
+   animal? Please contact community management." — wording Zee may change).
+2. **D2 — Report lives on the Cats page** (residents' view, next to the cats it feeds), gated on Cats only; Pets keeps a
+   one-line link ("Seen a stray cat? Report it"). Coordinators work the queue on the Cats page either way: **the Cats
+   page's programme view is the Cats admin area** (CC-1: no Organizer Tools for Cats roles).
+3. **D3 — photo moves only on "Add as new cat"** (cap 4); "Already known" never adds the photo (look-alike cats).
+- Queue = Cats coordinators + community admins; **never volunteers** (a report carries the reporter's home + number).
+- "Added" / "Already known" write **one sighting** (place + location, report time; may be older than 14 days); the
+  resident's note is **never** copied (sightings are kept forever, reports are purged 30 days after close).
+
+**Series (each its own PR; DB via `/db-rehearse`):**
+| PR | What |
+|---|---|
+| **CC-7a DB** | `jc_stray_reports.cat_id` (→ `jc_cats`, set null on delete); `jc_cat_reports_list(show)`, `jc_cat_report_close(id, outcome, cat)`; `_json` gains `cat {id, name}`; `_add` cat-only + gated on `cats`; `_mine` gated on `cats`. Additive: the Organizer Tools RPCs keep working until 7d |
+| **CC-7b app** | Cats → **Reports** tab (coordinators + community admins; Open / Closed chips; Add as new cat → editor pre-filled, Already known → register picker, Not a stray); Report a stray cat + My reports on the Cats residents' view, Where on shared `where.js`; Pets link line |
+| **CC-7c app** | Pets: Strays tab, stray page branches, report form, My reports, queue line removed (`?tab=strays` → Pets); Organizer Tools: Strays / Needs help filters, stray editor, care record, quick log, Reported strays removed (`?open=reports` → Cats). Tests rewritten, not deleted |
+| **CC-7d DB** | archive the 9 `e2e` strays (`organizer`, soft); drop the stray-only RPCs + `jc_admin_stray_*`; `jc_pets_list` loses `strays` / `community`; a stray can't be restored; snapshot loses `strays` |
+
+**Done when:**
+| # | Check | Proof |
+|---|---|---|
+| 1 | A resident sends a stray-cat report; a Cats coordinator sees it under Cats → Reports (photo, place, home, number); a volunteer doesn't | e2e + SQL per role (coordinator, volunteer, community admin, Pets admin) |
+| 2 | "Add as new cat" → the cat has the report's photo + a sighting at the report's spot; the resident's My reports shows "Added: ⟨cat⟩" | SQL (counts before / after, ledger `cat_id`) + e2e |
+| 3 | "Already known" links the chosen cat, one sighting; a retry adds no second one | SQL idempotency |
+| 4 | Cats off → no Report button and the server refuses (`MODULE_OFF`) | SQL + e2e |
+| 5 | Pets shows Pets · My Pets only; owned-pet flows (missing alarm, out-on-their-own) unchanged | existing owned-pet specs green |
+| 6 | After 7d: 0 active strays on `e2e`, stray RPCs gone, live suite green, advisors no new kinds | live queries + 3-chunk suite |
+| 7 | Reports tab + Report screen match Cats Activity / current Report screen side by side (EN + AR) | `/shot` pairs in `docs/qa/` |
+
+**Premortem (short):** #1 wrong / merged cat or double photo move → lock report + cat, cat active and not merged, retry
+returns the first result; #2 reports into an unseen queue → `_add` needs Cats on, delivery proved by check 1; #2b App
+Health reads the snapshot `strays` key → removed with a render check; #6 queue holds numbers + homes → per-role SQL
+tests; removal orphans (strings, `?tab=strays`, `?open=reports`, admin-log labels, `design.md` text — the
+`pet-stray*.jpg` images stay as Cats references) → grep gate in 7c; frozen data (9 archived strays, photos purged at
+30 days; care log + sightings follow existing retention). Rollback: 7a additive; 7b / 7c git revert; 7d archive
+restorable 30 days, RPCs re-creatable from their migration files.
 
 ## Decisions (Zee 2026-11-17, answering this plan)
 
