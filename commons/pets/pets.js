@@ -344,8 +344,9 @@ var VIEWS = {
       var active = strays.filter(function(p){ return p.care_state !== "rehomed"; });
       onMap = active.filter(strayPos);
       var unplaced = active.length - onMap.length;
-      body = queueHtml() + '<div class="row"><button class="btn" type="button" id="rpOpen">' + esc(jcT("rp_cta")) + '</button></div>' +
-        '<p class="help" id="rpCtaHelp">' + esc(jcT("rp_cta_help")) + '</p>' +
+      /* CC-7b: stray-cat reports moved to the Cats page (the form there; nothing to report while Cats is off) */
+      body = queueHtml() + (jcModuleOn(cfg, "cats") ? '<div class="row"><a class="btn" id="rpOpen" href="../cats/?report=1">' + esc(jcT("ca_rp_cta")) + '</a></div>' +
+        '<p class="help" id="rpCtaHelp">' + esc(jcT("pt_rp_cats_help")) + '</p>' : '') +
         (!strays.length ? '<p class="help" id="ptStrays">' + esc(jcT("pt_strays_none")) + '</p>' :
         (typeof L === "undefined" ? '<p class="help" id="ptNoMap">' + esc(jcT("err_NETWORK")) + '</p>' :   /* no dead buttons */
          onMap.length ? jcMapHtml("ptmap", layer, { attrs: ' role="region" aria-label="' + esc(jcT("pt_strays_map")) + '"',
@@ -387,7 +388,7 @@ var VIEWS = {
       each("#ptListBox [data-open]", function(b){ openPet(b.dataset.open); });
     });
     if (onMap.length) drawStrays(onMap);
-    if (tab === "strays") { wireStraySort(); wireMyReports(); on("rpOpen", openReport); }
+    if (tab === "strays") { wireStraySort(); wireMyReports(); }
     on("ptAdd", function(){ form = { id: null, species: "cat", name: "", description: "", wanderer: false, microchipped: false, photo_path: null, photo: null }; show("edit"); });
   },
 
