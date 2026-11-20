@@ -910,7 +910,7 @@ test("DS-4b: activity entries are the shared dated list — actions at the foot,
   if (process.env.SHOT_DIR) await page.screenshot({ path: process.env.SHOT_DIR + "/ds4b-cat-activity.png", fullPage: true });
 });
 
-// DS-4c (docs/plans/DS-4-cats-rebuild.md, Done-when 7): the Stations tab is the Pets Strays layout — a map of the
+// DS-4c (docs/plans/DS-4-cats-rebuild.md, Done-when 7): the Stations tab is the (CC-7c: retired) Pets Strays layout — a map of the
 // stations above a nearest-first list; residents only ever get public stations (the server sends no others)
 test("DS-4c: residents' stations — a map with the public pins, a sorted-by line, list cards with Directions", async ({ page }) => {
   await stubBackend(page, { rpc: member([]) });

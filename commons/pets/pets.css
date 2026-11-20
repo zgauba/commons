@@ -16,11 +16,6 @@
 #ptPage > h2.group:first-child{margin-top:0}
 /* R5b-2b-2a — "seen out on their own" on my pet's card: amber (a heads-up), never red */
 .ptcard .meta.seenout{color:var(--jc-warn); font-weight:700}
-/* Strays map: the key's dots match the pins (colour only for real states) */
-.ptdot{display:inline-block; width:16px; height:16px; border-radius:50%; border:3px solid var(--jc-ink); box-sizing:border-box; background:var(--jc-muted)}
-.ptdot.needs_help{background:var(--jc-warn)}
-.ptdot.under_care{background:var(--jc-accent)}
-#ptUnplaced{margin:0}
 /* R5b-2b-2b — the pet page: the household's "seen out" box (amber, a heads-up — never red); small sighting maps */
 .seenbox{border:2px solid var(--jc-warn); border-radius:var(--jc-radius); padding:12px 14px; background:var(--jc-surface)}
 .seenbox b{color:var(--jc-warn)}

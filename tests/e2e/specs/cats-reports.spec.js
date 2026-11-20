@@ -5,7 +5,7 @@
 // mirrors the shapes only.
 const { test, expect } = require("@playwright/test");
 const { stubBackend, ok, raise, CONFIG, MEMBER } = require("./stub");
-const { signIn } = require("./backends");
+const { signIn, PET_PNG } = require("./backends");
 
 test.use({ timezoneId: "Asia/Dubai" });
 const CATS_ON = Object.assign({}, CONFIG, { modules: Object.assign({}, CONFIG.modules, { cats: { enabled: true } }) });
@@ -151,7 +151,8 @@ test("a resident reports a stray cat from the Cats tab: no species, a place is e
   await expect(page.locator("[data-rpnum]")).toHaveCount(0);
 });
 
-test("the Pets Strays tab sends stray-cat reports to the Cats form; ?report=1 opens it", async ({ page }) => {
+// the Pets tab's "Report a stray cat" link (CC-7c: was on the Strays tab) is ../cats/?report=1 — pets.spec.js checks the link
+test("?report=1 (the Pets tab's link) opens the Cats form; Back returns to the Cats tab", async ({ page }) => {
   const b = backend([]);
   await open(page, b, "cats/?report=1");
   await expect(page.locator("h1")).toHaveText("Report a stray cat");
@@ -175,7 +176,7 @@ test("Where uses the shared pin flow (Add Location Pin → Use this spot); a pin
   expect(f.place).toBeUndefined();
 });
 
-test("Cats off: no Cats page form; the Pets Strays tab shows no report button", async ({ page }) => {
+test("Cats off: no Cats page form (the Pets tab's link is hidden too — pets.spec.js)", async ({ page }) => {
   const cfg = Object.assign({}, CONFIG, { modules: Object.assign({}, CONFIG.modules, { pets: { enabled: true }, cats: { enabled: false } }) });
   const b = backend([], { cfg });
   await open(page, b, "cats/?report=1");
@@ -462,4 +463,21 @@ test("code review: the cat saved but the close failed → says so (use Already k
   await expect(page.locator("#msg")).toContainText("Ginger was added, but the report is still open");
   await expect(page.locator("#msg")).toContainText("Already known");
   expect(b.st.cats.some((c) => c.id === K2)).toBe(true);
+});
+
+// CC-7c: moved from photo-viewer.spec.js ("Organizer Tools: a stray report's photo opens the viewer") — the queue
+// that shows a report's photo is the Cats page's Reports tab now
+test("a coordinator: a report's photo on the Reports tab opens the photo viewer; Escape closes it, focus returns", async ({ page }) => {
+  const b = backend(["cats"], { queue: QUEUE });
+  b.storage.image = (path) => (path === QUEUE[0].photo_path ? PET_PNG : null);
+  await open(page, b, "cats/?tab=reports");
+  const ph = page.locator('[data-report="' + RP1 + '"] .ptview');
+  await ph.click();
+  const viewer = page.locator("#jcPhotoView");
+  await expect(viewer).toBeVisible();
+  await expect.poll(() => viewer.locator(".ptph.full").evaluate((s) => !!(s.classList.contains("has") && s.querySelector("img") &&
+    s.querySelector("img").naturalWidth > 0))).toBe(true);
+  await page.keyboard.press("Escape");
+  await expect(viewer).toBeHidden();
+  await expect(ph).toBeFocused();
 });

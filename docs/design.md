@@ -195,11 +195,11 @@ Cats today: sex (3), life stage (4), ear tip (3), sterilisation (3) → pills ·
 |---|---|
 | Status | **Shared** |
 | Native basis | `ul > li` |
-| Markup | `ul.care > li` = `.nm` name, `.st` state, `.note`; body text from `jcCareLogBody(c)` (`pet-photo.js`) |
+| Markup | `ul.care > li` = `.nm` name, `.st` state, `.note` (Cats: vaccines, invoices, status history) |
 | Variants / states | `.st-done` green · `.st-due` amber · plain muted ("Not recorded") |
 | Accessibility | State is a word, not only a colour |
 | Use / Don't | Any record or status history. **Never a bulleted list (D5)** |
-| Reference | `design/pet-stray.jpg` (CARE RECORD) |
+| Reference | `design/pet-stray.jpg` (CARE RECORD; the stray page was retired in CC-7c; screenshot kept as the reference) |
 
 ### Filters · search · sort line
 | | |
@@ -408,8 +408,8 @@ and each mini map has a text link next to it.
 | If you're building… | Match | Screenshot |
 |---|---|---|
 | A list of animals / things with photos | Pets list | `design/pets-list.jpg` |
-| A list of places with a map (stations) | Pets Strays tab: map above a nearest-first list (Cats Stations, DS-4c) | `qa/ds-4c/c-stations.jpg` |
-| One animal's / thing's page | Pet page, About | `design/pet-stray.jpg` · AR `design/pet-stray-ar.jpg` |
+| A list of places with a map (stations) | Pets Strays tab (retired in CC-7c; screenshot kept as the reference): map above a nearest-first list (Cats Stations, DS-4c) | `qa/ds-4c/c-stations.jpg` |
+| One animal's / thing's page | Pet page, About (a stray's page, retired in CC-7c; screenshot kept as the reference) | `design/pet-stray.jpg` · AR `design/pet-stray-ar.jpg` |
 | A sightings or activity log on that page | Pet page, Sightings | `design/pet-sightings.jpg` |
 | An add / edit form | Edit pet | `design/pet-edit.jpg` |
 | An organizer list with card actions | Organizer Tools → Events | `design/admin.jpg` |

@@ -14,7 +14,7 @@ var jcTiles = {
    each repeated. Load after leaflet.js; the jcT / getElementById calls run later, at draw time. ---------- */
 
 /* map colours from the tokens (pins take the accent; the "you are here" dot is --jc-me; warn / muted for
-   state-coloured pins such as the Strays map — colour only for real states) */
+   state-coloured pins — colour only for real states) */
 function jcMapColors(){
   var s = getComputedStyle(document.documentElement);
   return { accent: s.getPropertyValue("--jc-accent").trim() || "#3e9b76",

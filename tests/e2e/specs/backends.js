@@ -305,8 +305,6 @@ function adminBackend(opts = {}) {
       // R5d-1 — Organizer Tools → Pets (jc_assert_admin('pets') = pets or community); specs override for animals
       jc_admin_pets_list: () => (st.scopes.includes("pets") || st.scopes.includes("community") ? ok([]) : raise("NOT_ADMIN")),
       jc_pets_group_get: () => ok({ link: null }),
-      // stray reports (PR 2): an empty queue unless a spec says otherwise
-      jc_admin_stray_reports_list: () => (st.scopes.includes("pets") || st.scopes.includes("community") ? ok([]) : raise("NOT_ADMIN")),
       // T5.3 — the owner's inbox (as the server: unread first, then newest)
       jc_feedback_list: () => (st.owner ? ok(fbList()) : raise("NOT_OWNER")),
       jc_feedback_mark_read: (a) => {
@@ -474,8 +472,9 @@ const petId = (n) => "22222222-bbbb-4bbb-8bbb-00000000000" + n;
 const PET_MY_HOME = "h1";                                      // stub.js MEMBER: Villa 12 · Ain Al Maha
 const PET_V40 = { id: "h40", village: "seef-al-jubail", building: null, number: "40" };
 const PET_MINE_HOME = { id: PET_MY_HOME, village: "ain-al-maha", building: null, number: "12" };
+const PET_V41 = { id: "h41", village: "seef-al-jubail", building: null, number: "41" };
 
-// a map pin moves while Leaflet animates: tap it once it has stood still (Courts, Strays maps)
+// a map pin moves while Leaflet animates: tap it once it has stood still (Courts, a pet's Map tab)
 async function tapWhenStill(page, loc) {
   let last = null;
   await expect.poll(async () => {
@@ -498,13 +497,14 @@ function petsBackend(opts = {}) {
       { id: petId(1), kind: "owned", species: "dog", name: "Rex", home: PET_V40, missing: false },
       { id: petId(2), kind: "owned", species: "cat", name: "Luna", home: PET_V40, missing: true, missing_since: "2026-11-10T15:00:00Z",
         last_seen_note: "Near the beach park", sightings: [] },
-      { id: petId(3), kind: "stray", species: "cat", name: "Ginger", care_state: "under_care", territory: "Behind the mosque",
-        care: { sterilized: { s: "done", d: "2026-10-01", n: "Clinic A" }, vaccination: { s: "due", d: null, n: null } },
-        care_log: [{ kind: "fed", note: "Morning round", at: "2026-11-10T05:00:00Z" }],
+      // CC-7c: Ginger is a neighbour's missing cat (was a stray) — the pet page's sightings / pin map / share tests use her
+      { id: petId(3), kind: "owned", species: "cat", name: "Ginger", home: PET_V41, missing: true, missing_since: "2026-11-08T00:00:00Z",
+        last_seen_note: "Behind the mosque",
         sightings: [{ id: 7, note: "By the bins", lat: 24.531, lng: 54.432, seen_at: "2026-11-10T18:00:00Z", by_me: false },
                     { id: 8, note: null, lat: null, lng: null, seen_at: "2026-11-09T18:00:00Z", by_me: true },
                     // older than 24 h: the nightly job erased the reporter, so by_me is NULL (reporter = me → null), not false
                     { id: 9, note: "Sleeping in the shade", lat: null, lng: null, seen_at: "2026-11-08T12:00:00Z", by_me: null }] },
+      // strays the server still sends until CC-7d archives them: the Pets page must never show them (CC-7c)
       { id: petId(4), kind: "stray", species: "dog", name: "Sandy", care_state: "known_fine", territory: "The marina" },
       { id: petId(5), kind: "stray", species: "cat", name: "Biscuit", care_state: "rehomed" },
       { id: petId(6), kind: "owned", species: "cat", name: "Mochi", home: PET_MINE_HOME, missing: false, wanderer: true },
@@ -533,7 +533,8 @@ function petsBackend(opts = {}) {
   const manage = (id) => { const p = find(id); return p && p.kind === "owned" && card(p).mine ? p : null; };
   const rpc = {
     jc_config_get: () => ok(Object.assign({}, CONFIG, { tz: "Asia/Dubai", labels: opts.labels,
-      modules: { events: { enabled: false }, bookings: { enabled: false }, pets: { enabled: st.enabled } } })),
+      // opts.cats: the Cats page is on (CC-7c: the Pets tab then links to its stray-cat report)
+      modules: { events: { enabled: false }, bookings: { enabled: false }, pets: { enabled: st.enabled }, cats: { enabled: !!opts.cats } } })),
     jc_me_get: (a, c) => (c.signedIn ? ok(st.me) : raise("NOT_SIGNED_IN")),
     jc_pets_list: (a) => off() || (a.p_filter !== "all" ? raise("BAD_FILTER")
       // the server orders missing → nearest the viewer's home pin → name; opts.serverOrder = keep the fixture order (as "nearest")
@@ -630,66 +631,20 @@ function petsBackend(opts = {}) {
       p.photo_path = p.pending; p.pending = null;
       return ok(card(p));
     },
-    // stray reports (PR 3): the reporter's view (no home, number only as has_contact), as the server
-    jc_stray_report_add: (a) => {
-      if (off()) return off();
-      if (opts.reportError) return raise(opts.reportError);
-      if (opts.reportFailOnce && !st.failedOnce) { st.failedOnce = true; return raise(opts.reportFailOnce); }
-      const f = a.p_fields || {};
-      const old = st.reports.find((r) => r.id === a.p_id);
-      if (old) return ok(mineCard(old));                                   // idempotent: the same report
-      if (!["cat", "dog", "bird", "rabbit", "other"].includes(f.species) || (f.lat == null && !f.place)) return raise("BAD_FIELDS");
-      if (f.contact != null && !/^\+?[0-9]{8,15}$/.test(f.contact)) return raise("BAD_FIELDS");
-      const r = { id: a.p_id, species: f.species, note: f.note || null, place: f.place || null, lat: f.lat ?? null, lng: f.lng ?? null,
-        contact: f.contact || null, state: "open", created_at: "2026-11-16T09:00:00Z", closed_at: null, photo_path: null, pet: null };
-      st.reports.unshift(r); st.adds.push(a);
-      return ok(mineCard(r));
-    },
-    // the organizers' queue, as read by the residents' Strays tab for its "waiting" line
-    jc_admin_stray_reports_list: () => opts.queueError ? raise(opts.queueError) : (((st.me.admin_scopes || []).some((s) => s === "pets" || s === "community"))
-      ? ok(Array.from({ length: opts.queue || 0 }, (_, i) => ({ id: "q" + i, species: "cat", state: "open" }))) : raise("NOT_ADMIN")),
-    jc_stray_reports_mine: () => off() || (opts.mineError ? raise(opts.mineError) : ok(st.reports.map(mineCard))),
-    jc_stray_report_contact_clear: (a) => {
-      const r = st.reports.find((x) => x.id === a.p_id);
-      if (!r) return raise("NOT_FOUND");
-      r.contact = null; return ok(mineCard(r));
-    },
-    jc_stray_report_photo_begin: (a) => {
-      const r = st.reports.find((x) => x.id === a.p_id && x.state === "open");
-      if (!r) return raise("NOT_FOUND");
-      n += 1; r.pending = "jubail/r/" + r.id + "/p" + n + "." + a.p_ext;
-      return ok({ bucket: "pet-photos", path: r.pending, expires_in_seconds: 900 });
-    },
-    jc_stray_report_photo_commit: (a) => {
-      const r = st.reports.find((x) => x.id === a.p_id);
-      if (!r || !r.pending) return raise("NO_PENDING_PHOTO");
-      if (!st.objects[r.pending]) return raise("PHOTO_MISSING");
-      r.photo_path = r.pending; r.pending = null; return ok(mineCard(r));
-    },
-    jc_stray_report_photo_remove: (a) => {
-      const r = st.reports.find((x) => x.id === a.p_id);
-      if (!r) return raise("NOT_FOUND");
-      if (!r.photo_path) return raise("NO_PHOTO");
-      r.photo_path = null; return ok(mineCard(r));
-    },
   };
-  st.reports = (opts.reports || []).map((r) => Object.assign({ note: null, place: null, lat: null, lng: null, contact: null, state: "open",
-    created_at: "2026-11-15T09:00:00Z", closed_at: null, photo_path: null, pet: null }, r));
-  st.adds = [];
-  function mineCard(r) { const { contact, pending, ...c } = r; return Object.assign({}, c, { has_contact: !!contact }); }
   for (const k of ["jc_pets_list", "jc_pet_save", "jc_pet_get", "jc_pet_missing_set"]) rpc[k] = held(k, rpc[k]);
   st.objects = {};
   const storage = {
     // write-once at the pending path only (storage policy pet_photo_can_write)
     upload: (a) => {
       if (opts.uploadFail) return { status: 500, body: { statusCode: "500", error: "internal", message: "boom" } };
-      if (a.bucket !== "pet-photos" || !(st.pets.some((p) => p.pending === a.path) || st.reports.some((r) => r.pending === a.path)) || st.objects[a.path])
+      if (a.bucket !== "pet-photos" || !st.pets.some((p) => p.pending === a.path) || st.objects[a.path])
         return { status: 403, body: { statusCode: "403", error: "Unauthorized", message: "new row violates row-level security policy" } };
       st.objects[a.path] = a;
       return ok({ Key: "pet-photos/" + a.path, Id: "obj" });
     },
     // readable only while it is a pet's current photo (pet_photo_can_read); opts.broken = paths that fail to load
-    image: (path) => ((st.pets.some((p) => p.photo_path === path) || st.reports.some((r) => r.photo_path === path)) && !(opts.broken || []).includes(path) ? PET_PNG : null),
+    image: (path) => (st.pets.some((p) => p.photo_path === path) && !(opts.broken || []).includes(path) ? PET_PNG : null),
   };
   return { st, rpc, storage };
 }
