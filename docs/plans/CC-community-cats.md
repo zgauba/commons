@@ -161,7 +161,8 @@
     a description can be linked / relinked / unlinked; visits backdate up to 14 days; residents see nothing of visits or sightings yet.
   - Accepted for later (db M2): every Activity page scans the community's history (computed "at"); add a stored `at` + index past a
     few thousand rows. Per-row JSON (N+1) accepted at 50 a page.
-  - Sample data on `e2e` (Zee 2026-11-18): old_id `SAMPLE-n` cats, `(sample)` stations; remove before any real import there.
+  - Sample data on `e2e`: since 2026-11-20 a realistic set built from the programme's CC-6 workbook (42 cats old_id `SAMPLE-<NAME>`, 19 `(sample)` stations, 6 vet visits, 49 photos; invented spots for private / unpinned stations, people's names scrubbed) for team testing + the UI review — replaced the 2026-11-18 `SAMPLE-n` set. Loaded by a local script (not committed: holds programme data); remove before any real import there.
+  - CC-6 cat IDs (old_id) are name-based (Zee 2026-11-20): `NAME`, `NAME-AREA` when two cats share a name, `UNNAMED-COAT` for unnamed cats. Anything printed (ID cards) uses Commons' `C-nnn`.
   - **Tester message (draft, plan "Overlap"):** "Community Cats is now the place for strays on the test community: log feeding
     visits at a station (tap the cats you recognise) and sightings, even of a cat you can't name yet. Strays logged in Pets are test
     entries and won't carry over."
