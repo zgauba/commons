@@ -187,6 +187,15 @@
   - The 2 `e2e` Pets admins were also made **Cats coordinators** by a direct insert into `jc_module_admins` (scope `cats`, `granted_by` copied from their Pets grant). That bypassed the invite link, so there is no `module_admin_accept` row in `jc_admin_log`. They keep Organizer Tools through their Pets scope. No Cats volunteers yet.
   - Testers were asked to set a display name (My Home → Account → Display name → Save) before roles are assigned. One coordinator still has no display name.
 
+- **UI review 2026-11-20** (`docs/qa/cats-ui-review-2026-11-20.md`; Zee approved all 9 fixes in one PR + merge): a missing
+  cat's red banner now has the next step (residents: "I've seen ⟨name⟩" → the report form naming the cat; programme:
+  "Report seeing"), help sheet current, fact labels aligned (shared `.facts`), Reports tab buttons one line each, editor
+  headings Where · Health · Status and record, Merge in its own panel below Save, shorter report privacy copy, invoice
+  sentence in Activity help for coordinators only.
+  - **Accepted for later:** a "seen a missing cat" report is linked to the cat only by its note ("Seen: C-002 · Name (listed
+    as missing).") — the coordinator still taps Already known → the cat. A real `cat_id` on `jc_stray_reports` (pre-selected in
+    Already known) needs a migration; do it with the next reports change. Update the tester guide's resident workflow.
+
 ## CC-4 plan — visits + sightings (2026-11-18; Zee pre-authorised apply + merge for CC-4 only)
 
 **Ships:** a volunteer at a station logs one **feeding visit** (date, food / water / cleaned, headcount, taps the cats they

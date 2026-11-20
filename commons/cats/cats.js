@@ -493,8 +493,13 @@ function catView(){
   var h = jcHeroHtml({ photoHtml: jcPetPhotoHtml({ photo_path: photos[0] || null }, 34, "tile", { view: photos }), name: catTitle(c),
     afterNameHtml: canEditCats() && !merged(c) ? '<button class="lang adminbtn" type="button" id="caEditCat"' + off + '>' + esc(jcT("ca_edit")) + '</button>' : '',
     meta: catSub(c), chipsHtml: catChips(c, true) });
+  /* UI review #1 / #3: a missing cat's banner carries the next step — the programme logs a sighting, a resident tells
+     the coordinators through the report form */
+  var seenBtn = merged(c) ? '' : programme
+    ? '<div class="acts"><button class="btn" type="button" id="caAlarmSeen"' + off + '>' + esc(jcFmt("ca_l_seen_btn", { n: catTitle(c) })) + '</button></div>'
+    : '<div class="acts"><button class="btn" type="button" id="caSeenRep"' + off + '>' + esc(jcFmt("ca_seen_btn", { n: catTitle(c) })) + '</button></div>';
   if (c.status === "missing") h += jcAlarmHtml("caAlarm", programme && dateText(c.status_on)
-    ? jcFmt("ca_missing_since", { n: catTitle(c), d: dateText(c.status_on) }) : jcFmt("ca_missing_now", { n: catTitle(c) }));
+    ? jcFmt("ca_missing_since", { n: catTitle(c), d: dateText(c.status_on) }) : jcFmt("ca_missing_now", { n: catTitle(c) }), seenBtn);
   if (merged(c)) h += '<p class="notice">' + esc(jcFmt("ca_merged_into", { c: c.merged_into.code || "" })) + '</p>' +
     (canEditCats() ? '<div class="row"><button class="btn ghost" type="button" id="caUnmerge"' + off + '>' + esc(jcT("ca_unmerge")) + '</button></div>' : '');
   if (tabs.length > 1) h += jcTabsHtml("caPg_", tabs, catTab, function(t){ return jcT(t === "log" ? "ca_tab_log" : "ca_pg_about"); }, catTitle(c), "caPage");
@@ -534,6 +539,8 @@ function catView(){
     : '<div id="caPage" class="jcstack">' + body + '</div>');
   if (tabs.length > 1) jcTabsWire("caPg_", tabs, function(t){ catTab = t; draw(); });
   on("caEditCat", function(){ openCatEditor(c.id); });
+  on("caAlarmSeen", function(){ openSighting(c.id, { to: "cat", cat: c.id }); });
+  on("caSeenRep", function(){ openReport({ id: c.id, code: c.code, name: str(c.name) }); });
   if (programme && catTab === "log") wireCatLog(c);
   on("caUnmerge", function(){
     if (window.confirm(jcFmt("ca_unmerge_q", { c: c.code }))) save("jc_cat_unmerge", { p_cat: c.id }, "ca_unmerged");
@@ -609,10 +616,12 @@ function catEditView(){
     pillsHtml("caCSex", "ca_f_sex", "sex", "ca_sex_", CA_SEX, f.sex, off) +
     pillsHtml("caCLife", "ca_f_life", "life_stage", "ca_life_", CA_LIFE, f.life_stage, off) +
     txtHtml("caCStory", "ca_f_story", f.story, 1000, off, true) + '<p class="help">' + esc(jcT("ca_story_help")) + ' ' + esc(jcT("ca_text_hint")) + '</p>' +
-    '<fieldset id="caCWhere"><legend>' + esc(jcT("ca_g_where")) + '</legend>' +
+    /* UI review #6: the editor's groups carry the cat page's headings (Where · Health · Status and record) */
+    '<h2 class="group" id="caCWhereH">' + esc(jcT("ca_g_where")) + '</h2><fieldset id="caCWhere" aria-labelledby="caCWhereH">' +
       '<label>' + esc(jcT("ca_f_area")) + '<select id="caCArea"' + off + '><option value="">' + esc(jcT("ca_none_opt")) + '</option>' +
         areas.map(function(a){ return '<option value="' + esc(a.id) + '"' + (a.id === f.area_id ? ' selected' : '') + '>' + esc(a.name) + '</option>'; }).join("") + '</select></label>' +
       '<label>' + esc(jcT("ca_f_station")) + '<select id="caCStation"' + off + '>' + edStationOpts(f) + '</select></label></fieldset>' +
+    '<h2 class="group" id="caCHealthH">' + esc(jcT("ca_g_health")) + '</h2>' +
     pillsHtml("caCEar", "ca_f_ear", "ear_tip", "ca_ear_", CA_EAR, f.ear_tip, off,
       '<label id="caCSideBox"' + (f.ear_tip === "present" ? '' : ' hidden') + '>' + esc(jcT("ca_f_ear_side")) + '<select id="caCSide"' + off + '><option value="">—</option>' +
         ["left", "right"].map(function(x){ return '<option value="' + x + '"' + (x === f.ear_side ? ' selected' : '') + '>' + esc(jcT("ca_side_" + x)) + '</option>'; }).join("") +
@@ -621,17 +630,19 @@ function catEditView(){
       txtHtml("caCSterSrc", "ca_f_ster_source", f.sterilised_source, 120, off)) +
     '<fieldset><legend id="caCTnvrLg">' + esc(jcT("ca_f_tnvr")) + '</legend>' + selHtml("caCTnvr", "caCTnvrLg", "ca_tnvr_", CA_TNVR, f.tnvr, off) +
       dateHtml("caCTOn", "ca_f_tnvr_on", off) + txtHtml("caCTPlace", "ca_f_tnvr_place", f.tnvr_place, 120, off) + '</fieldset>' +
+    '<h2 class="group" id="caCRecordH">' + esc(jcT("ca_g_record")) + '</h2>' +
     '<fieldset><legend id="caCStatusLg">' + esc(jcT("ca_f_status")) + '</legend>' + selHtml("caCStatus", "caCStatusLg", "ca_st_", CA_STATUS, f.status, off) +
       dateHtml("caCStOn", "ca_f_status_on", off) + txtHtml("caCStSrc", "ca_f_status_source", f.status_source, 120, off) + '</fieldset>' +
     txtHtml("caCOld", "ca_f_old_id", f.old_id, 40, off) +
     '<label class="check"><input type="checkbox" id="caCConf"' + (f.confirmed ? ' checked' : '') + off + '> <span>' + esc(jcT("ca_f_confirmed")) + '</span></label>' +
-    (c && others.length ? '<fieldset id="caMergeBox"><legend>' + esc(jcT("ca_merge")) + '</legend>' +
+    '<button class="btn" type="submit" id="caCatSave"' + off + '>' + esc(jcT("ct_save")) + '</button></form>' +
+    /* UI review #7: Merge is its own panel below the form, never one tap from Save */
+    (c && others.length ? '<h2 class="group" id="caMergeH">' + esc(jcT("ca_merge")) + '</h2><div class="panel" id="caMergeBox" role="group" aria-labelledby="caMergeH">' +
       '<p class="help">' + esc(jcT("ca_merge_help")) + '</p>' +
       '<label>' + esc(jcT("ca_merge_into")) + '<select id="caMergeTo"' + off + '><option value="">' + esc(jcT("ca_pick")) + '</option>' +
         others.map(function(x){ return '<option value="' + esc(x.id) + '"' + (x.id === e.merge_into ? ' selected' : '') + '>' +
           esc([x.code, x.name, x.old_id].filter(Boolean).join(" · ")) + '</option>'; }).join("") + '</select></label>' +
-      '<div class="acts"><button class="btn ghost" type="button" id="caMergeBtn"' + off + '>' + esc(jcT("ca_merge_btn")) + '</button></div></fieldset>' : '') +
-    '<button class="btn" type="submit" id="caCatSave"' + off + '>' + esc(jcT("ct_save")) + '</button></form>';
+      '<div class="acts"><button class="btn ghost" type="button" id="caMergeBtn"' + off + '>' + esc(jcT("ca_merge_btn")) + '</button></div></div>' : '');
   /* values, not markup */
   Object.keys(CA_IDS).forEach(function(k){ var i = el(CA_IDS[k]); if (!i) return; i.value = f[k] || ""; i.addEventListener("input", function(){ f[k] = i.value; }); });
   [["caCTnvr", "tnvr"], ["caCSide", "ear_side"], ["caCStatus", "status"], ["caCStation", "station_id"]].forEach(function(p){

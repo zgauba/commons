@@ -14,3 +14,5 @@
 .caPick span{overflow-wrap:anywhere; text-align:center}
 .caPick[aria-pressed="true"]{border-color:var(--jc-accent); background:var(--jc-surface)}
 .caLog[data-hidden]{opacity:.7}
+/* UI review #5: a report's first action gets its own row; the other two share the next (no two-line labels) */
+.row .rqMain{flex-basis:100%}
