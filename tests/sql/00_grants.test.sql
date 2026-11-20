@@ -72,7 +72,9 @@ declare
     -- Pets admins mark missing
     'jc_admin_pet_missing_set',
     -- CC-5 (Cats vet log)
-    'jc_cat_vet_add'];
+    'jc_cat_vet_add',
+    -- CC-7a Cats reports queue
+    'jc_cat_reports_list', 'jc_cat_report_close'];
 begin
   -- Pre-launch suite: fixtures are written into 'jubail' and rolled back. Refuse to run
   -- once real residents exist — post-launch tests must move to a test community.

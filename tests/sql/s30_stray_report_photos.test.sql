@@ -25,8 +25,8 @@ begin
   -- ---------- fixtures (as postgres) ----------
   insert into auth.users (id, email) values (r1, 'r1@s30.test'), (r2, 'r2@s30.test'), (a1, 'a1@s30.test'), (o1, 'o1@s30.test');
   insert into jc_communities (id, name_en, map_lat, map_lng, modules) values
-    ('testville30', 'Testville 30', 24.53, 54.43, '{"pets": {"enabled": true}}'),
-    ('testville30b', 'Testville 30b', 25.00, 55.00, '{"pets": {"enabled": true}}');
+    ('testville30', 'Testville 30', 24.53, 54.43, '{"pets": {"enabled": true}, "cats": {"enabled": true}}'),
+    ('testville30b', 'Testville 30b', 25.00, 55.00, '{"pets": {"enabled": true}, "cats": {"enabled": true}}');
   insert into jc_villages (community_id, key, name_en) values ('testville30', 'north', 'North');
   perform jc_code_set('testville30', 'join', 'S30-JOIN-CODE-01');
   perform jc_code_set('testville30', 'pets', 'S30-PETS-ADMIN-01');
@@ -47,7 +47,7 @@ begin
   perform pg_temp.s30_as(r1);
   perform jc_stray_report_add(q1, '{"species": "cat", "place": "By the gate"}');
   perform jc_stray_report_add(q2, '{"species": "cat", "place": "Marina"}');
-  perform jc_stray_report_add(q3, '{"species": "dog", "place": "Park"}');
+  perform jc_stray_report_add(q3, '{"species": "cat", "place": "Park"}');
   perform jc_stray_report_add(q4, '{"species": "cat", "place": "Beach"}');
   perform pg_temp.s30_as(r2);
   perform jc_stray_report_add(q5, '{"species": "cat", "place": "Shop"}');
@@ -76,13 +76,13 @@ begin
   msg := pg_temp.s30_err(format('select jc_stray_report_photo_begin(%L, %L)', q1, 'gif'));
   if msg is distinct from 'BAD_FIELDS' then raise exception 'FAIL P02b: %', msg; end if;
   execute 'reset role';
-  update jc_communities set modules = '{"pets": {"enabled": false}}' where id = 'testville30';
+  update jc_communities set modules = '{"pets": {"enabled": true}, "cats": {"enabled": false}}' where id = 'testville30';
   execute 'set local role authenticated';
   msg := pg_temp.s30_err(format('select jc_stray_report_photo_begin(%L, %L)', q1, 'jpg'));
   if msg is distinct from 'MODULE_OFF' then raise exception 'FAIL P02c: %', msg; end if;
-  if jc_private.pet_photo_can_write(v_p1) then raise exception 'FAIL P02d writable while Pets is off'; end if;
+  if jc_private.pet_photo_can_write(v_p1) then raise exception 'FAIL P02d writable while Cats is off'; end if;
   execute 'reset role';
-  update jc_communities set modules = '{"pets": {"enabled": true}}' where id = 'testville30';
+  update jc_communities set modules = '{"pets": {"enabled": true}, "cats": {"enabled": true}}' where id = 'testville30';
   k := k + 4;
 
   -- ---------- P03 commit: no file → PHOTO_MISSING; with the file → the report's photo ----------
@@ -246,7 +246,7 @@ begin
   if not exists (select 1 from jc_pet_photos where path = v_p4 and pet_id = v_cat) then raise exception 'FAIL P12e the moved photo went'; end if;
   k := k + 5;
 
-  -- ---------- P13 write window: closed after commit, after 15 minutes; reads stop while Pets is off (reporter too) ----------
+  -- ---------- P13 write window: closed after commit, after 15 minutes; reads stop while Cats is off (reporter too; CC-7a) ----------
   execute 'set local role authenticated';
   perform pg_temp.s30_as(r1);
   perform jc_stray_report_add('00000000-0000-4000-8000-0000000030b1', '{"species": "cat", "place": "Window"}');
@@ -262,11 +262,11 @@ begin
   perform jc_stray_report_photo_commit('00000000-0000-4000-8000-0000000030b1');
   if jc_private.pet_photo_can_write(v_p1) then raise exception 'FAIL P13b writable after commit'; end if;
   execute 'reset role';
-  update jc_communities set modules = '{"pets": {"enabled": false}}' where id = 'testville30';
+  update jc_communities set modules = '{"pets": {"enabled": true}, "cats": {"enabled": false}}' where id = 'testville30';
   execute 'set local role authenticated';
-  if jc_private.pet_photo_can_read(v_p1) then raise exception 'FAIL P13c reporter reads while Pets is off'; end if;
+  if jc_private.pet_photo_can_read(v_p1) then raise exception 'FAIL P13c reporter reads while Cats is off'; end if;
   execute 'reset role';
-  update jc_communities set modules = '{"pets": {"enabled": true}}' where id = 'testville30';
+  update jc_communities set modules = '{"pets": {"enabled": true}, "cats": {"enabled": true}}' where id = 'testville30';
   k := k + 3;
 
   -- ---------- P14 the reporter leaves: photo hidden from organizers at once, never moved to a stray, retired overnight ----------
