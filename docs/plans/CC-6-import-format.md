@@ -156,5 +156,5 @@ JC-014;JC-022,2026-05-02,deworming,City Vet,,,,,,no,
 3. End with a count check: rows loaded = rows in each file, or it raises and rolls everything back.
 4. Write the import to the admin log as counts only.
 
-Before a real import on `e2e`, the sample data (cats with old ID `SAMPLE-n`, stations whose landmark says "(sample)") is removed.
+Before a real import on `e2e`, the sample data (cats whose old ID starts `SAMPLE-`, stations whose landmark ends "(sample)", their vet visits and photos) is removed.
 Cats is switched on only for `e2e` until the Jubail management question on the ROADMAP is settled.
