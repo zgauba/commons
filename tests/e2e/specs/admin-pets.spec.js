@@ -186,7 +186,7 @@ test("CC-7c: an old link to a stray's Manage (?pet=) says it isn't in the list",
 test("Pets on for residents: no switched-off notice; no animals says so", async ({ page }) => {
   await openPets(page, backend({ petsOn: true, list: [] }));
   await expect(page.locator("#paOff")).toHaveCount(0);
-  await expect(page.locator("#paNone")).toHaveText("No animals yet.");
+  await expect(page.locator("#paNone")).toHaveText("No pets yet.");
 });
 
 test("group link: shown; a non-WhatsApp link is refused before sending; saving sends exactly the link; Remove asks first", async ({ page }) => {
@@ -328,7 +328,7 @@ test("search: name, home or village narrows every count; the box keeps focus; as
   await expect(page.locator("#paArchived li")).toHaveText(["Old Tom"]);
   await expect(page.locator("#paSearch")).toHaveValue("tom");                       // kept across the chip
   await page.locator("#paSearch").fill("zzz");
-  await expect(page.locator("#paNone")).toHaveText("No animals here match \u201czzz\u201d.");
+  await expect(page.locator("#paNone")).toHaveText("No pets here match \u201czzz\u201d.");
   expect(calls.length).toBe(n);
 });
 

@@ -35,7 +35,7 @@ test("a Pets code opens Organizer Tools on Pets only — never the event tools (
   await unlock(page, "PETS-1");
   await expect(page.locator('[role="tab"]')).toHaveText(["Pets", "Community"]);
   await expect(page.locator("#newEv")).toHaveCount(0);
-  await expect(page.locator("#paNone")).toHaveText("No animals yet.");
+  await expect(page.locator("#paNone")).toHaveText("No pets yet.");
 });
 
 test("new event from the Halloween template: short name follows the title; questions + pin hints + switch saved", async ({ page }) => {

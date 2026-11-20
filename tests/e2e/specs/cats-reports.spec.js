@@ -219,6 +219,23 @@ test("a coordinator: the Reports tab with its count; Already known → tap the c
   await expect(page.locator('[data-report="' + RP1 + '"] [data-rqcat]')).toHaveText("Caramel");
 });
 
+test("Arabic: typed Latin text in a report card lines up right with the rest of the card (shared .bklist rule)", async ({ page }) => {
+  await page.addInitScript(() => { try { localStorage.setItem("jc_lang", "ar"); } catch (e) {} });
+  const b = backend(["cats"], { queue: QUEUE });
+  await open(page, b);
+  await page.locator("#caTab_reports").click();
+  const card = page.locator('[data-report="' + RP1 + '"]');
+  const note = card.locator('> div[dir="auto"]', { hasText: "Ginger, thin" });
+  await expect(note).toBeVisible();
+  // the text itself sits at the card's right edge, not the left (dir="auto" makes the box LTR)
+  const edge = await note.evaluate((d) => { const r = document.createRange(); r.selectNodeContents(d);
+    const t = r.getBoundingClientRect(), b = d.getBoundingClientRect(); return { gapRight: b.right - t.right, gapLeft: t.left - b.left }; });
+  expect(edge.gapRight).toBeLessThan(2);
+  expect(edge.gapLeft).toBeGreaterThan(20);
+  await page.evaluate(() => document.fonts.ready);
+  if (process.env.SHOT_DIR) await page.screenshot({ path: process.env.SHOT_DIR + "/cc7-reports-tab-ar.png", fullPage: true });
+});
+
 test("a coordinator: Add as new cat → the editor shows the report → Save adds the cat and closes the report as added", async ({ page }) => {
   const b = backend(["cats"], { queue: QUEUE });
   const { calls } = await open(page, b, "cats/?tab=reports");
