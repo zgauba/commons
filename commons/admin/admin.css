@@ -162,15 +162,3 @@ li[data-event] .chip.draft{display:table; margin:3px 0 2px}
 .desc{margin:0 0 4px; font-size:14.5px; line-height:1.5}
 /* OT-3: the switched-off notice above the Pets group row */
 .notice + .setrows{margin-top:12px}
-
-/* R5d-2b: the stray editor's photo picker shows the keyboard focus (the input is visually hidden), as My Pets */
-#pePhotoIn:focus-visible + .row #pePhotoPick{outline:2px solid var(--jc-accent); outline-offset:2px}
-
-/* R5d-3a: a care item open for editing, inside the care record */
-.care li.editing{flex-direction:column; align-items:stretch}
-.care .pmform{flex-basis:100%; display:flex; flex-direction:column; gap:10px}
-.care .mini{margin-inline-start:auto}
-#pmLog, #pmLogNone{margin-top:12px}
-
-/* Zee 2026-11-14: room between the WhatsApp group row and Add a Stray */
-#paGroupRows + .row{margin-top:12px}

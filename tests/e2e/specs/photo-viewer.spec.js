@@ -2,8 +2,8 @@
 // or a tap outside the photo (never the end of a swipe), focus back on the photo; several photos: "n of t", previous /
 // next by button, arrow keys and swipe, mirrored in Arabic. List cards keep opening the pet.
 const { test, expect } = require("@playwright/test");
-const { stubBackend, ok } = require("./stub");
-const { signIn, petsBackend, adminBackend, petId: ID } = require("./backends");
+const { stubBackend } = require("./stub");
+const { signIn, petsBackend, petId: ID } = require("./backends");
 
 const loaded = (loc) => loc.evaluate((s) => !!(s.classList.contains("has") && s.querySelector("img") && s.querySelector("img").naturalWidth > 0));
 const viewer = (page) => page.locator("#jcPhotoView");
@@ -110,31 +110,6 @@ for (const lang of ["en", "ar"]) {
   });
 }
 
-test("Organizer Tools: a stray report's photo opens the viewer", async ({ page }) => {
-  const ab = adminBackend({ scopes: ["pets"] });
-  const RID = "66666666-ffff-4fff-8fff-000000000001";
-  Object.assign(ab.rpc, {
-    jc_admin_pets_list: () => ok([]),
-    jc_pets_group_get: () => ok({ link: null }),
-    jc_admin_stray_reports_list: () => ok([{ id: RID, species: "cat", note: "Thin ginger cat", lat: null, lng: null, place: null,
-      state: "open", created_at: "2026-11-16T07:00:00Z", closed_at: null, photo_path: "testville/r/" + RID + "/a.jpg", pet: null,
-      contact: null, reporter_home: null, reporter_left: true }]),
-  });
-  await stubBackend(page, { rpc: ab.rpc });
-  await signIn(page);
-  await page.goto("admin/?tab=pets");
-  await page.locator("#paRepOpen").click();
-  const photo = page.locator(`[data-report="${RID}"] .ptview`);
-  await photo.click();
-  await expect(viewer(page)).toBeVisible();
-  await expect.poll(() => loaded(viewer(page).locator(".ptph.full"))).toBe(true);
-  await page.keyboard.press("Escape");
-  await expect(viewer(page)).toBeHidden();
-  await expect(photo).toBeFocused();
-});
-
-// DS-3c (Cats review D12, docs/plans/DS-3-shared-pieces.md): zoom — Zoom In / double-tap = 2.5×, drag to look around,
-// kept inside the photo; while zoomed a drag never changes photo and a tap never closes; a new photo starts unzoomed
 for (const lang of ["en", "ar"]) {
   test(`zoom: button and double-tap, drag pans inside the photo, no step or close while zoomed (${lang})`, async ({ page }) => {
     await open(page, { q: "?pet=" + ID(1), lang });

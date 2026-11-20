@@ -91,7 +91,7 @@ function peopleLine(s){
     return '<span class="caPeople" data-role="' + r + '"><b>' + esc(jcT("ca_r_" + r + "s")) + ':</b> <span dir="auto">' + esc(by[r].join(", ")) + '</span></span>';
   }).join(" · ");
 }
-/* DS-4c: stations as the Pets Strays tab — a map of the stations above a nearest-first list of list cards
+/* DS-4c: stations as the Pets Strays tab was (retired in CC-7c) — a map of the stations above a nearest-first list of list cards
    (sorted-by line, Use Where I Am), archived ones last. The map: Street / Satellite, Full Screen, Find Me (the kit). */
 var smap = null, sLayer = "sat", sfull = jcMapFull(function(){ return smap; }, null);
 function dropSmap(){ sfull.reset(); if (smap) { var m = smap; smap = null; jcMapRemove(m); } }

@@ -1,7 +1,7 @@
-/* "Where is it?" — Report a stray's Where flow (pets/pets.js repWhereHtml), shared so every Cats editor asks for a
-   place the same way (CC plan Step 1b EXTRACT; tester feedback 2026-11-17: the report's flow was intuitive, the
-   organizer's separate "Pin here" was missed). The pin is set when the person taps "Use this spot": no second save.
-   Pets' report keeps its own copy until it moves onto this one (noted in the plan).
+/* "Where is it?" — the old Pets "Report a stray" Where flow (retired in CC-7c), shared so every Cats editor and the
+   Cats stray report ask for a place the same way (CC plan Step 1b EXTRACT; tester feedback 2026-11-17: the report's
+   flow was intuitive, the organizer's separate "Pin here" was missed). The pin is set when the person taps "Use this
+   spot": no second save.
 
    w = the page's draft of the spot, kept across redraws: { lat, lng, picking, where, view, zoom, moved, tok }.
    jcWhereHtml(w, id, off, o)  the fieldset body. id = an id prefix (e.g. "stW"); off = ' disabled' or '';
