@@ -1,7 +1,10 @@
--- Report a new stray, PR 1a (20261116100000_stray_reports.sql): residents report, Pets organizers review.
+-- Report a new stray, PR 1a (20261116100000_stray_reports.sql): residents report; the queue is the Cats queue since
+-- CC-7a and the only one since CC-7d (Organizer Tools' jc_admin_stray_reports_list / _close dropped: their SR10-SR14 /
+-- SR16g went with them; the Cats queue's own checks are s38). What stays here: the resident side, caps, retention,
+-- the table's constraints, and that the reporter's home + number reach clients only through the Cats queue.
 -- now() is frozen inside the dry-run transaction: "older" rows are made by rewinding timestamps as postgres.
--- Users r1 (home 29), r2 (no home), a1 (pets admin), o1 (admin of another community) and communities testville29 /
--- testville29b are throwaway fixtures (rolled back).
+-- Users r1 (home 29), r2 (no home), a1 (community admin: closes via the Cats queue), o1 (another community) and
+-- communities testville29 / testville29b are throwaway fixtures (rolled back).
 do $t$
 declare
   r1 uuid := '00000000-0000-4000-8000-000000002901';
@@ -12,7 +15,7 @@ declare
   id1 uuid := '00000000-0000-4000-8000-0000000029a1';
   id2 uuid := '00000000-0000-4000-8000-0000000029a2';
   id3 uuid := '00000000-0000-4000-8000-0000000029a3';
-  v_cat uuid; v_far uuid; v_old uuid; v jsonb; v_err text; k int := 0; i int;
+  v_cat uuid; v jsonb; v_err text; k int := 0; i int;
 begin
   -- ---------- setup (as postgres) ----------
   insert into auth.users (id, email) values (r1, 'r1@s29.test'), (r2, 'r2@s29.test'), (a1, 'a1@s29.test'), (o1, 'o1@s29.test'), (r3, 'r3@s29.test');
@@ -21,7 +24,7 @@ begin
     ('testville29b', 'Testville 29b', 25.0, 55.0, '{"pets": {"enabled": true}, "cats": {"enabled": true}}');
   insert into jc_villages (community_id, key, name_en) values ('testville29', 'north', 'North');
   perform jc_code_set('testville29', 'join', 'S29-JOIN-CODE-01');
-  perform jc_code_set('testville29', 'pets', 'S29-PETS-ADMIN-01');
+  perform jc_code_set('testville29', 'community', 'S29-COMMUNITY-01');
   perform jc_code_set('testville29b', 'join', 'S29B-JOIN-CODE-1');
   perform jc_code_set('testville29b', 'pets', 'S29B-PETS-ADMIN1');
   execute 'set local role authenticated';
@@ -33,13 +36,13 @@ begin
   perform set_config('request.jwt.claims', json_build_object('sub', o1, 'role', 'authenticated')::text, true);
   perform jc_join('testville29b', 'S29B-JOIN-CODE-1');
   perform jc_admin_unlock('S29B-PETS-ADMIN1');
-  v_far := (jc_admin_stray_save(null, jsonb_build_object('species', 'cat', 'name', 'S29 far cat')) ->> 'id')::uuid;
   perform set_config('request.jwt.claims', json_build_object('sub', a1, 'role', 'authenticated')::text, true);
   perform jc_join('testville29', 'S29-JOIN-CODE-01');
-  perform jc_admin_unlock('S29-PETS-ADMIN-01');
-  v_cat := (jc_admin_stray_save(null, jsonb_build_object('species', 'cat', 'name', 'S29 cat')) ->> 'id')::uuid;
-  v_old := (jc_admin_stray_save(null, jsonb_build_object('species', 'dog', 'name', 'S29 old dog')) ->> 'id')::uuid;
-  perform jc_admin_pet_archive(v_old, 'duplicate');
+  perform jc_admin_unlock('S29-COMMUNITY-01');
+  execute 'reset role';   -- CC-7d: a stray row as postgres (only SR15b's "open + pet" constraint needs one)
+  insert into jc_pets (community_id, kind, species, name, care_state) values ('testville29', 'stray', 'cat', 'S29 cat', 'known_fine')
+    returning id into v_cat;
+  execute 'set local role authenticated';
 
   -- ---------- SR01 a report with a pin + a number: stored, number cleaned, never echoed back ----------
   perform set_config('request.jwt.claims', json_build_object('sub', r1, 'role', 'authenticated')::text, true);
@@ -140,10 +143,10 @@ begin
      or v -> 1 ? 'contact' or v -> 1 ? 'reporter_home' then raise exception 'FAIL SR08 mine: %', v; end if;
   k := k + 1;
 
-  -- ---------- SR09 residents can't use the organizer RPCs; nobody reads the table directly ----------
-  v_err := null; begin perform jc_admin_stray_reports_list('open'); exception when others then v_err := sqlerrm; end;
+  -- ---------- SR09 residents can't use the queue (CC-7d: the Cats queue); nobody reads the table directly ----------
+  v_err := null; begin perform jc_cat_reports_list('open'); exception when others then v_err := sqlerrm; end;
   if v_err is distinct from 'NOT_ADMIN' then raise exception 'FAIL SR09a list: %', v_err; end if;
-  v_err := null; begin perform jc_admin_stray_report_close(id1, 'not_stray', null); exception when others then v_err := sqlerrm; end;
+  v_err := null; begin perform jc_cat_report_close(id1, 'not_stray', null); exception when others then v_err := sqlerrm; end;
   if v_err is distinct from 'NOT_ADMIN' then raise exception 'FAIL SR09b close: %', v_err; end if;
   v_err := null; begin perform count(*) from jc_stray_reports; exception when others then v_err := sqlstate; end;
   if v_err is distinct from '42501' then raise exception 'FAIL SR09c direct select: %', v_err; end if;
@@ -151,70 +154,22 @@ begin
   if v_err is distinct from '42501' then raise exception 'FAIL SR09d internal helper: %', v_err; end if;
   k := k + 4;
 
-  -- ---------- SR10 the organizer queue: open, oldest first, with the number and the reporter's home ----------
+  -- ---------- SR10 (CC-7d) Organizer Tools' queue is gone; a close (Cats queue) drops the number; My reports ----------
+  if to_regprocedure('public.jc_admin_stray_reports_list(text)') is not null
+     or to_regprocedure('public.jc_admin_stray_report_close(uuid, text, uuid)') is not null then
+    raise exception 'FAIL SR10a Organizer Tools queue still exists'; end if;
   perform set_config('request.jwt.claims', json_build_object('sub', a1, 'role', 'authenticated')::text, true);
-  v := jc_admin_stray_reports_list('open');
-  if jsonb_array_length(v) <> 8 then raise exception 'FAIL SR10a open count: %', jsonb_array_length(v); end if;
-  v := (select x from jsonb_array_elements(v) x where x ->> 'id' = id1::text);
-  if v ->> 'contact' <> '+971501234567' or v -> 'reporter_home' ->> 'number' <> '29' or v -> 'reporter_home' ->> 'village' <> 'north'
-     or (v -> 'reporter_left')::boolean is not false then raise exception 'FAIL SR10b report: %', v; end if;
-  v := (select x from jsonb_array_elements(jc_admin_stray_reports_list('open')) x where x ->> 'id' = id3::text);
-  if v -> 'reporter_home' <> 'null'::jsonb or (v -> 'reporter_left')::boolean is not false then raise exception 'FAIL SR10c no home: %', v; end if;
-  v_err := null; begin perform jc_admin_stray_reports_list('all'); exception when others then v_err := sqlerrm; end;
-  if v_err is distinct from 'BAD_FIELDS' then raise exception 'FAIL SR10d bad show: %', v_err; end if;
-  k := k + 4;
-
-  -- ---------- SR11 close: outcome / pet must agree; the pet must be an active stray of this community ----------
-  v_err := null; begin perform jc_admin_stray_report_close(id1, 'not_stray', v_cat); exception when others then v_err := sqlerrm; end;
-  if v_err is distinct from 'BAD_FIELDS' then raise exception 'FAIL SR11a not_stray + pet: %', v_err; end if;
-  v_err := null; begin perform jc_admin_stray_report_close(id1, 'added', null); exception when others then v_err := sqlerrm; end;
-  if v_err is distinct from 'BAD_FIELDS' then raise exception 'FAIL SR11b added, no pet: %', v_err; end if;
-  v_err := null; begin perform jc_admin_stray_report_close(id1, 'adopted', null); exception when others then v_err := sqlerrm; end;
-  if v_err is distinct from 'BAD_FIELDS' then raise exception 'FAIL SR11c bad outcome: %', v_err; end if;
-  v_err := null; begin perform jc_admin_stray_report_close(id1, 'known', v_far); exception when others then v_err := sqlerrm; end;
-  if v_err is distinct from 'NOT_FOUND' then raise exception 'FAIL SR11d other community''s stray: %', v_err; end if;
-  v_err := null; begin perform jc_admin_stray_report_close(id1, 'known', v_old); exception when others then v_err := sqlerrm; end;
-  if v_err is distinct from 'NOT_FOUND' then raise exception 'FAIL SR11e archived stray: %', v_err; end if;
-  k := k + 5;
-
-  -- ---------- SR12 Add: closed, number gone, logged without number or note; the reporter sees the outcome ----------
-  v := jc_admin_stray_report_close(id1, 'added', v_cat);
-  if v ->> 'state' <> 'added' or v -> 'pet' ->> 'name' <> 'S29 cat' or v -> 'contact' <> 'null'::jsonb then
-    raise exception 'FAIL SR12a reply: %', v; end if;
+  perform jc_cat_report_close(id1, 'not_stray', null);
+  perform jc_cat_report_close(id2, 'not_stray', null);
   execute 'reset role';
-  if not exists (select 1 from jc_stray_reports where id = id1 and contact is null and closed_by = a1 and closed_at is not null) then
-    raise exception 'FAIL SR12b row'; end if;
-  if not exists (select 1 from jc_admin_log where community_id = 'testville29' and action = 'stray_report_close'
-                  and target = jsonb_build_object('report_id', id1, 'outcome', 'added', 'pet_id', v_cat, 'photo_moved', false)) then
-    raise exception 'FAIL SR12c admin log: %', (select jsonb_agg(target) from jc_admin_log where community_id = 'testville29' and action = 'stray_report_close'); end if;
+  if not exists (select 1 from jc_stray_reports where id = id1 and state = 'not_stray' and contact is null and closed_by = a1
+                  and closed_at is not null) then
+    raise exception 'FAIL SR10b closed row: %', (select row_to_json(s) from jc_stray_reports s where id = id1); end if;
   execute 'set local role authenticated';
   perform set_config('request.jwt.claims', json_build_object('sub', r1, 'role', 'authenticated')::text, true);
   v := (select x from jsonb_array_elements(jc_stray_reports_mine()) x where x ->> 'id' = id1::text);
-  if v ->> 'state' <> 'added' or v -> 'pet' ->> 'id' <> v_cat::text or (v -> 'has_contact')::boolean is not false then
-    raise exception 'FAIL SR12d mine: %', v; end if;
-  k := k + 4;
-
-  -- ---------- SR13 the same close again is a no-op (retry-safe); a different one → ALREADY_CLOSED; closed list ----------
-  perform set_config('request.jwt.claims', json_build_object('sub', a1, 'role', 'authenticated')::text, true);
-  v := jc_admin_stray_report_close(id1, 'added', v_cat);
-  if v ->> 'state' <> 'added' then raise exception 'FAIL SR13a retry: %', v; end if;
-  v_err := null; begin perform jc_admin_stray_report_close(id1, 'not_stray', null); exception when others then v_err := sqlerrm; end;
-  if v_err is distinct from 'ALREADY_CLOSED' then raise exception 'FAIL SR13b: %', v_err; end if;
-  perform jc_admin_stray_report_close(id2, 'not_stray', null);
-  v := jc_admin_stray_reports_list('closed');
-  if jsonb_array_length(v) <> 2 then raise exception 'FAIL SR13c closed list: %', v; end if;
-  execute 'reset role';
-  if (select count(*) from jc_admin_log where community_id = 'testville29' and action = 'stray_report_close') <> 2 then
-    raise exception 'FAIL SR13d a no-op wrote a log row'; end if;
-  k := k + 4;
-
-  -- ---------- SR14 another community's organizer: can't see or close these ----------
-  execute 'set local role authenticated';
-  perform set_config('request.jwt.claims', json_build_object('sub', o1, 'role', 'authenticated')::text, true);
-  if jsonb_array_length(jc_admin_stray_reports_list('open')) <> 0 then raise exception 'FAIL SR14a sees other community'; end if;
-  v_err := null; begin perform jc_admin_stray_report_close(id3, 'not_stray', null); exception when others then v_err := sqlerrm; end;
-  if v_err is distinct from 'NOT_FOUND' then raise exception 'FAIL SR14b: %', v_err; end if;
-  k := k + 2;
+  if v ->> 'state' <> 'not_stray' or (v -> 'has_contact')::boolean is not false then raise exception 'FAIL SR10c mine: %', v; end if;
+  k := k + 3;
 
   -- ---------- SR15 the table refuses a closed report with a number, an open one with a pet ----------
   execute 'reset role';
@@ -227,13 +182,7 @@ begin
   -- ---------- SR16 nightly job: departed reporter's number, 60-day expiry, 30 days after close ----------
   update jc_stray_reports set contact = '+971509999999' where id = id3;               -- r2's open report gets a number
   update jc_stray_reports set reporter = null where id = id3;                          -- …and r2's account is gone
-  -- the organizer list hides it at once, before the nightly clear (security M1)
-  execute 'set local role authenticated';
-  perform set_config('request.jwt.claims', json_build_object('sub', a1, 'role', 'authenticated')::text, true);
-  v := (select x from jsonb_array_elements(jc_admin_stray_reports_list('open')) x where x ->> 'id' = id3::text);
-  if v -> 'contact' <> 'null'::jsonb or (v -> 'reporter_left')::boolean is not true then raise exception 'FAIL SR16g departed number shown: %', v; end if;
-  execute 'reset role';
-  k := k + 1;
+  -- (SR16g, the queue hiding it before the nightly clear, is the Cats queue's s38 RP05h since CC-7d)
   insert into jc_stray_reports (id, community_id, reporter, species, place, contact, created_at) values
     ('00000000-0000-4000-8000-0000000029b1', 'testville29', r1, 'cat', 'Old open', '+971508888888', now() - interval '61 days'),
     ('00000000-0000-4000-8000-0000000029b2', 'testville29', r1, 'cat', 'Young open', '+971507777777', now() - interval '59 days');
@@ -250,7 +199,7 @@ begin
   if (select job from jc_maintenance_log order by id desc limit 1) <> 'pets_purge' then raise exception 'FAIL SR16f not logged'; end if;
   k := k + 6;
 
-  -- ---------- SR17 the reporter's home + number reach clients only through the organizer RPCs (+ the Cats queue, CC-7a) ----------
+  -- ---------- SR17 the reporter's home + number reach clients only through the Cats queue (CC-7a; alone since CC-7d) ----------
   -- (a) every client-callable call of the helper passes a literal true / false (security L2: no computed flag)
   if exists (select 1 from pg_proc p join pg_namespace n on n.oid = p.pronamespace
               where n.nspname in ('public', 'jc_private') and p.prokind = 'f' and has_function_privilege('authenticated', p.oid, 'execute')
@@ -261,9 +210,8 @@ begin
   if (select array_agg(p.proname::text order by p.proname) from pg_proc p join pg_namespace n on n.oid = p.pronamespace
        where n.nspname in ('public', 'jc_private') and p.prokind = 'f' and has_function_privilege('authenticated', p.oid, 'execute')
          and pg_get_functiondef(p.oid) ~* 'jc_stray_report_json\(\s*\w+\s*,\s*true\s*\)')
-     is distinct from array['jc_admin_stray_report_close', 'jc_admin_stray_reports_list',
-                            'jc_cat_report_close', 'jc_cat_reports_list'] then              -- CC-7a: the Cats queue
-    raise exception 'FAIL SR17b admin view reachable from more than the organizer RPCs'; end if;
+     is distinct from array['jc_cat_report_close', 'jc_cat_reports_list'] then      -- CC-7d: Organizer Tools' pair gone
+    raise exception 'FAIL SR17b admin view reachable from more than the Cats queue'; end if;
   if exists (select 1 from pg_policies where tablename = 'jc_stray_reports')
      or has_any_column_privilege('authenticated', 'public.jc_stray_reports', 'select')
      or has_any_column_privilege('anon', 'public.jc_stray_reports', 'select') then raise exception 'FAIL SR17c table reachable'; end if;

@@ -2,6 +2,8 @@
 -- now() is frozen inside the dry-run transaction: "older" rows are made by rewinding timestamps as postgres.
 -- Users h1 (home 31), n1 (joins later), m1 (member), a1 (pets admin), c1 (community admin), o1 (pets admin of
 -- testville31b) and communities testville31 / testville31b are throwaway fixtures (rolled back).
+-- CC-7d: strays can't be restored any more (s39 ST03), so the cat + dog are c1's owned pets (home 33); the other
+-- community's animal is a stray row inserted as postgres (only ever a NOT_FOUND target).
 do $t$
 declare
   h1 uuid := '00000000-0000-4000-8000-000000003101';
@@ -40,16 +42,19 @@ begin
   perform set_config('request.jwt.claims', json_build_object('sub', c1, 'role', 'authenticated')::text, true);
   perform jc_join('testville31', 'S31-JOIN-CODE-01');
   perform jc_admin_unlock('S31-COMMUNITY-01');
+  perform jc_home_claim('north', 'villa', null, '33');
+  v_cat := (jc_pet_save(null, jsonb_build_object('species', 'cat', 'name', 'S31 cat')) ->> 'id')::uuid;
+  v_dog := (jc_pet_save(null, jsonb_build_object('species', 'dog', 'name', 'S31 dog')) ->> 'id')::uuid;
   perform set_config('request.jwt.claims', json_build_object('sub', o1, 'role', 'authenticated')::text, true);
   perform jc_join('testville31b', 'S31B-JOIN-CODE-1');
   perform jc_admin_unlock('S31B-PETS-ADMIN1');
-  v_far := (jc_admin_stray_save(null, jsonb_build_object('species', 'cat', 'name', 'S31 far cat')) ->> 'id')::uuid;
   perform set_config('request.jwt.claims', json_build_object('sub', a1, 'role', 'authenticated')::text, true);
   perform jc_join('testville31', 'S31-JOIN-CODE-01');
   perform jc_admin_unlock('S31-PETS-ADMIN-01');
-  v_cat := (jc_admin_stray_save(null, jsonb_build_object('species', 'cat', 'name', 'S31 cat')) ->> 'id')::uuid;
-  v_dog := (jc_admin_stray_save(null, jsonb_build_object('species', 'dog', 'name', 'S31 dog')) ->> 'id')::uuid;
   execute 'reset role';
+  insert into jc_pets (community_id, kind, species, name, care_state) values ('testville31b', 'stray', 'cat', 'S31 far cat', 'known_fine')
+    returning id into v_far;
+  update jc_home_members set joined_at = now() - interval '60 days' where user_id = c1;   -- c1's family was there first
   select home_id into v_home from jc_home_members where user_id = h1;
   -- photos: the cat has a current photo, an older retired-pending-cleanup row and a pending upload; Rex and Bo one each
   insert into jc_pet_photos (path, community_id, pet_id, created_by, state) values
@@ -191,6 +196,9 @@ begin
   k := k + 4;
 
   -- ---------- SA08 hidden sightings: listed for admins (no reporter), un-hide brings it back once ----------
+  -- (the dog is missing so the neighbour m1 sees its trail — CC-7d: it used to be a stray)
+  perform set_config('request.jwt.claims', json_build_object('sub', c1, 'role', 'authenticated')::text, true);
+  perform jc_pet_missing_set(v_dog, true, null);
   perform set_config('request.jwt.claims', json_build_object('sub', m1, 'role', 'authenticated')::text, true);
   perform jc_pet_sighting_add(v_dog, 'by the gate', 25.001, 55.001);
   execute 'reset role';

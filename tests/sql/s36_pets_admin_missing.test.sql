@@ -37,7 +37,10 @@ begin
   v_bo := (jc_pet_save(null, '{"species": "cat", "name": "Bo"}') ->> 'id')::uuid;
   perform pg_temp.s36_as(o2); perform jc_join('testville36', 'S36-JOIN-CODE-01'); perform jc_home_claim('north', 'villa', null, '2');
   perform pg_temp.s36_as(ad); perform jc_join('testville36', 'S36-JOIN-CODE-01'); perform jc_admin_unlock('S36-PETS-ADMIN-01');
-  v_snow := (jc_admin_stray_save(null, '{"species": "cat", "name": "Snow"}') ->> 'id')::uuid;
+  execute 'reset role';   -- CC-7d: a stray row inserted as postgres (the stray editor is gone)
+  insert into jc_pets (community_id, kind, species, name, care_state) values ('testville36', 'stray', 'cat', 'Snow', 'known_fine')
+    returning id into v_snow;
+  execute 'set local role authenticated';
   perform pg_temp.s36_as(ca); perform jc_join('testville36', 'S36-JOIN-CODE-01'); perform jc_admin_unlock('S36-COMMUNITY-01');
   perform pg_temp.s36_as(x1); perform jc_join('testville36b', 'S36-JOIN-CODE-02'); perform jc_home_claim('north', 'villa', null, '9');
   v_max := (jc_pet_save(null, '{"species": "dog", "name": "Max"}') ->> 'id')::uuid;

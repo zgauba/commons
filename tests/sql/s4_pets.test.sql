@@ -1,4 +1,4 @@
--- T2 / S4 behaviour tests: owned pets, wanderers, missing, sightings, strays + care log,
+-- T2 / S4 behaviour tests: owned pets, wanderers, missing, sightings (strays left Pets in CC-7d),
 -- moderation, vacancy, the offboarding trigger, and the storage policies + photo ledger.
 -- Run via tests/sql/build_dryrun.sh (rolls back — storage rows included).
 -- Users p1..p8 are disjoint from earlier fixtures; homes are Nad Al Dhabi 41–44.
@@ -13,7 +13,7 @@ declare
   p6 uuid := '00000000-0000-4000-8000-000000000406';
   p8 uuid := '00000000-0000-4000-8000-000000000408';
   v jsonb; v_err text; v_tok text; n int; k int := 0; i int;
-  v_simba uuid; v_stray uuid; v_rex uuid; v_extra uuid; v_bob uuid; v_home44 uuid;
+  v_simba uuid; v_stray uuid; v_fish uuid; v_rex uuid; v_extra uuid; v_bob uuid; v_home44 uuid;
   v_path1 text; v_path2 text; v_path3 text; v_path4 text; v_path5 text;
   v_meta jsonb := '{"size": 1024, "mimetype": "image/jpeg"}';
   v_sighting bigint;
@@ -100,7 +100,9 @@ begin
   v := jc_pets_list('wanderers');
   if jsonb_array_length(v) <> 1 or (v -> 0 ->> 'mine')::boolean or v -> 0 -> 'home' ->> 'number' <> '41' then
     raise exception 'FAIL P04a: %', v; end if;
-  if jsonb_array_length(jc_pets_list('strays')) <> 0 then raise exception 'FAIL P04b'; end if;
+  -- CC-7d: strays left Pets — the 'strays' filter is refused
+  v_err := null; begin perform jc_pets_list('strays'); exception when others then v_err := sqlerrm; end;
+  if v_err is distinct from 'BAD_FILTER' then raise exception 'FAIL P04b strays filter: %', v_err; end if;
   v_err := null; begin perform jc_pets_list('cats'); exception when others then v_err := sqlerrm; end;
   if v_err is distinct from 'BAD_FILTER' then raise exception 'FAIL P04c: %', v_err; end if;
   k := k + 3;
@@ -126,36 +128,38 @@ begin
   if v_err is distinct from 'BAD_FIELDS' then raise exception 'FAIL P06c half a location: %', v_err; end if;
   k := k + 3;
 
-  -- ---------- P07 strays: Pets admin only; care log + sightings public to residents ----------
-  v_err := null; begin perform jc_admin_stray_save(null, '{"species": "cat", "name": "Souk cat"}'); exception when others then v_err := sqlerrm; end;
-  if v_err is distinct from 'NOT_ADMIN' then raise exception 'FAIL P07a: %', v_err; end if;
+  -- ---------- P07 strays left Pets (CC-7d); sighting moderation on an owned pet ----------
+  -- (the Pets stray editor + care log RPCs are gone; s39 owns the rest of the stray-off proof)
+  if to_regprocedure('public.jc_admin_stray_save(uuid, jsonb)') is not null
+     or to_regprocedure('public.jc_admin_pet_care_add(uuid, text, text)') is not null then
+    raise exception 'FAIL P07a stray editor / care log RPCs still exist'; end if;
+  execute 'reset role';
+  select id into v_fish from jc_pets where home_id = (select home_id from jc_pets where id = v_simba)
+     and status = 'active' and name = 'Fish 2';
+  -- a stray row as the archived ones CC-7d leaves behind (inserted active: the edit guard still holds), with a care
+  -- log row by the Pets admin (P14 checks it survives the admin's deletion)
+  insert into jc_pets (community_id, kind, species, name, care_state, created_by)
+  values ('jubail', 'stray', 'cat', 'Souk cat #3', 'needs_help', p5) returning id into v_stray;
+  insert into jc_pet_care_log (community_id, pet_id, author, kind, note) values ('jubail', v_stray, p5, 'fed', 'Fed at 7pm');
+  execute 'set local role authenticated';
   perform set_config('request.jwt.claims', json_build_object('sub', p5, 'role', 'authenticated')::text, true);
   perform jc_admin_unlock('S4-PETS-ADMIN-01');
-  v_err := null; begin perform jc_admin_stray_save(null, '{"species": "cat", "name": "S", "wanderer": true}'); exception when others then v_err := sqlerrm; end;
-  if v_err is distinct from 'BAD_FIELDS' then raise exception 'FAIL P07b: %', v_err; end if;
-  v_err := null; begin perform jc_admin_stray_save(null, '{"species": "cat", "name": "S", "care_state": "adopted?"}'); exception when others then v_err := sqlerrm; end;
-  if v_err is distinct from 'BAD_FIELDS' then raise exception 'FAIL P07c bad care state: %', v_err; end if;
-  v_stray := (jc_admin_stray_save(null, '{"species": "cat", "name": "Souk cat #3"}') ->> 'id')::uuid;
-  perform jc_admin_stray_save(v_stray, '{"care_state": "needs_help"}');
-  perform jc_admin_pet_care_add(v_stray, 'fed', 'Fed at 7pm');
-  v_err := null; begin perform jc_admin_pet_care_add(v_simba, 'fed', 'x'); exception when others then v_err := sqlerrm; end;
-  if v_err is distinct from 'NOT_FOUND' then raise exception 'FAIL P07d care log on an owned pet: %', v_err; end if;
   perform set_config('request.jwt.claims', json_build_object('sub', p3, 'role', 'authenticated')::text, true);
-  perform jc_pet_sighting_add(v_stray, 'near the mosque', null, null);
-  perform jc_pet_sighting_add(v_stray, 'buy cheap stuff at spam.example', null, null);
+  perform jc_pet_sighting_add(v_fish, 'near the mosque', null, null);
+  perform jc_pet_sighting_add(v_fish, 'buy cheap stuff at spam.example', null, null);
   perform set_config('request.jwt.claims', json_build_object('sub', p5, 'role', 'authenticated')::text, true);
-  select (x ->> 'id')::bigint into v_sighting from jsonb_array_elements(jc_pet_get(v_stray) -> 'sightings') x
-   where x ->> 'note' like 'buy cheap%';
+  execute 'reset role';
+  select id into v_sighting from jc_pet_sightings where pet_id = v_fish and note like 'buy cheap%';
+  execute 'set local role authenticated';
   perform jc_admin_sighting_hide(v_sighting);
   perform set_config('request.jwt.claims', json_build_object('sub', p1, 'role', 'authenticated')::text, true);
-  v := jc_pet_get(v_stray);
-  -- care_log: the fed row + the care-v2 auto 'state' row for the change to needs_help
-  if v ->> 'care_state' <> 'needs_help' or jsonb_array_length(v -> 'care_log') <> 2 or jsonb_array_length(v -> 'sightings') <> 1
-     or not (v -> 'care_log') @> '[{"kind": "state", "state": "needs_help"}]'::jsonb then
-    raise exception 'FAIL P07e stray card (hidden sighting should be gone): %', v; end if;
+  v := jc_pet_get(v_fish);
+  if jsonb_array_length(v -> 'sightings') <> 1 or v -> 'sightings' -> 0 ->> 'note' <> 'near the mosque' then
+    raise exception 'FAIL P07b owner''s card (hidden sighting should be gone): %', v -> 'sightings'; end if;
+  perform set_config('request.jwt.claims', json_build_object('sub', p3, 'role', 'authenticated')::text, true);
   v_err := null; begin perform jc_pet_save(v_stray, '{"name": "Mine"}'); exception when others then v_err := sqlerrm; end;
-  if v_err is distinct from 'NOT_ADMIN' then raise exception 'FAIL P07f resident edited a stray: %', v_err; end if;
-  k := k + 7;
+  if v_err is distinct from 'NOT_ADMIN' then raise exception 'FAIL P07c resident edited a stray: %', v_err; end if;
+  k := k + 3;
 
   -- ---------- P08 photos: server-chosen paths, write-once, ledger, windows, scoped reads ----------
   perform set_config('request.jwt.claims', json_build_object('sub', p3, 'role', 'authenticated')::text, true);
@@ -289,8 +293,8 @@ begin
 
   -- ---------- P13 sightings caps: 5 per pet per reporter per day ----------
   perform set_config('request.jwt.claims', json_build_object('sub', p4, 'role', 'authenticated')::text, true);
-  for i in 1..5 loop perform jc_pet_sighting_add(v_stray, null, null, null); end loop;
-  v_err := null; begin perform jc_pet_sighting_add(v_stray, null, null, null); exception when others then v_err := sqlerrm; end;
+  for i in 1..5 loop perform jc_pet_sighting_add(v_fish, null, null, null); end loop;
+  v_err := null; begin perform jc_pet_sighting_add(v_fish, null, null, null); exception when others then v_err := sqlerrm; end;
   if v_err is distinct from 'TOO_MANY_SIGHTINGS' then raise exception 'FAIL P13: %', v_err; end if;
   k := k + 1;
 

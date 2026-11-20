@@ -1,4 +1,5 @@
--- R5a — Pets to spec: known & fine, territory, care record, sightings only for missing pets / strays,
+-- R5a — Pets to spec: sightings only for missing pets / out-alone pets (+ the stray rule kept for archived rows),
+-- (CC-7d: the stray editor, territory + care record RPCs and the strays / community filters left Pets)
 -- sightings retention (reporter erased after 24 h, rows deleted after 30 days), the missing-pet show-home
 -- opt-in, and the members-only pets WhatsApp group link.
 -- Own communities (testville21 / testville21b) — never jubail. Run via tests/sql/build_dryrun.sh (rolls back).
@@ -40,20 +41,22 @@ begin
   execute 'reset role';
   select home_id into v_h2 from jc_home_members where user_id = o2;
 
-  -- ---------- R01 known & fine: a 4th care state; filters split strays / community ----------
+  -- ---------- R01 (CC-7d) strays left Pets: the strays / community filters are refused; 'all' is owned only ----------
+  -- (stray rows inserted as postgres: the fixtures the constraint / sighting / retention checks below need)
+  execute 'reset role';
+  insert into jc_pets (community_id, kind, species, name, care_state) values ('testville21', 'stray', 'cat', 'Snow', 'under_care')
+    returning id into v_cat;
+  insert into jc_pets (community_id, kind, species, name, care_state) values ('testville21', 'stray', 'cat', 'Caramel', 'known_fine')
+    returning id into v_fine;
   execute 'set local role authenticated';
-  perform pg_temp.s21_as(ad);
-  v_cat := (jc_admin_stray_save(null, '{"species": "cat", "name": "Snow"}') ->> 'id')::uuid;
-  v := jc_admin_stray_save(null, '{"species": "cat", "name": "Caramel", "care_state": "known_fine"}');
-  v_fine := (v ->> 'id')::uuid;
-  if v ->> 'care_state' <> 'known_fine' then raise exception 'FAIL R01a known_fine not saved: %', v; end if;
   perform pg_temp.s21_as(o2);
-  v := jc_pets_list('strays');
-  if jsonb_array_length(v) <> 1 or (v -> 0 ->> 'id')::uuid <> v_cat then raise exception 'FAIL R01b strays filter: %', v; end if;
-  v := jc_pets_list('community');
-  if jsonb_array_length(v) <> 1 or (v -> 0 ->> 'id')::uuid <> v_fine then raise exception 'FAIL R01c community filter: %', v; end if;
-  if jsonb_array_length(jc_pets_list('all')) <> 3 then raise exception 'FAIL R01d all: %', jc_pets_list('all'); end if;
-  k := k + 4;
+  msg := pg_temp.s21_err('select jc_pets_list(''strays'')');
+  if msg is distinct from 'BAD_FILTER' then raise exception 'FAIL R01b strays filter: %', msg; end if;
+  msg := pg_temp.s21_err('select jc_pets_list(''community'')');
+  if msg is distinct from 'BAD_FILTER' then raise exception 'FAIL R01c community filter: %', msg; end if;
+  v := jc_pets_list('all');
+  if jsonb_array_length(v) <> 1 or (v -> 0 ->> 'id')::uuid <> v_dog then raise exception 'FAIL R01d all (owned only): %', v; end if;
+  k := k + 3;
 
   -- ---------- R02 owned pets never carry territory or a care record ----------
   execute 'reset role';
@@ -65,80 +68,17 @@ begin
   if msg is null then raise exception 'FAIL R02c half a territory spot'; end if;
   k := k + 3;
 
-  -- ---------- R03 territory via jc_admin_stray_save ----------
+  -- ---------- R04 an owned pet's card never carries a care record ----------
+  -- (CC-7d: R03 territory via jc_admin_stray_save and the care record via jc_admin_pet_care_set went with the RPCs)
   execute 'set local role authenticated';
-  perform pg_temp.s21_as(ad);
-  v := jc_admin_stray_save(v_cat, '{"territory": "  Souk — near the fountain  ", "territory_lat": 24.54, "territory_lng": 54.44}');
-  if v ->> 'territory' <> 'Souk — near the fountain' or (v ->> 'territory_lat')::float <> 24.54 then
-    raise exception 'FAIL R03a territory: %', v; end if;
-  msg := pg_temp.s21_err(format('select jc_admin_stray_save(%L, %L)', v_cat, '{"territory": 5}'));
-  if msg is distinct from 'BAD_FIELDS' then raise exception 'FAIL R03b number territory: %', msg; end if;
-  msg := pg_temp.s21_err(format('select jc_admin_stray_save(%L, %L)', v_cat, '{"territory_lat": 24.5}'));
-  if msg is distinct from 'BAD_FIELDS' then raise exception 'FAIL R03c lat without lng: %', msg; end if;
-  msg := pg_temp.s21_err(format('select jc_admin_stray_save(%L, %L)', v_cat, '{"territory_lat": "24.5", "territory_lng": "54.4"}'));
-  if msg is distinct from 'BAD_FIELDS' then raise exception 'FAIL R03d string spot: %', msg; end if;
-  msg := pg_temp.s21_err(format('select jc_admin_stray_save(%L, %L)', v_cat, '{"territory_lat": 24.5, "territory_lng": null}'));
-  if msg is distinct from 'BAD_FIELDS' then raise exception 'FAIL R03e half-null spot: %', msg; end if;
-  msg := pg_temp.s21_err(format('select jc_admin_stray_save(%L, %L)', v_cat, '{"territory_lat": 100, "territory_lng": 54.4}'));
-  if msg is distinct from 'BAD_FIELDS' then raise exception 'FAIL R03f lat out of range: %', msg; end if;
-  msg := pg_temp.s21_err(format('select jc_admin_stray_save(%L, %L)', v_cat, '{"territory_lat": 1e400, "territory_lng": 1}'));
-  if msg is distinct from 'BAD_FIELDS' then raise exception 'FAIL R03f2 lat beyond double (db L1): %', msg; end if;
-  k := k + 1;
-  msg := pg_temp.s21_err(format('select jc_admin_stray_save(%L, %L)', v_cat, jsonb_build_object('territory', repeat('x', 121))));
-  if msg is distinct from 'BAD_FIELDS' then raise exception 'FAIL R03g 121 chars: %', msg; end if;
-  msg := pg_temp.s21_err(format('select jc_admin_stray_save(%L, %L)', v_cat, '{"territory": "   "}'));
-  if msg is distinct from 'BAD_FIELDS' then raise exception 'FAIL R03h blank territory: %', msg; end if;
-  msg := pg_temp.s21_err(format('select jc_admin_stray_save(%L, %L)', v_dog, '{"territory": "Park"}'));
-  if msg is distinct from 'NOT_FOUND' then raise exception 'FAIL R03i territory on an owned pet: %', msg; end if;
-  v := jc_admin_stray_save(v_cat, '{"territory": null, "territory_lat": null, "territory_lng": null}');
-  if v ->> 'territory' is not null or v ->> 'territory_lat' is not null then raise exception 'FAIL R03j clear: %', v; end if;
-  perform jc_admin_stray_save(v_cat, '{"territory": "Souk", "territory_lat": 24.54, "territory_lng": 54.44}');
   perform pg_temp.s21_as(o2);
-  msg := pg_temp.s21_err(format('select jc_admin_stray_save(%L, %L)', v_cat, '{"territory": "Mine"}'));
-  if msg is distinct from 'NOT_ADMIN' then raise exception 'FAIL R03k resident set territory: %', msg; end if;
-  k := k + 11;
-
-  -- ---------- R04 care record ----------
-  msg := pg_temp.s21_err(format('select jc_admin_pet_care_set(%L, %L, %L, null, null)', v_cat, 'sterilized', 'done'));
-  if msg is distinct from 'NOT_ADMIN' then raise exception 'FAIL R04a resident set care: %', msg; end if;
-  perform pg_temp.s21_as(ad);
-  msg := pg_temp.s21_err(format('select jc_admin_pet_care_set(%L, %L, %L, null, null)', v_cat, 'rabies', 'done'));
-  if msg is distinct from 'BAD_FIELDS' then raise exception 'FAIL R04b bad item: %', msg; end if;
-  msg := pg_temp.s21_err(format('select jc_admin_pet_care_set(%L, %L, %L, null, null)', v_cat, 'dewormed', 'maybe'));
-  if msg is distinct from 'BAD_FIELDS' then raise exception 'FAIL R04c bad status: %', msg; end if;
-  msg := pg_temp.s21_err(format('select jc_admin_pet_care_set(%L, %L, %L, %L, null)', v_cat, 'dewormed', 'done', '1999-12-31'));
-  if msg is distinct from 'BAD_FIELDS' then raise exception 'FAIL R04d ancient date: %', msg; end if;
-  msg := pg_temp.s21_err(format('select jc_admin_pet_care_set(%L, %L, %L, %L, null)', v_cat, 'dewormed', 'due', (now() + interval '3 years')::date));
-  if msg is distinct from 'BAD_FIELDS' then raise exception 'FAIL R04d2 date 3 years out: %', msg; end if;
-  msg := pg_temp.s21_err(format('select jc_admin_pet_care_set(%L, %L, null, null, null)', v_cat, 'dewormed'));
-  if msg is distinct from 'BAD_FIELDS' then raise exception 'FAIL R04d3 null status: %', msg; end if;
-  v := jc_admin_pet_care_set(v_cat, 'dewormed', 'unknown', null, null);
-  if v -> 'care' <> '{}'::jsonb then raise exception 'FAIL R04d4 unknown on a missing item: %', v -> 'care'; end if;
-  k := k + 3;
-  msg := pg_temp.s21_err(format('select jc_admin_pet_care_set(%L, %L, %L, null, %L)', v_cat, 'dewormed', 'done', repeat('y', 121)));
-  if msg is distinct from 'BAD_FIELDS' then raise exception 'FAIL R04e long note: %', msg; end if;
-  msg := pg_temp.s21_err(format('select jc_admin_pet_care_set(%L, %L, %L, null, null)', v_dog, 'dewormed', 'done'));
-  if msg is distinct from 'NOT_FOUND' then raise exception 'FAIL R04f care on an owned pet: %', msg; end if;
-  perform jc_admin_pet_care_set(v_cat, 'sterilized', 'done', null, 'ear-tipped');
-  perform jc_admin_pet_care_set(v_cat, 'vaccination', 'due', (now() + interval '7 days')::date, 'booster');
-  v := jc_admin_pet_care_set(v_cat, 'treatment', 'ongoing', null, 'eye drops');
-  if v -> 'care' -> 'sterilized' ->> 's' <> 'done' or v -> 'care' -> 'sterilized' ->> 'n' <> 'ear-tipped'
-     or v -> 'care' -> 'vaccination' ->> 'd' <> (now() + interval '7 days')::date::text
-     or (select count(*) from jsonb_object_keys(v -> 'care')) <> 3 then raise exception 'FAIL R04g care: %', v -> 'care'; end if;
-  v := jc_admin_pet_care_set(v_cat, 'treatment', 'unknown', null, null);
-  if v -> 'care' ? 'treatment' then raise exception 'FAIL R04h unknown should remove: %', v -> 'care'; end if;
-  perform pg_temp.s21_as(o2);
-  v := jc_pet_get(v_cat);
-  if v -> 'care' -> 'sterilized' ->> 's' <> 'done' or v ->> 'territory' <> 'Souk' then raise exception 'FAIL R04i resident view: %', v; end if;
   if jc_pet_get(v_dog) -> 'care' <> 'null'::jsonb then raise exception 'FAIL R04j owned card has care: %', jc_pet_get(v_dog) -> 'care'; end if;
-  k := k + 10;
+  k := k + 1;
 
   -- ---------- R05 sightings: strays, missing pets, and (R5b-2b-0) owned non-wanderers "out on their own" ----------
   msg := pg_temp.s21_err(format('select jc_pet_sighting_add(%L, %L, null, null)', v_dog, 'by the park'));
   if msg is not null then raise exception 'FAIL R05a out-alone sighting on a pet at home refused: %', msg; end if;
   if jc_pet_get(v_dog) -> 'sightings' <> 'null'::jsonb then raise exception 'FAIL R05a2 neighbour sees a household-only sighting'; end if;
-  perform jc_pet_sighting_add(v_cat, 'near the fountain', 24.54, 54.44);
-  perform jc_pet_sighting_add(v_fine, null, null, null);
   perform pg_temp.s21_as(o1);
   perform jc_pet_missing_set(v_dog, true, 'slipped out the gate');
   perform pg_temp.s21_as(o2);
@@ -152,8 +92,10 @@ begin
   perform pg_temp.s21_as(o2);
   msg := pg_temp.s21_err(format('select jc_pet_sighting_add(%L, null, null, null)', v_dog));
   if msg is not null then raise exception 'FAIL R05c found (non-wanderer) pet should take out-alone reports: %', msg; end if;
-  perform pg_temp.s21_as(ad);
-  v := jc_admin_stray_save(null, '{"species": "dog", "name": "Lucky", "care_state": "rehomed"}');
+  execute 'reset role';   -- CC-7d: the stray branch is kept for archived rows; a direct insert still meets it
+  insert into jc_pets (community_id, kind, species, name, care_state) values ('testville21', 'stray', 'dog', 'Lucky', 'rehomed')
+    returning jsonb_build_object('id', id) into v;
+  execute 'set local role authenticated';
   perform pg_temp.s21_as(o2);
   msg := pg_temp.s21_err(format('select jc_pet_sighting_add(%L, null, null, null)', v ->> 'id'));
   if msg is distinct from 'SIGHTINGS_CLOSED' then raise exception 'FAIL R05d rehomed stray open: %', msg; end if;
@@ -275,8 +217,7 @@ begin
 
   -- ---------- R09 the new RPCs: authenticated only ----------
   if has_function_privilege('anon', 'public.jc_pets_group_get()', 'execute')
-     or has_function_privilege('anon', 'public.jc_admin_pets_group_set(text)', 'execute')
-     or has_function_privilege('anon', 'public.jc_admin_pet_care_set(uuid, text, text, date, text)', 'execute') then
+     or has_function_privilege('anon', 'public.jc_admin_pets_group_set(text)', 'execute') then
     raise exception 'FAIL R09 anon can call a new pets RPC'; end if;
   k := k + 1;
 

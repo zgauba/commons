@@ -43,12 +43,15 @@ begin
   v_p1 := jc_pet_photo_begin(v_dog, 'jpg') ->> 'path';
   insert into storage.objects (bucket_id, name, owner, metadata) values ('pet-photos', v_p1, o1, v_meta);
   perform jc_pet_photo_commit(v_dog);
-  -- a stray with a photo (Pets admin)
-  perform pg_temp.s23_as(ad);
-  v_cat := (jc_admin_stray_save(null, '{"species": "cat", "name": "Smudge"}') ->> 'id')::uuid;
-  v_p2 := jc_pet_photo_begin(v_cat, 'jpg') ->> 'path';
-  insert into storage.objects (bucket_id, name, owner, metadata) values ('pet-photos', v_p2, ad, v_meta);
-  perform jc_pet_photo_commit(v_cat);
+  -- a stray with a photo — inserted as postgres (CC-7d: the stray editor is gone and a stray's photo can't be written;
+  -- jc_pet_photo_remove keeps its stray branch for the rows left behind)
+  execute 'reset role';
+  insert into jc_pets (community_id, kind, species, name, care_state) values ('testville23', 'stray', 'cat', 'Smudge', 'known_fine')
+    returning id into v_cat;
+  v_p2 := 'testville23/' || v_cat || '/' || substr(md5('s23'), 1, 24) || '.jpg';
+  insert into jc_pet_photos (path, community_id, pet_id, created_by, state) values (v_p2, 'testville23', v_cat, ad, 'current');
+  update jc_pets set photo_path = v_p2 where id = v_cat;
+  execute 'set local role authenticated';
 
   -- ---------- F01 nobody outside the household / community can remove ----------
   perform pg_temp.s23_as(o2);

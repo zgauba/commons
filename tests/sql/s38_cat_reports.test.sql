@@ -8,7 +8,8 @@
 --      cat's usual area; no pin and no area → no sighting                                                       → RP03
 --   D4 Cats off → MODULE_OFF (report, My reports, queue); Pets off with Cats on → reporting still works        → RP04
 --   D5 refusals (bad outcome / cat, other community's cat, merged cat), photo cap 4, a reporter who left, a merged
---      cat shows its survivor, the Organizer Tools close and the Cats close can't both win, photo reads by role  → RP05
+--      cat shows its survivor, a closed report can't be closed again (CC-7d: the Organizer Tools close is gone),
+--      photo reads by role                                                                                     → RP05
 -- Own communities (testville38, testville38b) — never jubail. Run via tests/sql/build_dryrun.sh (rolls back).
 
 do $t$
@@ -28,7 +29,7 @@ declare
   q5 uuid := '00000000-0000-4000-8000-0000000038a5';  -- not a stray
   q6 uuid := '00000000-0000-4000-8000-0000000038a6';  -- photo, cat already has 4 → not moved
   q7 uuid := '00000000-0000-4000-8000-0000000038a7';  -- reporter leaves → not moved
-  q8 uuid := '00000000-0000-4000-8000-0000000038a8';  -- closed first by Organizer Tools
+  q8 uuid := '00000000-0000-4000-8000-0000000038a8';  -- closed not_stray, then a different outcome (CC-7d)
   q9 uuid := '00000000-0000-4000-8000-0000000038a9';  -- RP06: photo, cat has 3 → moved (4)
   q10 uuid := '00000000-0000-4000-8000-0000000038aa'; -- RP06: a pending upload at close
   q11 uuid := '00000000-0000-4000-8000-0000000038ab'; -- RP06: no pin, the cat's area archived
@@ -279,13 +280,16 @@ begin
   perform jc_cat_report_close(q7, 'added', cat1);
   execute 'reset role';
   if exists (select 1 from jc_pet_photos where path = v_p7 and cat_id is not null) then raise exception 'FAIL RP05j leaver''s photo moved'; end if;
-  -- the Organizer Tools queue (Pets admins, until CC-7d) and the Cats queue: the second close is refused
+  -- CC-7d: the Organizer Tools close (Pets admins) is gone — the Cats queue is the only close; a second, different
+  -- close is refused
+  if to_regprocedure('public.jc_admin_stray_report_close(uuid, text, uuid)') is not null
+     or to_regprocedure('public.jc_admin_stray_reports_list(text)') is not null then
+    raise exception 'FAIL RP05k0 the Organizer Tools queue still exists'; end if;
   execute 'set local role authenticated';
-  perform pg_temp.s38_as(pa);
-  perform jc_admin_stray_report_close(q8, 'not_stray', null);
   perform pg_temp.s38_as(co);
+  perform jc_cat_report_close(q8, 'not_stray', null);
   msg := pg_temp.s38_err(format('select jc_cat_report_close(%L, %L, %L)', q8, 'known', cat1));
-  if msg is distinct from 'ALREADY_CLOSED' then raise exception 'FAIL RP05k after Organizer Tools closed it: %', msg; end if;
+  if msg is distinct from 'ALREADY_CLOSED' then raise exception 'FAIL RP05k a different close after not_stray: %', msg; end if;
   x := jc_cat_report_close(q8, 'not_stray', null);                              -- the same outcome = a retry, no error
   if x ->> 'state' <> 'not_stray' then raise exception 'FAIL RP05l same outcome: %', x; end if;
   execute 'reset role';
@@ -302,7 +306,7 @@ begin
     raise exception 'FAIL RP05n a cat and a pet';
   exception when check_violation then null;
   end;
-  k := k + 14;
+  k := k + 15;   -- CC-7d: + RP05k0
 
   -- ---------- RP06 db review: cap boundary, pending upload, archived area, non-cat, expired, bad show, volunteer,
   -- one log row per close, retry with the survivor, photo reads by module, retention after a close ----------
@@ -357,7 +361,7 @@ begin
   perform pg_temp.s38_as(vo);
   msg := pg_temp.s38_err(format('select jc_cat_report_close(%L, %L, %L)', q14, 'added', cat1));
   if msg is distinct from 'NOT_ADMIN' then raise exception 'FAIL RP06i volunteer adds: %', msg; end if;
-  -- photo reads: a coordinator while Cats is on; not once Cats is off (Pets on); a Pets admin while Pets is on (until CC-7d)
+  -- photo reads: a coordinator while Cats is on; not once Cats is off (Pets on); CC-7d: never a Pets admin
   perform pg_temp.s38_as(co);
   if not jc_private.pet_photo_can_read('testville38/r/' || q14 || '/p.jpg') then raise exception 'FAIL RP06j coordinator reads'; end if;
   execute 'reset role';
@@ -365,9 +369,12 @@ begin
   execute 'set local role authenticated';
   if jc_private.pet_photo_can_read('testville38/r/' || q14 || '/p.jpg') then raise exception 'FAIL RP06k coordinator reads with Cats off'; end if;
   perform pg_temp.s38_as(pa);
-  if not jc_private.pet_photo_can_read('testville38/r/' || q14 || '/p.jpg') then raise exception 'FAIL RP06l Pets admin (transition)'; end if;
+  if jc_private.pet_photo_can_read('testville38/r/' || q14 || '/p.jpg') then raise exception 'FAIL RP06l Pets admin reads (Cats off)'; end if;
   execute 'reset role';
   update jc_communities set modules = '{"pets": {"enabled": true}, "cats": {"enabled": true}}' where id = 'testville38';
+  execute 'set local role authenticated';
+  if jc_private.pet_photo_can_read('testville38/r/' || q14 || '/p.jpg') then raise exception 'FAIL RP06l2 Pets admin reads (Cats on)'; end if;
+  execute 'reset role';
   if (select count(*) from jc_admin_log where action = 'cat_report_close' and target ->> 'report_id' = q2::text) <> 1 then
     raise exception 'FAIL RP06m a retry logged twice'; end if;
   -- retention, 31 days after the close: the report goes; the cat's photo and the sighting stay
@@ -377,7 +384,7 @@ begin
      or not exists (select 1 from jc_pet_photos where path = v_p and cat_id = cat1 and state = 'current')
      or (select count(*) from jc_cat_sightings where cat_id = cat1) <> 1 then
     raise exception 'FAIL RP06n retention after a close'; end if;
-  k := k + 14;
+  k := k + 15;   -- CC-7d: + RP06l2
 
   perform set_config('jc_test.checks', (coalesce(nullif(current_setting('jc_test.checks', true), ''), '0')::int + k)::text, true);
   raise notice 's38_cat_reports: % checks passed', k;
