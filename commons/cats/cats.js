@@ -12,12 +12,16 @@
    - the programme: jc_cat_register — the full record + status history; coordinators also see merged duplicates (undo)
      and get the editor (jc_cat_save), photos (jc_cat_photo_begin / _commit / _remove, up to 4) and merge / undo.
    Roles come from jc_me_get.admin_scopes (display only). CC-4 visits + sightings live in log.js (Activity tab, a station's
-   history, a cat's history, the two forms). The vet log (CC-5) follows. */
+   history, a cat's history, the two forms). The vet log (CC-5) is vet.js. CC-7b: residents report a stray cat
+   (report.js: the form + My reports at the foot of the Cats tab) and coordinators work the reports queue (reports.js:
+   the Reports tab, coordinators + community admins only). ?report=1 opens the form; ?tab=reports the queue. */
 
 var state = null, cfg = null, current = null;
 var msgBox = jcMsgBox, ar = jcIsAr, on = jcOn, each = jcEach, hObj = jcObj, finite = jcFinite;
 var places = null, prog = null, loadErr = null, busy = false, map = null;
-var tab = "cats";                     /* the programme's tabs: cats · log (CC-4 Activity) · stations · areas (coordinators) */
+var tab = "cats";                     /* the programme's tabs: cats · log (CC-4 Activity) · reports + areas (coordinators) · stations */
+var params = new URLSearchParams(location.search);
+var openOnLoad = params.get("report") === "1" ? "report" : params.get("tab") === "reports" ? "reports" : null;   /* CC-7b links */
 var reg = null, pubCats = null;       /* CC-3: the register (programme) · the residents' cat list */
 var catQ = "", catId = null;          /* the cats search · the open cat */
 var catTab = "about";                 /* the cat page's tab: about · log (programme) */
@@ -41,7 +45,7 @@ function areasOf(d){ return (d && Array.isArray(d.areas) ? d.areas : []).filter(
 function stationsOf(d){ return (d && Array.isArray(d.stations) ? d.stations : []).filter(isStation); }
 function areaName(d, id){ var a = areasOf(d).filter(function(x){ return x.id === id; })[0]; return a ? a.name : ""; }
 function dayOf(iso){ return jcDayText(jcDateOf(iso, cfg), { weekday: undefined, year: "numeric" }); }
-function takeMap(){ if (map) { jcMapRemove(map); map = null; } if (ed && ed.w) ed.w.map = null; if (sd && sd.w) sd.w.map = null; }
+function takeMap(){ if (map) { jcMapRemove(map); map = null; } if (ed && ed.w) ed.w.map = null; if (sd && sd.w) sd.w.map = null; if (rep && rep.w) rep.w.map = null; }
 function draw(){ show(current); }
 
 /* ---------- data ---------- */
@@ -50,7 +54,10 @@ function load(){
   function asResident(){
     return Promise.all([rpc("jc_cat_places"), rpc("jc_cats_public")]).then(function(r){ places = r[0]; pubCats = r[1]; });
   }
-  var call = inProgramme() ? Promise.all([rpc("jc_cat_programme"), rpc("jc_cat_register")]).then(function(r){ prog = r[0]; reg = r[1]; }, function(e){
+  var call = inProgramme() ? Promise.all([rpc("jc_cat_programme"), rpc("jc_cat_register")]).then(function(r){
+    prog = r[0]; reg = r[1];
+    if (canEdit()) rqLoad();                     /* CC-7b: the Reports tab's count */
+  }, function(e){
     if (e && e.code === "NOT_ADMIN") { prog = null; reg = null; return asResident(); }   /* role just removed */
     throw e;
   }) : asResident();
@@ -199,24 +206,30 @@ var VIEWS = {
     if (loadErr) { el("view").innerHTML = head + '<p class="notice" id="caErr">' + esc(jcErrTextFor("ca_err_", loadErr)) + '</p>'; return; }
     if (!prog && !places) { el("view").innerHTML = head + '<p class="help">' + esc(jcT("working")) + '</p>'; return; }
     /* residents: the cats + public stations only, in two tabs (DS-4a: as Pets, no headings repeating the tab) */
-    var keys = !prog ? ["cats", "stations"] : canEdit() ? ["cats", "log", "stations", "areas"] : ["cats", "log", "stations"];
+    var keys = !prog ? ["cats", "stations"] : canEdit() ? ["cats", "log", "reports", "stations", "areas"] : ["cats", "log", "stations"];
     if (keys.indexOf(tab) < 0) tab = "cats";
     var body;
     if (!prog) {
       var pub = stationsOf(places);
-      body = tab === "cats" ? catsHtml(pubCats, false) + '<div class="panel" id="caSoon"><p>' + esc(jcT("ca_soon")) + '</p></div>'
+      body = tab === "cats" ? catsHtml(pubCats, false) + '<div class="panel" id="caSoon"><p>' + esc(jcT("ca_soon")) + '</p></div>' + repCtaHtml()
         : '<p class="help">' + esc(jcT("ca_public_help")) + '</p>' + stationsBlock(places, pub, [], false, "ca_none_public");
-    } else body = tab === "areas" ? areasHtml() : tab === "cats" ? catsHtml(reg, true) : tab === "log" ? logTabHtml() : stationsHtml();
-    el("view").innerHTML = head + jcTabsHtml("caTab_", keys, tab, function(k){ return jcT("ca_tab_" + k); }, jcModTitle("cats"), "caPanel") +
+    } else body = tab === "areas" ? areasHtml() : tab === "cats" ? catsHtml(reg, true) + repCtaHtml() : tab === "log" ? logTabHtml()
+      : tab === "reports" ? reportsTabHtml() : stationsHtml();
+    el("view").innerHTML = head + jcTabsHtml("caTab_", keys, tab, function(k){
+        return k === "reports" && rqOpenN() ? jcFmt("ca_tab_reports_n", { n: rqOpenN() }) : jcT("ca_tab_" + k);
+      }, jcModTitle("cats"), "caPanel") +
       '<div ' + jcTabPanel("caTab_", tab, "caPanel") + '>' + body + '</div>';
     jcTabsWire("caTab_", keys, function(k){ tab = k; renaming = null; draw(); });
-    if (!prog) { if (tab === "cats") wireCats(pubCats); else { wireStSort(); drawStations(); } return; }
-    if (tab === "areas") wireAreas(); else if (tab === "cats") wireCats(reg); else if (tab === "log") wireLogTab(); else wireStations();
+    if (!prog) { if (tab === "cats") { wireCats(pubCats); wireRepCta(); } else { wireStSort(); drawStations(); } return; }
+    if (tab === "areas") wireAreas(); else if (tab === "cats") { wireCats(reg); wireRepCta(); } else if (tab === "log") wireLogTab();
+    else if (tab === "reports") wireReportsTab(); else wireStations();
   },
   cat: function(){ catView(); },
   visit: function(){ visitView(); },                 /* CC-4, log.js (loaded first) */
   sighting: function(){ sightingView(); },
   vet: function(){ vetView(); },                     /* CC-5, vet.js (loaded first) */
+  report: function(){ reportView(); },               /* CC-7b, report.js (loaded first) */
+  repdone: function(){ repDoneView(); },
   stlog: function(){ stationLogView(); },
   catedit: function(){ catEditView(); },
   station: function(){
@@ -376,7 +389,7 @@ function show(name){
   if (name !== "station") takeMap();
   dropSmap();                                 /* DS-4c: the stations map goes with every redraw */
   jcMinisClear(caMinis);                      /* DS-4b: the activity lists' small maps (log.js) */
-  if (name !== "catedit") ced = null;
+  if (name !== "catedit") { ced = null; rqFrom = null; }     /* CC-7b: "Add as new cat" ends with the editor */
   if (name !== "home") renaming = null;      /* review L6: a rename box never outlives the Areas screen */
   jcHelp(name === "home" ? "cats" : null);
   VIEWS[name]();
@@ -580,6 +593,7 @@ function catEditView(){
   var others = catsList(reg).filter(function(x){ return !merged(x) && (!c || x.id !== c.id); });
   el("view").innerHTML = '<h1 dir="auto">' + esc(c ? jcFmt("ca_edit_cat", { c: c.code }) : jcT("ca_new_cat")) + '</h1>' + msgBox() +
     '<p class="help" id="caCatPriv">' + esc(jcT("ca_cat_private")) + ' ' + esc(jcT("ca_text_hint")) + '</p>' +
+    (rqFrom && !c ? rqFromHtml() : '') +                 /* CC-7b: "Add as new cat" from a resident's report */
     '<form class="panel" id="caCatForm" novalidate>' +
     '<fieldset id="caPhotoBox"><legend>' + esc(jcT("ca_photos")) + '</legend>' + (c
       ? (own.length ? '<div class="caPhotos">' + own.map(function(p, i){
@@ -647,6 +661,7 @@ function catEditView(){
     save("jc_cat_save", { p_cat: e.id, p_fields: p }, c ? "ca_saved" : "ca_cat_saved_new", function(){
       if (c) { catId = c.id; current = "cat"; return; }
       var fresh = catsList(reg).filter(function(x){ return before.indexOf(x.id) < 0; })[0];
+      if (fresh && rqFrom) return rqAfterAdd(fresh);   /* CC-7b: close the report, then the cat page */
       if (fresh) openCatEditor(fresh.id); else current = "home";
     });
   });
@@ -709,8 +724,12 @@ jcState().then(function(s){
     paint();
     if (!cfg || !jcModuleOn(cfg, "cats")) return show("off");   /* the kill switch: nothing asked of the server */
     jcHit("cats");
-    show("home");
-    return load().then(function(){ if (current === "home") show("home"); });
+    if (openOnLoad === "report") { openOnLoad = null; openReport(); } else show("home");
+    return load().then(function(){
+      if (openOnLoad === "reports" && canEdit()) tab = "reports";
+      openOnLoad = null;
+      if (current === "home") show("home");
+    });
   });
 }, function(e){
   el("view").innerHTML = msgBox();

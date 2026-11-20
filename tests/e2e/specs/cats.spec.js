@@ -67,6 +67,8 @@ function member(scopes, cfg) {
     jc_cat_programme: () => (inProg ? ok(progFor(scopes.includes("cats") || scopes.includes("community"))) : raise("NOT_ADMIN")),
     jc_cats_public: () => ok(PUB),
     jc_cat_register: () => (inProg ? ok(regFor(scopes.includes("cats") || scopes.includes("community"))) : raise("NOT_ADMIN")),
+    jc_stray_reports_mine: () => ok([]),                                    // CC-7b: My reports at the foot of the Cats tab
+    jc_cat_reports_list: () => (scopes.includes("cats") || scopes.includes("community") ? ok([]) : raise("NOT_ADMIN")),   // CC-7b
   };
 }
 
@@ -749,7 +751,7 @@ test("DS-4a: cats are photo cards with no heading repeating the tab; a missing c
   await signIn(page);
   await page.goto("cats/");
   await expect(page.locator("#caPanel ul.ptgrid li")).toHaveCount(2);
-  await expect(page.locator("#caPanel h2")).toHaveText(["Missing now"]);                     // D1: group labels only
+  await expect(page.locator("#caPanel h2")).toHaveText(["Missing now", "Seen a stray cat?"]); // D1: group labels only (CC-7b: the report block)
   await expect(page.locator(`#caMissing.wide [data-cat="${K2}"]`)).toHaveCount(1);           // pinned on top, as on Pets
   await expect(page.locator(`li[data-catli="${K2}"]`)).toHaveClass(/missing/);
   await expect(page.locator(`[data-cat="${K2}"] .chip.miss`)).toHaveText("Missing");
