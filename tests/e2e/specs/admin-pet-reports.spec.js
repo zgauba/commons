@@ -24,6 +24,15 @@ test("an old ?open=reports link goes to the Cats page's Reports tab — nothing 
   expect(calls.filter((c) => /^jc_admin_stray/.test(c.name))).toEqual([]);     // code review L1: the Cats page may read My reports
 });
 
+test("signed out: an old ?open=reports link keeps the Reports tab through sign-in (not the Cats home)", async ({ page }) => {
+  await stubBackend(page, { rpc: backend().rpc });
+  await page.goto("admin/?tab=pets&open=reports");
+  await expect(page).toHaveURL(/\/commons\/account\/\?next=/);
+  const next = new URL(page.url()).searchParams.get("next");
+  expect(next).toBe("../cats/?tab=reports");
+  expect(await page.evaluate((n) => jcSafeNext(n), next)).toBe("../cats/?tab=reports");
+});
+
 test("Organizer Tools → Pets: no Reported strays row, no Strays / Needs help / Homes' pets chip, no Add a Stray; the old queue is never read", async ({ page }) => {
   const { calls } = await stubBackend(page, { rpc: backend().rpc });
   await signIn(page);

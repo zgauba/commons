@@ -453,6 +453,17 @@ test("a hostile next is ignored: saving the pin stays on My Home", async ({ page
   await expect(page).toHaveURL(/\/commons\/home\//);
 });
 
+test("jcSafeNext admits exactly the Cats report form / Reports queue links", async ({ page }) => {
+  await stubBackend(page);
+  await page.goto("./");
+  const r = await page.evaluate(() => [
+    "../cats/?report=1", "../cats/?tab=reports",
+    "../cats/?tab=evil", "../cats/?report=2", "../cats/?tab=reports&x=1", "../cats/?tab=reports#x", "//evil.com/cats/?tab=reports",
+  ].map(jcSafeNext));
+  expect(r.slice(0, 2)).toEqual(["../cats/?report=1", "../cats/?tab=reports"]);
+  expect(r.slice(2).every((x) => x === "../")).toBe(true);
+});
+
 test("jcSafeNext admits exactly an event + known tab", async ({ page }) => {
   await stubBackend(page);
   await page.goto("./");

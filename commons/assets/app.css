@@ -279,7 +279,7 @@ main.jcpage, .jcpage #view, .jcpage [role="tabpanel"], .jcstack{display:flex; fl
 .facts dd{margin:0; overflow-wrap:anywhere}
 /* typed text keeps dir="auto" (a Latin name's letters stay in order); in Arabic it still lines up with the rest */
 html[dir="rtl"] .ptbody b, html[dir="rtl"] .ptwho h1, html[dir="rtl"] .facts dd, html[dir="rtl"] .care .note,
-html[dir="rtl"] .jcpage .desc{text-align:right}
+html[dir="rtl"] .jcpage .desc, html[dir="rtl"] .bklist li > [dir="auto"]{text-align:right}
 /* a list entry's still mini map (map.js jcMiniHtml / jcMinisDraw; Pets sightings, Cats activity — DS-4b) */
 .ptmini{height:130px; border-radius:var(--jc-radius); overflow:hidden; border:1px solid var(--jc-line)}
 .ptmini .leaflet-control-attribution{font-size:9px}

@@ -236,7 +236,9 @@ function jcSafeNext(next){
            /* T5.2: back to an event's tab after pinning the home */
            /^\.\.\/events\/\?id=[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}&tab=(map|list|mine)$/.test(next) ||
            /* R5b-1: a shared pet link (WhatsApp) opened before signing in / joining lands on that pet */
-           /^\.\.\/pets\/\?pet=[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(next)))
+           /^\.\.\/pets\/\?pet=[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(next) ||
+           /* CC-7: the Cats page's report form / Reports queue links (incl. the old admin/?open=reports) survive sign-in */
+           /^\.\.\/cats\/\?(report=1|tab=reports)$/.test(next)))
          ? next : "../";
 }
 

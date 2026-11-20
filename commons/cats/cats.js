@@ -725,8 +725,9 @@ jcSetLang(jcLang());
 paint();
 jcState().then(function(s){
   state = s;
-  if (s.status === "signed_out") { location.replace("../account/?next=" + encodeURIComponent("../cats/")); return; }
-  if (s.status === "not_member") { location.replace("../account/?view=join&next=" + encodeURIComponent("../cats/")); return; }
+  var back = "../cats/" + (openOnLoad === "report" ? "?report=1" : openOnLoad === "reports" ? "?tab=reports" : "");   /* jcSafeNext */
+  if (s.status === "signed_out") { location.replace("../account/?next=" + encodeURIComponent(back)); return; }
+  if (s.status === "not_member") { location.replace("../account/?view=join&next=" + encodeURIComponent(back)); return; }
   return jcAnon("jc_config_get", { p_community: s.me.community }).catch(function(){ return null; }).then(function(c){
     cfg = c;
     paint();
