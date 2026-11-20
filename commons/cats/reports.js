@@ -123,7 +123,7 @@ function wireReportsTab(){
   });
   each("[data-rqnot]", function(b){
     var r = rqById(b.dataset.rqnot);
-    if (r && window.confirm(jcT("ca_rq_not_q"))) rqClose(r, "not_stray", null, b);
+    if (r && !busy && window.confirm(jcT("ca_rq_not_q"))) rqClose(r, "not_stray", null, b);   /* code review L3: busy before asking */
   });
   each("#rqKnown [data-pick]", function(b){
     rq.pick = rq.pick === b.dataset.pick ? "" : b.dataset.pick;
@@ -152,8 +152,10 @@ function rqClose(r, outcome, cat, btn){
   busy = true; if (btn) btn.disabled = true;
   rpc("jc_cat_report_close", { p_id: r.id, p_outcome: outcome, p_cat: cat || null }).then(function(){
     busy = false;
-    rq.known = null; rq.pick = ""; rq.closed = null;
+    rq.known = null; rq.pick = ""; rq.closed = null; rq.seq++;          /* code review L4: an older read never re-adds it */
     if (Array.isArray(rq.open)) rq.open = rq.open.filter(function(x){ return x.id !== r.id; });
+    /* code review M1: "known" wrote a sighting — the activity lists and the cat's last-seen are read again */
+    if (cat) { logReset(); rpc("jc_cat_register").then(function(d){ reg = d; }, function(){}); }
     var c = cat ? catFind(reg, cat) : null;
     if (current === "home" && tab === "reports") {
       draw();
@@ -188,7 +190,7 @@ function rqAfterAdd(fresh){
   busy = true;
   rpc("jc_cat_report_close", { p_id: r.id, p_outcome: "added", p_cat: fresh.id }).then(function(){
     if (Array.isArray(rq.open)) rq.open = rq.open.filter(function(x){ return x.id !== r.id; });
-    rq.closed = null;
+    rq.closed = null; rq.seq++; logReset();                          /* code review L4 + M1 (the sighting) */
     return rpc("jc_cat_register").then(function(d){ reg = d; }, function(){}).then(function(){
       busy = false;
       if (current === "cat") { draw(); jcShowOk(jcFmt("ca_rq_added", { n: catTitle(fresh) })); }

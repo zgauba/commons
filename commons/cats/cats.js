@@ -660,8 +660,16 @@ function catEditView(){
     var before = catsList(reg).map(function(x){ return x.id; });
     save("jc_cat_save", { p_cat: e.id, p_fields: p }, c ? "ca_saved" : "ca_cat_saved_new", function(){
       if (c) { catId = c.id; current = "cat"; return; }
-      var fresh = catsList(reg).filter(function(x){ return before.indexOf(x.id) < 0; })[0];
-      if (fresh && rqFrom) return rqAfterAdd(fresh);   /* CC-7b: close the report, then the cat page */
+      var news = catsList(reg).filter(function(x){ return before.indexOf(x.id) < 0; });
+      var fresh = news[0];
+      if (rqFrom) {
+        /* CC-7b: close the report as added — only with the cat saved here (code review L1: another coordinator may have
+           added one meanwhile; the one with this name / coat, and only if exactly one) */
+        var mine = news.filter(function(x){ return (x.name || null) === p.name && (x.coat || null) === p.coat; });
+        if (mine.length === 1) return rqAfterAdd(mine[0]);
+        rqFrom = null; rq.open = undefined; tab = "reports"; current = "home";   /* the report stays open, in view */
+        return;
+      }
       if (fresh) openCatEditor(fresh.id); else current = "home";
     });
   });

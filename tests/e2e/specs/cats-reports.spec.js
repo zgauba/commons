@@ -73,6 +73,7 @@ function backend(scopes, opts = {}) {
       r.photo_path = r.pending; r.pending = null; return ok(mineCard(r));
     },
     jc_stray_report_photo_remove: (a) => { const r = st.mine.find((x) => x.id === a.p_id); if (!r || !r.photo_path) return raise("NO_PHOTO"); r.photo_path = null; return ok(mineCard(r)); },
+    jc_cat_activity: () => ok({ items: [], more: false }),
     jc_cat_reports_list: (a) => off() || (coord ? ok(st.queue.filter((r) => (a.p_show === "open") === (r.state === "open"))) : raise("NOT_ADMIN")),
     jc_cat_report_close: (a) => {
       if (off()) return off();
@@ -409,4 +410,56 @@ test("the photo fails after the report went in: says the coordinators have it, n
   await expect(page.locator("h1")).toHaveText("Thanks for reporting");
   await expect(page.locator("#msg")).toContainText("The coordinators have your report, without the photo");
   expect(named(calls, "jc_stray_report_add")).toHaveLength(1);
+});
+
+// ---------- code review (CC-7b) ----------
+test("code review M1: after Already known, the Activity tab is read again (the close wrote a sighting)", async ({ page }) => {
+  const b = backend(["cats"], { queue: QUEUE });
+  const { calls } = await open(page, b);
+  await page.locator("#caTab_log").click();
+  await expect.poll(() => named(calls, "jc_cat_activity").length).toBeGreaterThan(0);
+  const before = named(calls, "jc_cat_activity").length;
+  await page.locator("#caTab_reports").click();
+  await page.locator('[data-rqknown="' + RP1 + '"]').click();
+  await page.locator('#rqKnown [data-pick="' + K1 + '"]').click();
+  await page.locator("#rqKnownGo").click();
+  await expect(page.locator("#msg")).toContainText("Report linked to Caramel");
+  await page.locator("#caTab_log").click();
+  await expect.poll(() => named(calls, "jc_cat_activity").length).toBeGreaterThan(before);
+});
+
+test("code review: Add as new cat → Back → a plain new cat from the Cats tab never closes the report", async ({ page }) => {
+  const b = backend(["cats"], { queue: QUEUE });
+  const { calls } = await open(page, b, "cats/?tab=reports");
+  await page.locator('[data-rqadd="' + RP1 + '"]').click();
+  await expect(page.locator("#rqFrom")).toBeVisible();
+  await page.locator("#jcBackBtn").click();
+  await page.locator("#caTab_cats").click();
+  await page.locator("#caAddCat").click();
+  await expect(page.locator("#rqFrom")).toHaveCount(0);
+  await page.locator("#caCName").fill("Plain");
+  await page.locator("#caCatForm button[type=submit]").click();
+  await expect(page.locator("#msg")).toBeVisible();
+  expect(named(calls, "jc_cat_save")).toHaveLength(1);
+  expect(named(calls, "jc_cat_report_close")).toEqual([]);
+});
+
+test("code review: a doubled tap on Not a stray closes once", async ({ page }) => {
+  const b = backend(["cats"], { queue: QUEUE });
+  const { calls } = await open(page, b, "cats/?tab=reports");
+  page.on("dialog", (d) => d.accept());
+  await page.locator('[data-rqnot="' + RP2 + '"]').evaluate((btn) => { btn.click(); btn.click(); });
+  await expect(page.locator("#msg")).toContainText("Report closed.");
+  expect(named(calls, "jc_cat_report_close")).toHaveLength(1);
+});
+
+test("code review: the cat saved but the close failed → says so (use Already known, not Add again); the cat exists", async ({ page }) => {
+  const b = backend(["cats"], { queue: QUEUE, rpc: { jc_cat_report_close: () => raise("UNKNOWN") } });
+  await open(page, b, "cats/?tab=reports");
+  await page.locator('[data-rqadd="' + RP1 + '"]').click();
+  await page.locator("#caCName").fill("Ginger");
+  await page.locator("#caCatForm button[type=submit]").click();
+  await expect(page.locator("#msg")).toContainText("Ginger was added, but the report is still open");
+  await expect(page.locator("#msg")).toContainText("Already known");
+  expect(b.st.cats.some((c) => c.id === K2)).toBe(true);
 });
