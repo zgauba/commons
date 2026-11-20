@@ -182,6 +182,10 @@
   - Decisions taken in CC-7: D1 cat only; D2 Report on the Cats page (Pets links to it); D3 photo moves only on Add as new cat; a close writes one sighting with no resident text (security M1); the Cats page's programme view is the Cats admin area.
   - ~~Accepted for later~~ **Done 2026-11-20 (CC-7 follow-ups PR):** typed Latin text in Arabic dated-entry cards now right-aligned (shared `.bklist` rule in app.css); Organizer Tools copy "No pets yet." / "No pets here match"; signed-out `admin/?open=reports` and `cats/?tab=reports|?report=1` keep their target through sign-in (`jcSafeNext`).
   - **Next: CC-6 import** (Zee builds the CSVs offline). Remove the `e2e` sample cats / stations before any real import there.
+- **Testing on `e2e` (2026-11-20):**
+  - Tester guide (Claude doc, shared by Zee): https://claude.ai/artifact/5W5HE2TJmY7XUWa4NnTgR1. It covers why Cats is separate from Pets, roles, tabs, how the records fit together, workflows per role, "Coming next" (road incidents, colonies, layered map: "being designed", not promised) and a test checklist. Update it when Cats screens change.
+  - The 2 `e2e` Pets admins were also made **Cats coordinators** by a direct insert into `jc_module_admins` (scope `cats`, `granted_by` copied from their Pets grant). That bypassed the invite link, so there is no `module_admin_accept` row in `jc_admin_log`. They keep Organizer Tools through their Pets scope. No Cats volunteers yet.
+  - Testers were asked to set a display name (My Home → Account → Display name → Save) before roles are assigned. One coordinator still has no display name.
 
 ## CC-4 plan — visits + sightings (2026-11-18; Zee pre-authorised apply + merge for CC-4 only)
 
