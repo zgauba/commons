@@ -343,6 +343,34 @@ Make residents' pet pages richer and more fun now that strays leave Pets. Sequen
 - **Built 2026-11-19** (PR `cats-stations-cats-map`; review `docs/qa/cats-stations-cats-map-review-2026-11-19.md`):
   programme pins show "· N cats" and turn red when one is missing; the popup lists the cats (missing first), tap → cat page.
 
+### Cats: road incidents, new colonies, one map with layers  ·  idea (programme coordinator, 2026-11-20)
+**The asks (her words, paraphrased):** (1) pin where cats are found **hit or dead on community roads**: many are run
+over, alive, and need expensive vet care; it is a traffic-safety issue too. She wants it as a programme metric so
+patterns and hotspots show, and what measures could help. (2) pin **new cat colonies / sightings**, especially in
+construction and under-development areas where cats appear. (3) **see each layer alone** (stations, sightings /
+colonies, incidents) **or overlay any of them** to look for patterns.
+
+**What exists today:** sightings already store a pin (`jc_cat_sightings.lat/lng`, or a station or area) and the
+Activity feed returns it, but 50 at a time, as a list. "Deceased" is a cat status with no place. Road strikes are
+Phase 2 "incidents from anywhere" above. The Stations map is the only Cats map. `map.js` toggles the base tiles only
+(no overlay layers yet).
+
+**Recommendation (not decided):** one programme **Map** (the Stations map grown, not a second map) with chips
+Stations · Sightings · Incidents (multi-select = overlay) and a period (30 days · 90 days · 12 months · all).
+- **M1 — Sightings on the map** (small DB read RPC: all pinned sightings in the period, not paged; app layer chips).
+  A "colony" = a sighting with a **headcount** + "new colony" flag, not a new record type: one field, same form.
+- **M2 — Road incidents** (DB + app; brings the Phase 2 item forward, road-only first): Log activity → **Incident**:
+  where (pin required), when, outcome (injured → vet · killed · near miss), cat from the register or described,
+  note; links to the vet visit that treated it; a killed register cat → status Deceased in the same step. Kept forever.
+  Counting rule from her doc applies: road deaths count once in total deaths.
+- **M3 — Overlay + period filter** on the shared map (lands with M1, used by M2).
+
+**Open questions for Zee / her:** residents see incidents (community safety) or programme only (distressing,
+blames streets)? Residents report an injured cat in the app? (No alerts exist: an urgent in-app report could sit
+unseen, so urgent = WhatsApp the coordinator, in-app = record after.) Who logs incidents: volunteers too, or
+coordinators only? Does "colony" need its own lifecycle (watched → TNVR'd → stable) or is a flagged sighting enough?
+Needs `/plan-change` (M1 Localized; M2 cross-layer: new table, maybe resident-facing).
+
 ### Events: per-event organizers draft, admin approves  ·  idea (2026-11-17)
 - Per-event organizers already exist (T5.2b: invite link, then they run that one event). They can't **create** or
   publish. Idea: an organizer drafts an event → it waits in Organizer Tools → a community admin publishes it.
