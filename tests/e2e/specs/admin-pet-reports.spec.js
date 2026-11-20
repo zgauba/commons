@@ -21,7 +21,7 @@ test("an old ?open=reports link goes to the Cats page's Reports tab — nothing 
   await page.goto("admin/?tab=pets&open=reports");
   await expect(page).toHaveURL(/\/commons\/cats\/\?tab=reports$/);
   expect(calls.filter((c) => /^jc_admin_/.test(c.name))).toEqual([]);           // left before reading anything of its own
-  expect(calls.filter((c) => /stray/.test(c.name))).toEqual([]);
+  expect(calls.filter((c) => /^jc_admin_stray/.test(c.name))).toEqual([]);     // code review L1: the Cats page may read My reports
 });
 
 test("Organizer Tools → Pets: no Reported strays row, no Strays / Needs help / Homes' pets chip, no Add a Stray; the old queue is never read", async ({ page }) => {
