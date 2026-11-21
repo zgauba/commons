@@ -557,7 +557,21 @@ test("UI review #5: a report's Add as new cat has its own row; Already known and
   const box = async (sel) => card.locator(sel).boundingBox();
   const add = await box("[data-rqadd]"), known = await box("[data-rqknown]"), not = await box("[data-rqnot]");
   expect(known.y).toBeGreaterThan(add.y + add.height - 1);                                    // the next row
-  expect(Math.abs(known.y - not.y)).toBeLessThan(2);
   expect(Math.abs(known.height - not.height)).toBeLessThan(2);                                // same size: no 36px mini
   expect(known.height).toBeLessThan(60);                                                      // one line, not two
+  expect(not.height).toBeLessThan(60);
+  // side by side when they fit, else the second on its own row — never squeezed onto two lines (CI WebKit's wider font)
+  expect(Math.abs(known.y - not.y) < 2 || not.y >= known.y + known.height - 1).toBe(true);
+});
+
+test("UI review #5 follow-up: with a wider font the two buttons stack rather than wrap their text", async ({ page }) => {
+  const b = backend(["cats"], { queue: QUEUE });
+  await open(page, b);
+  await page.locator("#caTab_reports").click();
+  await page.addStyleTag({ content: '[data-report] [data-rqknown], [data-report] [data-rqnot]{font-size:24px; letter-spacing:.15em}' });   // what a wide fallback font does
+  const card = page.locator('[data-report="' + RP1 + '"]');
+  for (const sel of ["[data-rqknown]", "[data-rqnot]"]) {
+    const box = await card.locator(sel).boundingBox();
+    expect(box.height).toBeLessThan(70);                                                       // one line at 24px, not two
+  }
 });

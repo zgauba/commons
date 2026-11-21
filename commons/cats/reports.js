@@ -85,8 +85,8 @@ function rqCard(r){
   }
   return h + '<div class="row">' +
     '<button class="btn small rqMain" type="button" data-rqadd="' + esc(r.id) + '"' + off + '>' + esc(jcT("ca_rq_add")) + '</button>' +
-    '<button class="btn ghost small" type="button" data-rqknown="' + esc(r.id) + '"' + off + '>' + esc(jcT("ca_rq_known")) + '</button>' +
-    '<button class="btn ghost small danger" type="button" id="rqNot-' + esc(r.id) + '" data-rqnot="' + esc(r.id) + '"' + off + '>' + esc(jcT("ca_rq_not")) + '</button></div>';
+    '<button class="btn ghost small rqSub" type="button" data-rqknown="' + esc(r.id) + '"' + off + '>' + esc(jcT("ca_rq_known")) + '</button>' +
+    '<button class="btn ghost small danger rqSub" type="button" id="rqNot-' + esc(r.id) + '" data-rqnot="' + esc(r.id) + '"' + off + '>' + esc(jcT("ca_rq_not")) + '</button></div>';
 }
 function reportsTabHtml(){
   if (rq.open === undefined) rqLoad();

@@ -48,3 +48,12 @@ the form, no seen button on a merged cat, every user string through `esc()`, the
 | L4 | Low | No test for the seen-mode `maxlength`, nor an empty-note seen report | **Fixed:** both asserted in `cats-reports.spec.js` |
 
 After the fixes: 154 passed (Chromium; Cats, Reports, Pets specs).
+
+## Follow-up 2026-11-21: #5 on WebKit
+
+CI's WebKit job on #192 failed "UI review #5": with the Linux runner's wider fallback font, "Already known" wrapped onto
+two lines (74 px). It passed on macOS WebKit and Chromium. **Fix:** the two buttons never wrap their text
+(`.row .rqSub{flex:1 1 auto; white-space:nowrap}`); when both don't fit, the second takes its own row. The #5 test now
+accepts side-by-side or stacked, never two-line; a new test forces a wide font (24 px, letter-spacing) and fails on the
+old CSS (102 px) — passes after on Chromium and WebKit. Cosmetic tier: no reviewer agent. (Unrelated: "CC-5 … logs a vet
+visit" fails `toBeFocused` on local macOS WebKit only — Safari doesn't focus a clicked checkbox; it passes in CI.)
