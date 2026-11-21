@@ -21,7 +21,7 @@ test("list: an ended event leads Past, says 'ended', and offers no Sign Up", asy
   await expect(page.locator("h2.group")).toHaveText("Past");
   const card = page.locator('[data-event="fireworks"]');
   await expect(card).toContainText("ended");
-  await expect(card.locator(".evacts a")).toHaveText(["View"]);   // no Sign Up after the end
+  await expect(card.locator(".evacts")).toHaveCount(0);   // no Sign Up after the end
 });
 
 test("event page: after the end a signed-up household sees 'ended' — no Update, no Withdraw", async ({ page }) => {

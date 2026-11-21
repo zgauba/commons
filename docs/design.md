@@ -111,7 +111,7 @@ Cats today: sex (3), life stage (4), ear tip (3), sterilisation (3) → pills ·
 | Variants / states | `aria-selected="true"` = accent underline. A row too wide scrolls sideways |
 | Accessibility | `role=tablist` (labelled), `role=tab` + `aria-controls`, `role=tabpanel` + `aria-labelledby`. ←/→ (mirrored in Arabic), Home/End; roving tabindex; focus returns to the tab after redraw |
 | Wiring | `jcTabsWire(prefix, keys, pick)` after `innerHTML` |
-| Use / Don't | Sections of one page. **Never a heading inside a tab that repeats its name (D1)**; use `h2.group` |
+| Use / Don't | Sections of one page. **Never a heading inside a tab that repeats its name (D1)**; use `h2.group`. **One sanctioned exception:** the Events page's Sign Up tab is filled (accent) while the household hasn't signed up (`.subtabs button.cta`), and plain once it's in. Testers missed Sign Up as a plain tab (Zee, kept in the Events UI review 2026-11-21); don't flag it or copy it elsewhere |
 | Reference | `design/pets-list.jpg`, `design/pet-stray.jpg` |
 
 ### Group label
