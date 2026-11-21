@@ -18,7 +18,7 @@ async function tapWhenStill(page, loc) {
   await loc.dispatchEvent("click");
 }
 
-test("list: live events with View + Sign up (no status pill), then Past with 'see the numbers'", async ({ page }) => {
+test("list: live events open from the whole card + Sign up (no status pill), then Past with 'see the numbers'", async ({ page }) => {
   const eb = eventsBackend();
   const { calls } = await stubBackend(page, { rpc: eb.rpc });
   await signIn(page);
@@ -28,9 +28,9 @@ test("list: live events with View + Sign up (no status pill), then Past with 'se
   await expect(live).toContainText("National Day Gathering");
   await expect(live).toContainText("37 homes in");
   await expect(live.locator(".pill")).toHaveCount(0);                     // the button says it
-  await expect(live.locator(".evacts a")).toHaveText(["View", "Sign Up"]);
-  await expect(live.locator(".evacts a").first()).toHaveAttribute("href", "?id=" + LIVE_ID);
-  await expect(live.locator(".evacts a").last()).toHaveAttribute("href", "?id=" + LIVE_ID + "&tab=mine");
+  await expect(live.locator(".evacts a")).toHaveText(["Sign Up"]);                     // UI review #4: no View button
+  await expect(live.locator("a.evopen")).toHaveAttribute("href", "?id=" + LIVE_ID);      // the whole card opens it
+  await expect(live.locator(".evacts a")).toHaveAttribute("href", "?id=" + LIVE_ID + "&tab=mine");
   await expect(live.locator(".badge")).toHaveCount(0);                    // residents: no Admin badge
   await expect(page.locator("h2.group")).toHaveText("Past");
   await expect(page.locator('[data-event="halloween-2026"] a')).toContainText("see the numbers");
@@ -53,9 +53,10 @@ test("list: upcoming soonest first (undated last); no Sign up when closed or alr
   expect(await page.locator(".evlist li").evaluateAll((ls) => ls.map((l) => l.dataset.event)))
     .toEqual(["joined", "closed", "late", "undated"]);
   await expect(page.locator('[data-event="closed"]')).toContainText("sign-ups closed");
-  await expect(page.locator('[data-event="closed"] .evacts a')).toHaveText(["View"]);
-  await expect(page.locator('[data-event="joined"] .evacts a')).toHaveText(["View"]);
-  await expect(page.locator('[data-event="late"] .evacts a')).toHaveText(["View", "Sign Up"]);
+  await expect(page.locator('[data-event="closed"] .evacts')).toHaveCount(0);
+  await expect(page.locator('[data-event="joined"] .evacts')).toHaveCount(0);
+  await expect(page.locator('[data-event="joined"] small')).toContainText("you're in");     // UI review #7
+  await expect(page.locator('[data-event="late"] .evacts a')).toHaveText(["Sign Up"]);
 });
 
 for (const scope of ["events", "community"]) test(`organizers (${scope} scope) see an Admin badge that opens that event's editor`, async ({ page }) => {
@@ -95,7 +96,7 @@ test("detail: map pins only pinned homes; list groups by village, search, unpinn
   await expect(page.locator(".entries li")).toHaveCount(1);
 });
 
-test("signup: required answers enforced; full payload + note sent; 'Villa 12 is in'", async ({ page }) => {
+test("signup: required answers enforced; full payload + note sent; 'Saved.', the status line says 'Villa 12 is in'", async ({ page }) => {
   const eb = eventsBackend();
   const { calls } = await stubBackend(page, { rpc: eb.rpc });
   await signIn(page);
@@ -121,7 +122,7 @@ test("signup: required answers enforced; full payload + note sent; 'Villa 12 is 
   await page.locator('[data-field="pets_ok"][data-value="true"]').click();
   await page.locator("#note").fill("Candy at the gate");
   await page.locator("#go").click();
-  await expect(page.locator("#msg")).toHaveText("Villa 12 is in.");
+  await expect(page.locator("#msg")).toHaveText("Saved.");                               // UI review #2: said once, below
   await expect(page.locator("#tab-mine")).not.toHaveClass(/\bcta\b/);     // in: a plain tab again
   expect(calls.find((c) => c.name === "jc_event_signup").args).toEqual(
     { p_event: LIVE_ID, p_payload: { treats: "candy", handout: "door", pets_ok: true, note: "Candy at the gate" } });
@@ -135,13 +136,13 @@ test("updating one answer keeps the other answers AND the note", async ({ page }
   await page.goto("events/?id=" + LIVE_ID + "&tab=mine");
   await expect(page.locator(".status.ok")).toHaveText("Villa 12 is in.");
   await expect(page.locator("#tab-mine")).not.toHaveClass(/\bcta\b/);     // already in: never filled
-  await expect(page.locator(".answers")).toContainText("Candy");
-  await expect(page.locator(".mynote")).toHaveText("Knock loudly");
+  await expect(page.locator("#evAnswers.facts dt")).toHaveText(["Treats", "Handout", "Note"]);   // UI review #3: shared list
+  await expect(page.locator("#evAnswers dd").last()).toHaveText("Knock loudly");
   await page.locator("#toSignup").click();
   await expect(page.locator("#note")).toHaveValue("Knock loudly");
   await page.locator('[data-field="treats"][data-value=\'"both"\']').click();
   await page.locator("#go").click();
-  await expect(page.locator("#msg")).toHaveText("Villa 12 is in.");
+  await expect(page.locator("#msg")).toHaveText("Saved.");                               // UI review #2: said once, below
   expect(calls.filter((c) => c.name === "jc_event_signup").pop().args.p_payload)
     .toEqual({ treats: "both", handout: "door", note: "Knock loudly" });
   expect(eb.st.mine.note).toBe("Knock loudly");
@@ -715,7 +716,8 @@ test("one-place: no home pin needed — sign up, 'is coming', spot pending then 
   await expect(page).toHaveURL(/events\//);
   await page.locator('[data-field="selling"][data-value="\\"food\\""]').click();
   await page.locator("#go").click();
-  await expect(page.locator("#msg")).toHaveText("Villa 12 is coming.");
+  await expect(page.locator("#msg")).toHaveText("Saved.");
+  await expect(page.locator(".status.ok")).toHaveText("Villa 12 is coming.");
   expect(calls.filter((c) => c.name === "jc_event_signup")).toHaveLength(1);
   await expect(page.locator(".spot")).toHaveText("The organizers will give you a spot number.");
   await expect(page.locator(".pinline")).toHaveCount(0);
@@ -731,7 +733,7 @@ test("one-place full: no Sign up anywhere, says Full", async ({ page }) => {
   await signIn(page);
   await page.goto("events/");
   await expect(page.locator('[data-event="kids-market"] small')).toContainText("Full");
-  await expect(page.locator('[data-event="kids-market"] .evacts a')).toHaveText(["View"]);
+  await expect(page.locator('[data-event="kids-market"] .evacts')).toHaveCount(0);
   await page.goto("events/?id=" + VENUE_ID + "&tab=mine");
   await expect(page.locator(".evhead .sub")).toContainText("Full");
   await expect(page.locator("#toSignup")).toHaveCount(0);
@@ -867,7 +869,7 @@ test("coming soon: badge on the list, no Sign Up; the event page says sign-ups o
   await expect(card.locator(".soon")).toHaveText("Coming Soon");
   await expect(card.locator("small")).not.toContainText("coming soon");            // said once, by the badge
   await expect(card.locator("small")).not.toContainText("homes in");               // no count before sign-ups open
-  await expect(card.locator(".evacts a")).toHaveText(["View"]);
+  await expect(card.locator(".evacts")).toHaveCount(0);
   await page.goto("events/?id=" + LIVE_ID + "&tab=mine");
   await expect(page.locator(".evhead .sub")).toContainText("coming soon");
   await expect(page.locator(".evhead .sub")).not.toContainText("homes in");
@@ -1105,4 +1107,39 @@ test("map: Escape with Map Labels open closes only the window, the map stays ful
   await expect(page.locator(".evmapwrap")).toHaveClass(/\bfull\b/);
   await page.keyboard.press("Escape");
   await expect(page.locator(".evmapwrap")).not.toHaveClass(/\bfull\b/);
+});
+
+// UI review 2026-11-21 (docs/qa/events-ui-review-2026-11-21.md)
+test("UI review #4: tapping anywhere on a live card opens the event; Sign Up still goes to the form", async ({ page }) => {
+  const eb = eventsBackend();
+  await stubBackend(page, { rpc: eb.rpc });
+  await signIn(page);
+  await page.goto("events/");
+  const live = page.locator('[data-event="national-day-2026"]');
+  await live.click({ position: { x: 30, y: 60 } });                                        // the card's body, not the title
+  await expect(page).toHaveURL(new RegExp("\\?id=" + LIVE_ID + "$"));
+  await page.goBack();
+  await page.locator('[data-event="national-day-2026"] .evacts a').click();
+  await expect(page).toHaveURL(new RegExp("\\?id=" + LIVE_ID + "&tab=mine$"));
+});
+
+test("UI review #5 / #6: the event editor has the top-bar back; Close Event wears the red outline", async ({ page }) => {
+  const ab = adminBackend({ scopes: ["events"] });
+  await stubBackend(page, { rpc: ab.rpc });
+  await signIn(page);
+  await page.goto("admin/");
+  await expect(page.locator('li[data-event="test-event"] [data-act="close"]')).toHaveClass(/\bdanger\b/);
+  await expect(page.locator('li[data-event="test-event"] [data-act="edit"]')).not.toHaveClass(/\bdanger\b/);
+  await page.locator('li[data-event="test-event"] [data-act="edit"]').click();
+  await expect(page.locator("#save")).toBeVisible();
+  await page.locator("#save").evaluate((b) => { b.disabled = true; });                      // a save in flight
+  await page.locator("#jcBackBtn").click();
+  await expect(page.locator("#save")).toBeVisible();                                       // back waits for it
+  await page.locator("#save").evaluate((b) => { b.disabled = false; });
+  await page.locator("#jcBackBtn").click();
+  await expect(page.locator('li[data-event="test-event"]')).toBeVisible();                 // back on the list
+  await expect(page.locator("#save")).toHaveCount(0);
+  await page.locator("#newEv").click();
+  await page.locator("#jcBackBtn").click();                                                // the template picker too
+  await expect(page.locator("#newEv")).toBeVisible();
 });

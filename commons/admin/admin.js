@@ -278,7 +278,10 @@ function show(name){
        : name === "court" ? function(){ ctEd = null; show("home"); }
        : name === "petadmin" ? pmLeave
        : name === "courtday" ? function(){ cd = null; admTab = "courts"; show("home"); }
-       : name === "hhpin" ? function(){ if (hhBusy) return; hhPin = null; show("households"); } : null, "back");
+       : name === "hhpin" ? function(){ if (hhBusy) return; hhPin = null; show("households"); }
+       /* UI review #5: the event editor and its template picker get the top-bar back, same as Cancel */
+       : name === "editor" ? function(){ if (el("save") && el("save").disabled) return; ed = null; show("home"); }   /* never mid-save */
+       : name === "templates" ? function(){ show("home"); } : null, "back");
   jcHelp(name === "lock" ? null : "admin");
   var refocus = jcFocusKeep();
   VIEWS[name]();
@@ -1608,8 +1611,8 @@ function eventRow(e){
   var line = [isDraft ? null : status ? jcT(status) : jcFmt("adm_status_ended", { t: fmtDate(closesAt(e)) }), place, fmtDate(e.starts_at),
               jcFmt(e.kind === "venue" ? "adm_households" : "adm_homes", { n: e.entries || 0 })].filter(Boolean).join(" · ");
   var acts = "";
-  function btn(a, label, ghost){
-    return '<button class="btn' + (ghost ? ' ghost' : '') + ' small" type="button" data-act="' + a + '" data-id="' + esc(e.id) + '">' + esc(label) + '</button>';
+  function btn(a, label, ghost, danger){
+    return '<button class="btn' + (ghost ? ' ghost' : '') + (danger ? ' danger' : '') + ' small" type="button" data-act="' + a + '" data-id="' + esc(e.id) + '">' + esc(label) + '</button>';
   }
   if (e.status === "draft") acts = btn("edit", jcT("adm_edit"), true) +
     /* T5.4: two ways out of a draft — on the list as "coming soon" (title only), or open for sign-ups */
@@ -1618,7 +1621,7 @@ function eventRow(e){
   if (e.status === "live") {
     acts = btn("edit", jcT("adm_edit"), true) +
       btn(e.signups_open ? "pause" : "open", jcT(e.signups_open ? "adm_pause_signups" : "adm_open_signups"), true) +
-      btn("close", jcT("adm_close"), true) +
+      btn("close", jcT("adm_close"), true, true) +           /* UI review #6: red outline, as Not a stray */
       /* T5.4b: back to coming soon — organizers, while nobody has signed up (the server checks too) */
       (isOrganizer() && !e.coming_soon && !e.entries ? btn("announce", jcT("adm_back_to_soon"), true) : '') +
       '<a class="btn ghost small" href="../events/?id=' + esc(e.id) + '">' + esc(jcT("adm_view")) + '</a>';

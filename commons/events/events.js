@@ -220,7 +220,8 @@ var VIEWS = {
         else if (!soon && !e.signups_open) line.push(jcT("ev_closed"));
         if (e.my_status === "in") line.push(jcT("ev_mine"));
         var info = (soon ? '<span class="soon">' + esc(jcT("coming_soon")) + '</span>' : '') +
-          '<b>' + (lookOf(e) ? '<span class="mark" aria-hidden="true">' + LOOK_MARKS[lookOf(e)] + '</span> ' : '') + esc(title(e)) +
+          '<b>' + (lookOf(e) ? '<span class="mark" aria-hidden="true">' + LOOK_MARKS[lookOf(e)] + '</span> ' : '') +
+          (e.status === "archived" ? esc(title(e)) : '<a class="evopen" href="' + url + '">' + esc(title(e)) + '</a>') +
           '</b><small>' + esc(line.filter(Boolean).join(" · ")) + '</small>';
         /* the card wears its event's look (tokens.css [data-look]) */
         var lk = lookOf(e) ? ' data-look="' + lookOf(e) + '"' : '';
@@ -231,10 +232,11 @@ var VIEWS = {
           '<div class="evtop"><span>' + info + '</span>' +
             (organizer || runs.indexOf(e.id) >= 0 ? '<a class="badge" href="../admin/?event=' + encodeURIComponent(e.id) + '">' + esc(jcT("ev_admin")) + '</a>' : '') +
           '</div>' +
-          '<div class="evacts"><a class="btn ghost" href="' + url + '">' + esc(jcT("ev_view")) + '</a>' +
-            (openNow(e) && e.my_status !== "in" && !e.full
-              ? '<a class="btn" href="' + url + '&amp;tab=mine">' + esc(jcT("ev_signup_cta")) + '</a>' : '') +
-          '</div></li>';
+          /* UI review #4: the whole card opens the event (the title's link stretches over it, .evopen); Sign Up is the
+             card's only button */
+          (openNow(e) && e.my_status !== "in" && !e.full
+            ? '<div class="evacts"><a class="btn" href="' + url + '&amp;tab=mine">' + esc(jcT("ev_signup_cta")) + '</a></div>' : '') +
+          '</li>';
       }
       el("lists").innerHTML =
         (live.length ? '<ul class="evlist">' + live.map(row).join("") + '</ul>'
@@ -357,16 +359,16 @@ function renderMine(){
         esc(jcFmt("ev_org_adjusted", { t: "⁨" + fmtStamp(mine.org_adjusted_at) + "⁩" })) + '</p>';
     }
     var fields = (ev.payload_schema && ev.payload_schema.fields) || {};
+    /* UI review #3: the shared label → value list (jcFactsHtml, as Pets and Cats); the note has its label too */
     var rows = Object.keys(fields).filter(function(k){ return mine.payload && mine.payload[k] !== undefined; }).map(function(k){
       var v = mine.payload[k];
-      return '<li><span>' + esc(fieldLabel(k, fields[k])) + '</span><b>' +
-        esc(fields[k].type === "text" ? String(v) : valueLabel(fields[k], v)) + '</b></li>';
+      return [fieldLabel(k, fields[k]), fields[k].type === "text" ? String(v) : valueLabel(fields[k], v)];
     });
+    if (mine.note) rows.push([jcT("ev_note_h"), mine.note]);
     html += '<p class="status ok">' + esc(jcFmt(isVenue(ev) ? "ev_venue_in" : "ev_signed_up", { h: myLabel() })) + '</p>' +
       (isVenue(ev) && ev.spots
         ? '<p class="spot">' + (mine.spot ? esc(jcFmt("ev_your_spot", { s: mine.spot })) : esc(jcT("ev_spot_pending"))) + '</p>' : '') +
-      (rows.length ? '<ul class="answers">' + rows.join("") + '</ul>' : '') +
-      (mine.note ? '<p class="mynote">' + esc(mine.note) + '</p>' : '') +
+      (rows.length ? jcFactsHtml(rows, "evAnswers") : '') +
       /* R2a (U1): an organizer hid this sign-up — say so (homes can't be hidden any more, HH 2026-11-11) */
       (!isVenue(ev) && mine.hidden ? '<p class="help notshown" role="note">' + esc(jcT("ev_not_shown")) + '</p>' : '') +
       (isVenue(ev) ? '' : pinLine(h)) +
@@ -480,7 +482,7 @@ function renderForm(){
     busy("go", true);
     gen++;
     rpc("jc_event_signup", { p_event: ev.id, p_payload: payload }).then(function(d){
-      data = d; editing = false; show("detail"); showOk(jcFmt(isVenue(d.event) ? "ev_venue_in" : "ev_signed_up", { h: myLabel() }));
+      data = d; editing = false; show("detail"); showOk(jcT("ev_saved"));   /* UI review #2: the status line below says who's in */
     }, function(e){
       if (e.code === "NO_PIN") return goPin();   /* server safety net (T5.2 PR 3): same redirect */
       if (e.code === "FULL") {                   /* the last place went meanwhile: show the new count */
