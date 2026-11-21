@@ -16,3 +16,5 @@
 .caLog[data-hidden]{opacity:.7}
 /* UI review #5: a report's first action gets its own row; the other two share the next (no two-line labels) */
 .row .rqMain{flex-basis:100%}
+/* the other two keep one line each; when both don't fit (a wider font, Arabic), the second takes its own row */
+.row .rqSub{flex:1 1 auto; white-space:nowrap}
