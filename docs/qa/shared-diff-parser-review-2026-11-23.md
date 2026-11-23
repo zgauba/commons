@@ -24,7 +24,7 @@ The follow-up (`docs/qa/repo-rules-r9-review-2026-11-23.md` #6) said a secret in
 
 | Plan row | Plan said | FOLLOWED / NOT FOLLOWED | Evidence |
 |---|---|---|---|
-| Diff → added lines | EXTRACT into secret-scan.mjs, no new file | FOLLOWED | `unquote` + `addedLines` in secret-scan.mjs; repo-rules copies deleted, `addedLines` is a filter wrapper |
+| Diff → added lines | EXTRACT into secret-scan.mjs, no new file → superseded by Re-agreed #7: a mirror file `tests/ci/diff-lines.cjs` | FOLLOWED | repo-rules copies deleted (`addedLines` is a filter wrapper); the parser is `diff-lines.cjs`, re-exported by secret-scan.mjs |
 | Secret finding | REUSE `scanDiff` on the shared parser | FOLLOWED | `scanDiff` loops over `addedLines()`, same output shape |
 | Error-text escaping | REUSE `data()` | FOLLOWED (after C1 fix) | `data` exported from secret-scan.mjs, imported by repo-rules; secret-scan's error line uses it |
 | Local hook parser | DEPART: left as is → reversed (Re-agreed, contract #7) | FOLLOWED | git-guard.js uses `lib/diff-lines.js`; byte copy `tests/ci/diff-lines.cjs`, drift-tested |
