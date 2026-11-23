@@ -1,12 +1,16 @@
 # Design guard (DS-5 E3 + E4, 2026-11-19): module CSS may not style bare select / input / textarea / label /
 # button, and the same rule body may not be copied into a second CSS file (docs/design.md §8 #1–#2).
 # Today's offenders: tests/ci/design-guard-baseline.txt — it may only shrink, checked against the base branch's copy.
-# Note: the script itself runs from the PR branch, so a PR editing tests/ci/ is visible in the diff — review those by eye.
+# Runs on pull_request_target (harness-autonomy-plan PR 3a, 2026-11-23): this file and the guard's code come from the
+# base branch, so a PR can't weaken the check it must pass. The PR's files (CSS + its baseline) are only read, never run.
+# A PR that changes tests/ci/design-guard*.mjs is checked by the old guard; its new version runs once merged.
+# It checks the PR branch itself (head), not a merge with main: if main lowered the baseline since the PR branched,
+# the guard reports "the baseline grew" — merge main into the PR branch and it clears.
 # No path filter on purpose: a required check must report on every PR, or GitHub waits on it forever.
 name: Design guard
 
 on:
-  pull_request:
+  pull_request_target:
 
 permissions:
   contents: read
@@ -16,20 +20,24 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4
-        with:
-          persist-credentials: false
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020  # v4
-        with:
-          node-version: 20
-      # the base branch's baseline: the PR may lower counts, never add or raise one (security review 2026-11-19)
+      # the guard's code and baseline, from the base branch
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4
         with:
           ref: ${{ github.event.pull_request.base.sha }}
           path: base
           sparse-checkout: tests/ci
           persist-credentials: false
+      # the PR, as data only, in its own folder: nothing is copied over it and nothing from it runs (security review 2026-11-23)
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          path: pr
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020  # v4
+        with:
+          node-version: 20
       - name: Guard tests
-        run: node --test tests/ci/design-guard.test.mjs
-      - name: Check Commons CSS against the baseline (and the baseline against the base branch's)
-        run: node tests/ci/design-guard.mjs --base base/tests/ci/design-guard-baseline.txt
+        run: node --test base/tests/ci/design-guard.test.mjs
+      # the PR's baseline may lower counts, never add or raise one, checked against the base branch's
+      - name: Check the PR's Commons CSS against its baseline (and the baseline against the base branch's)
+        run: node base/tests/ci/design-guard.mjs --root pr --base base/tests/ci/design-guard-baseline.txt

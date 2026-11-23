@@ -1,6 +1,11 @@
 // node --test tests/ci/design-guard.test.mjs — each test fails if the guard stops catching what it's for.
 import { test } from 'node:test';
 import assert from 'node:assert';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import { spawnSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
 import { parseCss, bareTarget, check, tally, compare, grew, readBaseline } from './design-guard.mjs';
 
 test('a bare element is caught with or without a parent selector; a classed one is not', () => {
@@ -112,4 +117,25 @@ test('dup: a body gone from every file is "stale" (delete the line)', () => {
   const { added, stale } = compare(new Map(), base);
   assert.deepEqual(added, []);
   assert.deepEqual(stale.map((s) => [s.key, s.n, s.to]), [['dup|h|commons/admin/admin.css,commons/pets/pets.css', 0, undefined]]);
+});
+
+// Security review 2026-11-23: symlinks must never let the guard pass without checking anything.
+const GUARD = fileURLToPath(new URL('./design-guard.mjs', import.meta.url));
+
+test('run through a symlinked script path, the guard still runs (it used to exit 0 silently)', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'dg-'));
+  fs.mkdirSync(path.join(dir, 'commons'));
+  fs.symlinkSync(GUARD, path.join(dir, 'guard.mjs'));
+  const p = spawnSync('node', [path.join(dir, 'guard.mjs'), '--root', dir], { encoding: 'utf8' });
+  assert.strictEqual(p.status, 1);
+  assert.match(p.stderr, /read too little/);
+});
+
+test('a symlink under commons/ fails the guard instead of being skipped', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'dg-'));
+  fs.mkdirSync(path.join(dir, 'commons'));
+  fs.symlinkSync(os.tmpdir(), path.join(dir, 'commons', 'hidden'));
+  const p = spawnSync('node', [GUARD, '--root', dir], { encoding: 'utf8' });
+  assert.strictEqual(p.status, 1);
+  assert.match(p.stderr, /commons\/hidden is a symlink/);
 });
