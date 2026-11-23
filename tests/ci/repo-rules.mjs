@@ -150,9 +150,13 @@ const R9_TAIL = ' (CLAUDE.md §14; editing an existing line counts as adding it)
 
 /* one line of JS with comments and string contents blanked (a lint, not a parser: a regex literal with a quote fools it) */
 export function codeOnly(line) {
-  if (/^\s*(?:\*|\/\*)/.test(line)) return '';           // inside or opening a block comment
-  let out = '', q = null;
-  for (let i = 0; i < line.length; i++) {
+  let out = '', q = null, i = 0;
+  if (/^\s*\*(?!\/)/.test(line)) {                      // a block comment's middle line, or its closing line
+    const end = line.indexOf('*/');
+    if (end < 0) return '';
+    out = ' '.repeat(end + 2); i = end + 2;
+  }
+  for (; i < line.length; i++) {
     const c = line[i];
     if (q) {
       if (c === '\\') { out += '  '; i++; } else if (c === q) { q = null; out += c; } else out += ' ';
@@ -175,13 +179,26 @@ export function checkAdded(lines) {
   const v = [];
   for (const { file, line, text } of lines) {
     if (TEST_CODE(file)) {
-      const code = codeOnly(text);
+      // JS also ends a line at a lone \r, U+2028 or U+2029: blank each piece, so "// x\rcode" can't hide code (security review)
+      const code = text.split(/\r\n|[\r\u2028\u2029]/).map(codeOnly).join(' ');
       for (const [re, msg] of R9_CODE) if (re.test(code)) v.push({ rule: 'R9', file, line, msg: msg + R9_TAIL });
     } else if (RETRY_CLI(file) && R9_CLI.test(text)) {
       v.push({ rule: 'R9', file, line, msg: 'Turns on retries (--retries): a test that needs a retry to pass is flaky. Fix it, or delete it and say why in the PR' + R9_TAIL });
     }
   }
   return v;
+}
+
+/* git C-quotes a path with ", \ or a control character ("b/a\"b.spec.js"); quotePath=false covers only non-ASCII.
+   Unquoted here, or that file's lines would silently drop out of R9 (code review 2026-11-23) */
+export function unquote(q) {
+  const bytes = [], esc = { a: 7, b: 8, t: 9, n: 10, v: 11, f: 12, r: 13 };
+  for (let i = 1; i < q.length && !(q[i] === '"' && i === q.length - 1); i++) {
+    if (q[i] !== '\\') { bytes.push(...Buffer.from(q[i])); continue; }
+    const c = q[++i];
+    if (/[0-7]/.test(c)) { bytes.push(parseInt(q.slice(i, i + 3), 8)); i += 2; } else bytes.push(esc[c] ?? c.charCodeAt(0));
+  }
+  return Buffer.from(bytes).toString('utf8');
 }
 
 /* unified diff (-U0) → added lines in R9's scope. The same header handling as secret-scan's scanDiff, copied on purpose:
@@ -193,7 +210,7 @@ export function addedLines(out) {
     if (l.startsWith('diff --git ')) { inHeader = true; file = null; continue; }
     const h = /^@@ -\d+(?:,\d+)? \+(\d+)/.exec(l);
     if (inHeader) {
-      if (l.startsWith('+++ ')) file = l === '+++ /dev/null' ? null : l.slice(4).replace(/^b\//, '').replace(/\t.*$/, '');
+      if (l.startsWith('+++ ')) file = l === '+++ /dev/null' ? null : (l[4] === '"' ? unquote(l.slice(4)) : l.slice(4).replace(/\t.*$/, '')).replace(/^b\//, '');
       if (h) { line = Number(h[1]); inHeader = false; }
       continue;
     }

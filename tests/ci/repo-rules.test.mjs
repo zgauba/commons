@@ -7,7 +7,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { check, checkAdded, addedLines, REFS } from './repo-rules.mjs';
+import { check, checkAdded, addedLines, unquote, REFS } from './repo-rules.mjs';
 
 const SCRIPT = fileURLToPath(new URL('./repo-rules.mjs', import.meta.url));
 const rules = (...files) => check(files.map(([file, text]) => ({ file, text }))).violations.map((x) => x.rule);
@@ -116,7 +116,7 @@ test('R9: non-zero retries in a config, a spec or a workflow / package.json flag
 test('R9 near-misses: comments, strings, docs, retries 0 and code outside tests/ pass', () => {
   for (const line of ['// never page.waitForTimeout(500): use page.clock', '/* test.skip( */ await expect(x).toBeVisible();',
     ' * waitForTimeout( in a block comment', "assert.deepEqual(r9(SPEC, 'await page.waitForTimeout(500);'), ['R9']);",
-    'const s = "test.skip(";', 'const t = `retries: 2`;', '  retries: 0,', '{ retries: 0 }', 'retries: 0', 'await page.clock.fastForward("00:05");',
+    'const s = "test.skip(";', '/* a */ expect(x).toBe(1);', ' * waitForTimeout( */', 'const t = `retries: 2`;', '  retries: 0,', '{ retries: 0 }', 'retries: 0', 'await page.clock.fastForward("00:05");',
     'const skipped = rows.filter((r) => r.skip);', 'await page.waitForFunction(() => window.ready);']) {
     assert.deepEqual(r9(SPEC, line), [], line);
   }
@@ -124,6 +124,22 @@ test('R9 near-misses: comments, strings, docs, retries 0 and code outside tests/
   assert.deepEqual(r9('commons/assets/app.js', 'setTimeout(f, 500); list.skip(1); retries: 3'), []);
   assert.deepEqual(r9('.github/workflows/x.yml', 'run: npx playwright test --retries=0'), []);
   assert.deepEqual(r9('.github/workflows/x.yml', 'retries: 2  # not a Playwright flag'), []);
+});
+
+test('R9: code after a block comment on the same line is still read', () => {
+  for (const line of ['/* x */ await page.waitForTimeout(5);', '   */ await page.waitForTimeout(5);', ' * end */ test.skip("x", () => {});']) {
+    assert.deepEqual(r9(SPEC, line), ['R9'], line);
+  }
+  for (const line of ['foo(); // x\rawait page.waitForTimeout(3);', 'foo(); // x\u2028test.skip("y", f);']) assert.deepEqual(r9(SPEC, line), ['R9'], JSON.stringify(line));
+  assert.deepEqual(r9(SPEC, 'expect(x).toBe(1); // no waitForTimeout(\r'), []);
+});
+
+test('R9: a C-quoted file name in the diff header is unquoted, not dropped', () => {
+  assert.equal(unquote('"b/tests/e2e/a\\"b.spec.js"'), 'b/tests/e2e/a"b.spec.js');
+  assert.equal(unquote('"b/tests/e2e/a\\tb\\\\c\\303\\251.spec.js"'), 'b/tests/e2e/a\tb\\cé.spec.js');
+  const diff = ['diff --git "a/tests/e2e/a\\"b.spec.js" "b/tests/e2e/a\\"b.spec.js"', 'new file mode 100644', '--- /dev/null',
+    '+++ "b/tests/e2e/a\\"b.spec.js"', '@@ -0,0 +1 @@', '+await page.waitForTimeout(5);'].join('\n');
+  assert.deepEqual(checkAdded(addedLines(diff)).map((v) => [v.file, v.line]), [['tests/e2e/a"b.spec.js', 1]]);
 });
 
 test('R9 reads added lines only, with their new line numbers; deleted files and removed lines are ignored', () => {
@@ -267,4 +283,12 @@ test('CLI R9 local mode: an uncommitted new spec with a sleep fails; outside a g
   const plain = run('--root', repo());
   assert.equal(plain.status, 0, plain.stderr);
   assert.match(plain.stdout, /not a git checkout, R9 skipped/);
+});
+
+test('CLI R9: a spec whose name git quotes (a " in it) is still checked', () => {
+  const r = gitRepo();
+  r.commit({ 'tests/e2e/specs/a"b.spec.js': 'await page.waitForTimeout(5);\n' });
+  const bad = ci(r, 1);
+  assert.equal(bad.status, 1, bad.stdout);
+  assert.match(bad.stderr, /a"b\.spec\.js,line=1::R9/);
 });
