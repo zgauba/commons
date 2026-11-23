@@ -1,0 +1,40 @@
+# Repo rules (harness-autonomy-plan B1, 2026-11-23): the CLAUDE.md rules a script can check — Supabase project
+# separation (R1–R3), personal-page wording and no phone number (R4–R6), credit links (R7), "football" (R8).
+# The same script runs locally before Claude may finish a session (.claude/verify.sh).
+# Runs on pull_request_target, like the other gates: this file and the script come from the base branch, so a PR
+# can't weaken the check it must pass. The PR is checked out as data in ./pr and only read, never run.
+# A PR that changes tests/ci/repo-rules*.mjs is checked by the old script; its new version runs once merged.
+# No path filter on purpose: a required check must report on every PR, or GitHub waits on it forever.
+name: Repo rules
+
+on:
+  pull_request_target:
+
+permissions:
+  contents: read
+
+jobs:
+  repo-rules:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      # the rule script, from the base branch
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          path: base
+          sparse-checkout: tests/ci
+          persist-credentials: false
+      # the PR, as data only, in its own folder: nothing is copied over it and nothing from it runs
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          path: pr
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020  # v4
+        with:
+          node-version: 20
+      - name: Rule tests
+        run: node --test base/tests/ci/repo-rules.test.mjs
+      - name: Check the PR against R1–R8
+        run: node base/tests/ci/repo-rules.mjs --root pr
