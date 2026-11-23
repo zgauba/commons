@@ -7,7 +7,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { check, REFS } from './repo-rules.mjs';
+import { check, checkAdded, addedLines, REFS } from './repo-rules.mjs';
 
 const SCRIPT = fileURLToPath(new URL('./repo-rules.mjs', import.meta.url));
 const rules = (...files) => check(files.map(([file, text]) => ({ file, text }))).violations.map((x) => x.rule);
@@ -90,6 +90,53 @@ test('R8: "soccer" in Commons copy fails; football and code comments outside cop
   assert.deepEqual(rules(['commons/assets/vendor/lib.js', 'soccer']), []);
 });
 
+const r9 = (file, ...lines) => checkAdded(lines.map((text, i) => ({ file, line: i + 1, text }))).map((x) => x.rule);
+const SPEC = 'tests/e2e/specs/x.spec.js';
+
+test('R9: sleeps, skips and fixmes on added test lines fail', () => {
+  for (const line of ['  await page.waitForTimeout(500);', 'await page.waitForTimeout (1)', 'test.skip("x", async () => {});',
+    'test.fixme("x", async () => {});', 'test.describe.skip("group", () => {});', 'describe.skip("g", () => {});',
+    'it.skip("x", () => {});', 'test.skip(browserName === "webkit", "flaky");', 't.skip();']) {
+    assert.deepEqual(r9(SPEC, line), ['R9'], line);
+  }
+  for (const f of ['tests/e2e/shots/shot.spec.js', 'tests/e2e/smoke/real-backend.smoke.js', 'tests/e2e/specs/stub.js', 'tests/ci/x.test.mjs', 'tests/e2e/x.ts']) {
+    assert.deepEqual(r9(f, 'await page.waitForTimeout(500);'), ['R9'], f);
+  }
+});
+
+test('R9: non-zero retries in a config, a spec or a workflow / package.json flag fail', () => {
+  for (const line of ['  retries: 2,', 'retries: process.env.CI ? 2 : 0,', 'test.describe.configure({ retries: 1 });', 'retries:1']) {
+    assert.deepEqual(r9('tests/e2e/playwright.config.js', line), ['R9'], line);
+  }
+  assert.deepEqual(r9('.github/workflows/commons-e2e.yml', '        run: npx playwright test --project=mobile --retries=2'), ['R9']);
+  assert.deepEqual(r9('.github/workflows/x.yaml', 'run: npx playwright test --retries 3'), ['R9']);
+  assert.deepEqual(r9('tests/e2e/package.json', '"test": "playwright test --retries=2"'), ['R9']);
+});
+
+test('R9 near-misses: comments, strings, docs, retries 0 and code outside tests/ pass', () => {
+  for (const line of ['// never page.waitForTimeout(500): use page.clock', '/* test.skip( */ await expect(x).toBeVisible();',
+    ' * waitForTimeout( in a block comment', "assert.deepEqual(r9(SPEC, 'await page.waitForTimeout(500);'), ['R9']);",
+    'const s = "test.skip(";', 'const t = `retries: 2`;', '  retries: 0,', '{ retries: 0 }', 'retries: 0', 'await page.clock.fastForward("00:05");',
+    'const skipped = rows.filter((r) => r.skip);', 'await page.waitForFunction(() => window.ready);']) {
+    assert.deepEqual(r9(SPEC, line), [], line);
+  }
+  assert.deepEqual(r9('docs/qa/x.md', 'await page.waitForTimeout(500);'), []);
+  assert.deepEqual(r9('commons/assets/app.js', 'setTimeout(f, 500); list.skip(1); retries: 3'), []);
+  assert.deepEqual(r9('.github/workflows/x.yml', 'run: npx playwright test --retries=0'), []);
+  assert.deepEqual(r9('.github/workflows/x.yml', 'retries: 2  # not a Playwright flag'), []);
+});
+
+test('R9 reads added lines only, with their new line numbers; deleted files and removed lines are ignored', () => {
+  const diff = ['diff --git a/tests/e2e/specs/a.spec.js b/tests/e2e/specs/a.spec.js', '--- a/tests/e2e/specs/a.spec.js', '+++ b/tests/e2e/specs/a.spec.js',
+    '@@ -10 +10,2 @@', '-  await page.waitForTimeout(800);', '+  await expect(x).toBeVisible();', '+  await page.waitForTimeout(100);',
+    'diff --git a/tests/e2e/specs/b.spec.js b/tests/e2e/specs/b.spec.js', '--- a/tests/e2e/specs/b.spec.js', '+++ /dev/null',
+    '@@ -1 +0,0 @@', '-await page.waitForTimeout(1);',
+    'diff --git a/docs/x.md b/docs/x.md', '--- a/docs/x.md', '+++ b/docs/x.md', '@@ -0,0 +1 @@', '+waitForTimeout('].join('\n');
+  const lines = addedLines(diff);
+  assert.deepEqual(lines.map((l) => [l.file, l.line]), [['tests/e2e/specs/a.spec.js', 10], ['tests/e2e/specs/a.spec.js', 11]]);
+  assert.deepEqual(checkAdded(lines).map((v) => [v.rule, v.line]), [['R9', 11]]);
+});
+
 /* ---------- CLI ---------- */
 function repo({ migrations = 40, extra = {} } = {}) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'repo-rules-'));
@@ -102,7 +149,9 @@ function repo({ migrations = 40, extra = {} } = {}) {
   for (const [f, t] of Object.entries(extra)) put(f, t);
   return dir;
 }
-const run = (...args) => spawnSync(process.execPath, [SCRIPT, ...args], { encoding: 'utf8' });
+// GITHUB_ACTIONS removed: in CI the script refuses to run without --base, and these temp folders aren't PR checkouts
+const ENV = { ...process.env }; delete ENV.GITHUB_ACTIONS;
+const run = (...args) => spawnSync(process.execPath, [SCRIPT, ...args], { encoding: 'utf8', env: ENV });
 
 test('CLI: a clean repo passes; a violation exits 1 with a file + line annotation', () => {
   const ok = run('--root', repo());
@@ -150,7 +199,72 @@ test('CLI: runs when invoked through a symlinked path', () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'repo-rules-link-'));
   const link = path.join(dir, 'repo-rules.mjs');
   fs.symlinkSync(SCRIPT, link);
-  const r = spawnSync(process.execPath, [link, '--root', repo()], { encoding: 'utf8' });
+  const r = spawnSync(process.execPath, [link, '--root', repo()], { encoding: 'utf8', env: ENV });
   assert.equal(r.status, 0, r.stderr);
   assert.match(r.stdout, /repo-rules: OK/);
+});
+
+/* ---------- CLI: R9 on a git checkout ---------- */
+const SLEEPY = 'test("a", async ({ page }) => {\n  await page.goto("/");\n  await page.waitForTimeout(800);\n});\n';
+function gitRepo() {
+  const dir = repo({ extra: { [SPEC]: SLEEPY } });
+  const g = (...a) => spawnSync('git', ['-C', dir, '-c', 'user.name=t', '-c', 'user.email=t@t', ...a], { encoding: 'utf8' }).stdout.trim();
+  g('init', '-q'); g('add', '-A'); g('commit', '-qm', 'base');
+  const base = g('rev-parse', 'HEAD');
+  const commit = (files) => {
+    for (const [f, t] of Object.entries(files)) { fs.mkdirSync(path.dirname(path.join(dir, f)), { recursive: true }); fs.writeFileSync(path.join(dir, f), t); }
+    g('add', '-A'); g('commit', '-qm', 'pr');
+  };
+  return { dir, base, commit };
+}
+const ci = (r, expect) => run('--root', r.dir, '--base', r.base, '--expect-files', String(expect));
+
+test('CLI R9: an edit next to an existing sleep passes; editing the sleep line itself fails at that line', () => {
+  const near = gitRepo();
+  near.commit({ [SPEC]: SLEEPY.replace('page.goto("/")', 'page.goto("/home")') });
+  const ok = ci(near, 1);
+  assert.equal(ok.status, 0, ok.stderr);
+  assert.match(ok.stdout, /R9 read 1 added line/);
+  const on = gitRepo();
+  on.commit({ [SPEC]: SLEEPY.replace('(800)', '(400)') });
+  const bad = ci(on, 1);
+  assert.equal(bad.status, 1);
+  assert.match(bad.stderr, /::error file=tests\/e2e\/specs\/x\.spec\.js,line=3::R9: Adds a fixed sleep/);
+});
+
+test('CLI R9 fails closed: unknown base, fewer files than GitHub reports, missing --base in CI, bad --base', () => {
+  const r = gitRepo();
+  r.commit({ 'docs/a.md': 'x' });
+  assert.equal(ci(r, 1).status, 0);
+  const unknown = run('--root', r.dir, '--base', 'deadbeef', '--expect-files', '1');
+  assert.equal(unknown.status, 1);
+  assert.match(unknown.stderr, /could not read the diff for R9/);
+  const short = ci(r, 2);
+  assert.equal(short.status, 1);
+  assert.match(short.stderr, /saw 1 changed file\(s\) but the PR has 2/);
+  const noBase = spawnSync(process.execPath, [SCRIPT, '--root', r.dir], { encoding: 'utf8', env: { ...ENV, GITHUB_ACTIONS: 'true' } });
+  assert.equal(noBase.status, 1);
+  assert.match(noBase.stderr, /in CI, pass --base/);
+  assert.equal(run('--root', r.dir, '--base', '--output=x', '--expect-files', '1').status, 1);
+  assert.equal(run('--root', r.dir, '--base', r.base).status, 1);                              // --expect-files missing
+});
+
+test('CLI R9: a PR .gitattributes marking everything -diff / binary does not hide an added sleep', () => {
+  const r = gitRepo();
+  r.commit({ '.gitattributes': '* -diff\n*.js binary\n', [SPEC]: SLEEPY + 'test("b", async ({ page }) => { await page.waitForTimeout(5); });\n' });
+  const bad = ci(r, 2);
+  assert.equal(bad.status, 1);
+  assert.match(bad.stderr, /x\.spec\.js,line=5::R9/);
+});
+
+test('CLI R9 local mode: an uncommitted new spec with a sleep fails; outside a git checkout R9 is skipped, not failed', () => {
+  const r = gitRepo();
+  fs.writeFileSync(path.join(r.dir, 'tests/e2e/specs/new.spec.js'), 'test.fixme("later", () => {});\n');
+  const bad = run('--root', r.dir);
+  assert.equal(bad.status, 1);
+  assert.match(bad.stdout, /no origin\/main/);
+  assert.match(bad.stderr, /new\.spec\.js,line=1::R9: Skips a test/);
+  const plain = run('--root', repo());
+  assert.equal(plain.status, 0, plain.stderr);
+  assert.match(plain.stdout, /not a git checkout, R9 skipped/);
 });

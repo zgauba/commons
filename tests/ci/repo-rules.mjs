@@ -8,11 +8,19 @@
 //   R6 personal page: already in Abu Dhabi — no "relocating" / "planning to move"
 //   R7 credit links go to https://zgauba.github.io/, never the /jubail/ redirect stub
 //   R8 Commons user-facing copy says "football", never "soccer"
+//   R9 (harness PR 4b) no fixed sleeps (waitForTimeout), skipped tests (.skip / .fixme) or retries on the lines a change
+//      ADDS (CLAUDE.md §14). The only rule that reads the diff, not the tree, so today's 34 sleeps pass until someone
+//      edits that line (an edit or a file rename counts as adding it). No allow marker, by decision (Zee, 2026-11-23).
+//      In test code, comments and string contents are blanked first, so prose and fixtures that name a pattern pass.
 // One script for CI (repo-rules.yml runs main's copy against the PR, checked out as data in ./pr) and for the local
-// verify gate (.claude/verify.sh). Usage: node tests/ci/repo-rules.mjs [--root <repo dir>]   (no dependencies)
+// verify gate (.claude/verify.sh).
+// Usage: node tests/ci/repo-rules.mjs [--root <repo dir>] [--base <sha> --expect-files <n>]   (no dependencies)
+//   with --base (CI): R9 reads base...HEAD in --root, and fails closed if that diff has fewer files than GitHub reports;
+//   without it (local): R9 reads everything since the merge base with origin/main, uncommitted and new files included.
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { git, DIFF } from './secret-scan.mjs';
 
 export const REFS = { signalpost: 'hrdmhifeynnokzjqtlsa', commons: 'qrpxfssdeeuzmsmlbtbu' };
 // migrations written before the header rule; they predate it and stay as they are. Never add to this list.
@@ -128,6 +136,102 @@ export function collect(root) {
   return out.sort((a, b) => a.file.localeCompare(b.file));
 }
 
+/* ---------- R9: lines a change adds ---------- */
+const TEST_CODE = (f) => /^tests\/.+\.[cm]?[jt]s$/.test(f);
+const RETRY_CLI = (f) => /^\.github\/workflows\/[^/]+\.ya?ml$/.test(f) || /^tests\/(.+\/)?package\.json$/.test(f);
+const R9_SCOPE = (f) => TEST_CODE(f) || RETRY_CLI(f);
+const R9_CODE = [
+  [/\bwaitForTimeout\s*\(/, 'Adds a fixed sleep (waitForTimeout). Wait for the condition instead (expect, waitForFunction, waitForResponse) or fake time with page.clock'],
+  [/\.(?:skip|fixme)\s*\(/, 'Skips a test (.skip / .fixme). Fix the root cause, or delete the test and say why in the PR'],
+  [/\bretries\s*:\s*(?!0\s*(?:[,}\]]|$))\S/, 'Turns on retries: a test that needs a retry to pass is flaky. Fix it, or delete it and say why in the PR'],
+];
+const R9_CLI = /--retries(?:=|\s+)(?!0\b)\S/;
+const R9_TAIL = ' (CLAUDE.md §14; editing an existing line counts as adding it).';
+
+/* one line of JS with comments and string contents blanked (a lint, not a parser: a regex literal with a quote fools it) */
+export function codeOnly(line) {
+  if (/^\s*(?:\*|\/\*)/.test(line)) return '';           // inside or opening a block comment
+  let out = '', q = null;
+  for (let i = 0; i < line.length; i++) {
+    const c = line[i];
+    if (q) {
+      if (c === '\\') { out += '  '; i++; } else if (c === q) { q = null; out += c; } else out += ' ';
+      continue;
+    }
+    if (c === '"' || c === "'" || c === '`') { q = c; out += c; continue; }
+    if (c === '/' && line[i + 1] === '/') break;
+    if (c === '/' && line[i + 1] === '*') {
+      const end = line.indexOf('*/', i + 2);
+      if (end < 0) break;
+      out += ' '.repeat(end + 2 - i); i = end + 1; continue;
+    }
+    out += c;
+  }
+  return out;
+}
+
+/* added lines [{ file, line, text }] → R9 violations */
+export function checkAdded(lines) {
+  const v = [];
+  for (const { file, line, text } of lines) {
+    if (TEST_CODE(file)) {
+      const code = codeOnly(text);
+      for (const [re, msg] of R9_CODE) if (re.test(code)) v.push({ rule: 'R9', file, line, msg: msg + R9_TAIL });
+    } else if (RETRY_CLI(file) && R9_CLI.test(text)) {
+      v.push({ rule: 'R9', file, line, msg: 'Turns on retries (--retries): a test that needs a retry to pass is flaky. Fix it, or delete it and say why in the PR' + R9_TAIL });
+    }
+  }
+  return v;
+}
+
+/* unified diff (-U0) → added lines in R9's scope. The same header handling as secret-scan's scanDiff, copied on purpose:
+   scanDiff returns secret findings, not lines, and secret-scan's logic stays untouched (PR 4b, Zee) */
+export function addedLines(out) {
+  const res = [];
+  let file = null, line = 0, inHeader = false;
+  for (const l of out.split('\n')) {
+    if (l.startsWith('diff --git ')) { inHeader = true; file = null; continue; }
+    const h = /^@@ -\d+(?:,\d+)? \+(\d+)/.exec(l);
+    if (inHeader) {
+      if (l.startsWith('+++ ')) file = l === '+++ /dev/null' ? null : l.slice(4).replace(/^b\//, '').replace(/\t.*$/, '');
+      if (h) { line = Number(h[1]); inHeader = false; }
+      continue;
+    }
+    if (h) { line = Number(h[1]); continue; }
+    if (file && l.startsWith('+')) {
+      if (R9_SCOPE(file)) res.push({ file, line, text: l.slice(1) });
+      line += 1;
+    }
+  }
+  return res;
+}
+
+/* → { lines, files, note } ; throws when git fails: an unread diff must never read as "nothing added" */
+export function readAdded(root, base) {
+  const split = (o) => o.split('\0').filter(Boolean);
+  if (base) {
+    if (!/^[0-9a-f]{7,40}$/i.test(base)) throw new Error(`--base must be a commit sha, got "${base}"`);
+    const net = `${base}...HEAD`;
+    return { lines: addedLines(git(root, ['diff', ...DIFF, net])), files: split(git(root, ['diff', '--name-only', '-z', '--no-renames', net])).length };
+  }
+  let top;
+  try { top = git(root, ['rev-parse', '--show-toplevel']).trim(); } catch { top = null; }
+  if (!top || fs.realpathSync(top) !== fs.realpathSync(root)) return { lines: [], files: 0, note: 'not a git checkout, R9 skipped' };
+  let from, note;
+  try { from = git(root, ['merge-base', 'HEAD', 'origin/main']).trim(); } catch {
+    from = git(root, ['rev-parse', 'HEAD']).trim(); note = 'no origin/main, R9 read uncommitted changes only';
+  }
+  const lines = addedLines(git(root, ['diff', ...DIFF, from]));
+  const fresh = split(git(root, ['ls-files', '--others', '--exclude-standard', '-z']));
+  for (const f of fresh.filter(R9_SCOPE)) {
+    const st = fs.lstatSync(path.join(root, f));
+    if (st.isSymbolicLink()) throw new Error(`${f} is a symlink — repo-rules doesn't follow symlinks`);
+    if (st.size > MAX_BYTES) throw new Error(`${f} is over ${MAX_BYTES} bytes — too big to check`);
+    fs.readFileSync(path.join(root, f), 'utf8').split('\n').forEach((text, i) => lines.push({ file: f, line: i + 1, text }));
+  }
+  return { lines, files: split(git(root, ['diff', '--name-only', '-z', '--no-renames', from])).length + fresh.length, note };
+}
+
 const prop = (s) => String(s).replace(/%/g, '%25').replace(/\r/g, '%0D').replace(/\n/g, '%0A').replace(/:/g, '%3A').replace(/,/g, '%2C');
 const data = (s) => String(s).replace(/%/g, '%25').replace(/\r/g, '%0D').replace(/\n/g, '%0A');
 
@@ -141,6 +245,18 @@ if (process.argv[1] && isMain()) {
   try { files = collect(ROOT); } catch (e) { console.error(`::error::repo-rules: ${data(e.message)}`); process.exit(1); }
   const { violations, counts } = check(files);
   console.log(`repo-rules: read ${files.length} files (${counts.migrations} migrations, ${counts.personal} personal-page, ${counts.copy} Commons copy, ${counts.credit} credit-scope).`);
+  const arg = (n) => { const i = process.argv.indexOf(n); return i > 0 ? process.argv[i + 1] : undefined; };
+  const base = arg('--base'), expect = arg('--expect-files');
+  if (process.env.GITHUB_ACTIONS && !base) { console.error('::error::repo-rules: in CI, pass --base <sha> --expect-files <n> so R9 reads the PR diff — failing closed.'); process.exit(1); }
+  if (base && !/^\d+$/.test(expect || '')) { console.error('::error::repo-rules: --base needs --expect-files <n> (the PR\'s changed-file count).'); process.exit(1); }
+  let added;
+  try { added = readAdded(ROOT, base); } catch (e) { console.error(`::error::repo-rules could not read the diff for R9 (${data(String(e.message).split('\n')[0])}) — failing closed.`); process.exit(1); }
+  if (base && added.files < Number(expect)) {
+    console.error(`::error::repo-rules saw ${added.files} changed file(s) but the PR has ${expect} — R9 read the wrong range; failing closed.`);
+    process.exit(1);
+  }
+  console.log(`repo-rules: R9 read ${added.lines.length} added line(s) of test code / retry flags in ${added.files} changed file(s)${added.note ? ` (${added.note})` : ''}.`);
+  violations.push(...checkAdded(added.lines));
   const short = Object.entries(MIN).filter(([k, n]) => counts[k] < n);
   if (short.length) {
     console.error(`::error::repo-rules read too little (${short.map(([k, n]) => `${k} ${counts[k]} < ${n}`).join(', ')}) — the check is broken, not passing.`);
@@ -148,5 +264,5 @@ if (process.argv[1] && isMain()) {
   }
   for (const x of violations) console.error(`::error file=${prop(x.file)},line=${x.line}::${x.rule}: ${data(x.msg)}`);
   if (violations.length) { console.error(`repo-rules: ${violations.length} violation(s).`); process.exit(1); }
-  console.log('repo-rules: OK (R1–R8).');
+  console.log('repo-rules: OK (R1–R9).');
 }
