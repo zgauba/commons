@@ -19,7 +19,7 @@ const require = createRequire(import.meta.url);
 const { scanLine, isEnvFile } = require('./secret-patterns.cjs');
 
 // Pinned prefixes, no renames, no external diff or textconv drivers (as the local scan), plus -a: every file as text.
-const DIFF = ['-a', '-U0', '--no-color', '--no-ext-diff', '--no-textconv', '--no-renames', '--src-prefix=a/', '--dst-prefix=b/'];
+export const DIFF = ['-a', '-U0', '--no-color', '--no-ext-diff', '--no-textconv', '--no-renames', '--src-prefix=a/', '--dst-prefix=b/'];
 const ALLOW = 'secret-scan:allow';
 export const allowHonoured = (file) => /^tests\/.+\.(test|spec)\.[cm]?[jt]s$/.test(file);
 
@@ -52,7 +52,7 @@ export function scanNames(names) {
 
 // no system or global git config, no system attributes: only the flags above decide how the diff reads
 const GIT_ENV = { ...process.env, GIT_CONFIG_NOSYSTEM: '1', GIT_CONFIG_GLOBAL: '/dev/null', GIT_ATTR_NOSYSTEM: '1' };
-function git(repo, args) {
+export function git(repo, args) {
   return execFileSync('git', ['-C', repo, '-c', 'core.quotePath=false', ...args], { encoding: 'utf8', maxBuffer: 256 * 1024 * 1024, env: GIT_ENV });
 }
 
