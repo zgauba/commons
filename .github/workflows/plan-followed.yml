@@ -6,10 +6,12 @@
 # A database-only PR (supabase/) needs "## Done when". Copy-only PRs can carry the label "plan-not-needed".
 # The headings are a contract with ~/.claude/skills/ship-pr ("PR body contract") — change both together.
 # Reads the PR through the API — no checkout, nothing from the PR branch runs; the body is never put in a command.
+# Runs on pull_request_target (harness-autonomy-plan PR 3a, 2026-11-23): GitHub always uses main's copy of this file,
+# so a PR that edits this check can't pass it by doing so. Read-only token, no secrets, and nothing from the PR runs.
 name: Plan followed
 
 on:
-  pull_request:
+  pull_request_target:
     types: [opened, synchronize, reopened, edited, labeled, unlabeled]
 
 permissions:

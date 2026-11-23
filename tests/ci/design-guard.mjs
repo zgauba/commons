@@ -7,7 +7,9 @@
 // The baseline may only SHRINK: more occurrences than listed fails; fewer fails too ("fixed — lower the count /
 // delete the line"); and CI (--base) fails if the PR's baseline lists more than the base branch's does.
 // Nested CSS ("& input { }") is refused, not silently skipped.
-// Usage: node tests/ci/design-guard.mjs [--write-baseline] [--base <base branch's baseline file>]   (no dependencies)
+// Usage: node tests/ci/design-guard.mjs [--root <repo dir>] [--write-baseline] [--base <base branch's baseline file>]
+//   --root: check another checkout (CI runs main's copy of this script against the PR, checked out as data in ./pr).
+//   (no dependencies)
 import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
@@ -198,15 +200,19 @@ export function grew(prBaseline, baseBaseline) {
 
 /* ---------- CLI ---------- */
 const here = path.dirname(fileURLToPath(import.meta.url));
-const ROOT = path.resolve(here, '..', '..');
-const BASELINE = path.join(here, 'design-guard-baseline.txt');
+const ri = process.argv.indexOf('--root');
+const ROOT = ri > 0 ? path.resolve(process.argv[ri + 1] || '.') : path.resolve(here, '..', '..');
+const BASELINE = path.join(ROOT, 'tests', 'ci', 'design-guard-baseline.txt');
 const MIN_FILES = 8, MIN_RULES = 200;   // zero-output guard: a guard that read nothing must not pass
 
 function collect() {
   const out = [];
+  if (!fs.lstatSync(path.join(ROOT, 'commons')).isDirectory()) throw new Error('commons/ is not a plain directory');
   (function walk(rel) {
     for (const e of fs.readdirSync(path.join(ROOT, rel), { withFileTypes: true })) {
       const r = path.posix.join(rel, e.name);
+      // a symlink could hide CSS from the walk or point it elsewhere (security review 2026-11-23) — refuse it
+      if (e.isSymbolicLink()) throw new Error(`${r} is a symlink — design-guard doesn't follow symlinks under commons/`);
       if (e.isDirectory()) { if (e.name !== 'vendor' && e.name !== 'node_modules') walk(r); }
       else if (e.name.endsWith('.css')) out.push({ file: r, text: fs.readFileSync(path.join(ROOT, r), 'utf8'), module: !r.startsWith('commons/assets/') });
     }
@@ -214,8 +220,12 @@ function collect() {
   return out.sort((a, b) => a.file.localeCompare(b.file));
 }
 
-if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
-  const res = check(collect());
+// realpaths on both sides: through a symlinked path the plain comparison is false and the guard would exit 0 unrun
+const isMain = () => { try { return fs.realpathSync(process.argv[1]) === fs.realpathSync(fileURLToPath(import.meta.url)); } catch { return false; } };
+if (process.argv[1] && isMain()) {
+  let files;
+  try { files = collect(); } catch (e) { console.error(`::error::design-guard: ${e.message}`); process.exit(1); }
+  const res = check(files);
   const found = tally(res);
   console.log(`design-guard: read ${res.counts.files} CSS files, ${res.counts.rules} rules; ${res.bare.length} bare-element, ${res.dup.length} duplicate bodies.`);
   let fail = false;

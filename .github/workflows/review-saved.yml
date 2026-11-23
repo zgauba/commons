@@ -3,10 +3,12 @@
 # docs/qa/ (file name containing "review"). Trivial copy-only PRs can carry the label
 # "review-not-needed" instead. Reads the PR's file list through the API — no checkout,
 # so nothing from the PR branch is ever executed here.
+# Runs on pull_request_target (harness-autonomy-plan PR 3a, 2026-11-23): GitHub always uses main's copy of this file,
+# so a PR that edits this check can't pass it by doing so. Read-only token, no secrets, and nothing from the PR runs.
 name: Review saved
 
 on:
-  pull_request:
+  pull_request_target:
     types: [opened, synchronize, reopened, labeled, unlabeled]
 
 permissions:
