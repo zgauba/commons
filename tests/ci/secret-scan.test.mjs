@@ -7,7 +7,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { execFileSync, spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { scanDiff, scanNames } from './secret-scan.mjs';
+import { scanDiff, scanNames, addedLines, unquote } from './secret-scan.mjs';
 
 const SCRIPT = path.join(path.dirname(fileURLToPath(import.meta.url)), 'secret-scan.mjs');
 const b64 = (o) => Buffer.from(JSON.stringify(o)).toString('base64url');
@@ -99,11 +99,12 @@ test('CLI: zero-output guard — fewer files in the diff than GitHub reports fai
   assert.match(p.stderr, /saw 1 changed file\(s\) but the PR has 3/);
 });
 
-test('CLI: an unreadable range fails closed instead of passing', () => {
+test('CLI: an unreadable range fails closed, with one escaped line and no raw git text in the log', () => {
   const r = repoWith({ 'docs/note.md': 'hello\n' });
   const p = run({ ...r, head: 'f'.repeat(40) }, 1);
   assert.strictEqual(p.status, 1);
-  assert.match(p.stderr, /could not read the PR diff/);
+  assert.match(p.stderr, /^::error::secret-scan could not read the PR diff \(.*\) — failing closed\.\n$/);
+  assert.ok(!/fatal:/.test(p.stdout + p.stderr), 'git stderr reached the log');
 });
 
 // Bypasses found in the security review (2026-11-23); each must fail the scan.
@@ -135,4 +136,38 @@ test('CLI: an annotation-breaking file name is neutralised', () => {
   const p = run(repoWith({ 'commons/a,b::c.env.js': `${NAMED}\n` }), 1);
   assert.strictEqual(p.status, 1);
   assert.match(p.stdout, /::error file=commons\/a_b__c\.env\.js,line=1::secret-scan: named-secret/);
+});
+
+// PR4c: one parser for secret-scan and R9. git C-quotes names with ", \ or a control character, and ends a name that holds
+// a space with a tab, after the closing quote when quoted.
+const qdiff = (quoted, added) => [`diff --git ${quoted.replace('b/', 'a/')} ${quoted}`, 'new file mode 100644', '--- /dev/null',
+  `+++ ${quoted}`, `@@ -0,0 +1,${added.length} @@`, ...added.map((l) => '+' + l)].join('\n');
+
+test('addedLines returns every added line of a multi-file diff, with file and new line number', () => {
+  const out = [diff('a.js', ['1', '2']), diff('docs/b.md', ['3']), qdiff('"b/c\\"d.js"', ['4', '5'])].join('\n');
+  assert.deepStrictEqual(addedLines(out).map((l) => [l.file, l.line, l.text]),
+    [['a.js', 5, '1'], ['a.js', 6, '2'], ['docs/b.md', 5, '3'], ['c"d.js', 1, '4'], ['c"d.js', 2, '5']]);
+});
+
+test('a quoted name with a space keeps no quote or tab', () => {
+  assert.deepStrictEqual(addedLines(qdiff('"b/x y\\"z.js"\t', ['k'])).map((l) => l.file), ['x y"z.js']);
+});
+
+test('secret-scan:allow is honoured on a quoted-name test file and refused on a quoted-name non-test file', () => {
+  assert.deepStrictEqual(scanDiff(qdiff('"b/tests/e2e/a\\"b.spec.js"', [`${NAMED} // secret-scan:allow`])), []);
+  assert.deepStrictEqual(scanDiff(qdiff('"b/commons/a\\"b.js"', [`${NAMED} // secret-scan:allow`])),
+    [{ file: 'commons/a"b.js', line: 1, rule: 'named-secret' }]);
+});
+
+test('CLI: a key in a file whose name git quotes is reported under its real name', () => {
+  const p = run(repoWith({ 'commons/a"b.js': `${NAMED}\n`, 'commons/t\tab.js': `${NAMED}\n`, 'commons/s p"q.js': `${NAMED}\n` }), 3);
+  assert.strictEqual(p.status, 1, p.stdout + p.stderr);
+  for (const f of ['commons/a"b.js', 'commons/t\tab.js', 'commons/s p"q.js']) {
+    assert.ok(p.stdout.includes(`::error file=${f},line=1::secret-scan: named-secret`), `${JSON.stringify(f)} not named:\n${p.stdout}`);
+  }
+});
+
+test('unquote keeps characters outside the BMP (an emoji is two UTF-16 units)', () => {
+  assert.strictEqual(unquote('"b/commons/\u{1F600}\\"e.js"'), 'b/commons/\u{1F600}"e.js');
+  assert.strictEqual(unquote('"b/\\360\\237\\230\\200\\"e.js"'), 'b/\u{1F600}"e.js');
 });

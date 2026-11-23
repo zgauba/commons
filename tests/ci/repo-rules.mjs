@@ -20,7 +20,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { git, DIFF } from './secret-scan.mjs';
+import { git, DIFF, addedLines as parseAdded, unquote, data } from './secret-scan.mjs';
 
 export const REFS = { signalpost: 'hrdmhifeynnokzjqtlsa', commons: 'qrpxfssdeeuzmsmlbtbu' };
 // migrations written before the header rule; they predate it and stay as they are. Never add to this list.
@@ -137,8 +137,9 @@ export function collect(root) {
 }
 
 /* ---------- R9: lines a change adds ---------- */
-const TEST_CODE = (f) => /^tests\/.+\.[cm]?[jt]s$/.test(f);
-const RETRY_CLI = (f) => /^\.github\/workflows\/[^/]+\.ya?ml$/.test(f) || /^tests\/(.+\/)?package\.json$/.test(f);
+// `s` flag: the parser returns real names, and a name may hold a newline — `.` must still match it (security review PR4c)
+const TEST_CODE = (f) => /^tests\/.+\.[cm]?[jt]s$/s.test(f);
+const RETRY_CLI = (f) => /^\.github\/workflows\/[^/]+\.ya?ml$/.test(f) || /^tests\/(.+\/)?package\.json$/s.test(f);
 const R9_SCOPE = (f) => TEST_CODE(f) || RETRY_CLI(f);
 const R9_CODE = [
   [/\bwaitForTimeout\s*\(/, 'Adds a fixed sleep (waitForTimeout). Wait for the condition instead (expect, waitForFunction, waitForResponse) or fake time with page.clock'],
@@ -189,39 +190,10 @@ export function checkAdded(lines) {
   return v;
 }
 
-/* git C-quotes a path with ", \ or a control character ("b/a\"b.spec.js"); quotePath=false covers only non-ASCII.
-   Unquoted here, or that file's lines would silently drop out of R9 (code review 2026-11-23) */
-export function unquote(q) {
-  const bytes = [], esc = { a: 7, b: 8, t: 9, n: 10, v: 11, f: 12, r: 13 };
-  for (let i = 1; i < q.length && !(q[i] === '"' && i === q.length - 1); i++) {
-    if (q[i] !== '\\') { bytes.push(...Buffer.from(q[i])); continue; }
-    const c = q[++i];
-    if (/[0-7]/.test(c)) { bytes.push(parseInt(q.slice(i, i + 3), 8)); i += 2; } else bytes.push(esc[c] ?? c.charCodeAt(0));
-  }
-  return Buffer.from(bytes).toString('utf8');
-}
-
-/* unified diff (-U0) → added lines in R9's scope. The same header handling as secret-scan's scanDiff, copied on purpose:
-   scanDiff returns secret findings, not lines, and secret-scan's logic stays untouched (PR 4b, Zee) */
-export function addedLines(out) {
-  const res = [];
-  let file = null, line = 0, inHeader = false;
-  for (const l of out.split('\n')) {
-    if (l.startsWith('diff --git ')) { inHeader = true; file = null; continue; }
-    const h = /^@@ -\d+(?:,\d+)? \+(\d+)/.exec(l);
-    if (inHeader) {
-      if (l.startsWith('+++ ')) file = l === '+++ /dev/null' ? null : (l[4] === '"' ? unquote(l.slice(4)) : l.slice(4).replace(/\t.*$/, '')).replace(/^b\//, '');
-      if (h) { line = Number(h[1]); inHeader = false; }
-      continue;
-    }
-    if (h) { line = Number(h[1]); continue; }
-    if (file && l.startsWith('+')) {
-      if (R9_SCOPE(file)) res.push({ file, line, text: l.slice(1) });
-      line += 1;
-    }
-  }
-  return res;
-}
+/* unified diff (-U0) → added lines in R9's scope. The parser (header handling, C-quoted names) is secret-scan's
+   addedLines, shared since PR4c; unquote is re-exported for the tests. */
+export { unquote };
+export const addedLines = (out) => parseAdded(out).filter(({ file }) => R9_SCOPE(file));
 
 /* → { lines, files, note } ; throws when git fails: an unread diff must never read as "nothing added" */
 export function readAdded(root, base) {
@@ -250,7 +222,6 @@ export function readAdded(root, base) {
 }
 
 const prop = (s) => String(s).replace(/%/g, '%25').replace(/\r/g, '%0D').replace(/\n/g, '%0A').replace(/:/g, '%3A').replace(/,/g, '%2C');
-const data = (s) => String(s).replace(/%/g, '%25').replace(/\r/g, '%0D').replace(/\n/g, '%0A');
 
 /* ---------- CLI ---------- */
 const isMain = () => { try { return fs.realpathSync(process.argv[1]) === fs.realpathSync(fileURLToPath(import.meta.url)); } catch { return false; } };

@@ -23,25 +23,17 @@ export const DIFF = ['-a', '-U0', '--no-color', '--no-ext-diff', '--no-textconv'
 const ALLOW = 'secret-scan:allow';
 export const allowHonoured = (file) => /^tests\/.+\.(test|spec)\.[cm]?[jt]s$/.test(file);
 
-// Unified diff (-U0) → findings on added lines. `+++ ` is a header only between `diff --git` and the first `@@`;
-// inside a hunk it is an added line that starts with "++". Mirrors parseDiff in git-guard.js.
+/* The diff parser is tests/ci/diff-lines.cjs: a byte copy of ~/.claude/scripts/hooks/lib/diff-lines.js, the one parser for
+   the local git-guard scan, this scan and repo-rules R9 (PR4c; a drift test in claude-config fails when they differ —
+   copy the file across, never edit the copy by hand). Re-exported for repo-rules and the tests. */
+const { addedLines, unquote } = require('./diff-lines.cjs');
+export { addedLines, unquote };
+
+// added lines → findings
 export function scanDiff(out) {
   const hits = [];
-  let file = null, line = 0, inHeader = false;
-  for (const l of out.split('\n')) {
-    if (l.startsWith('diff --git ')) { inHeader = true; file = null; continue; }
-    const h = /^@@ -\d+(?:,\d+)? \+(\d+)/.exec(l);
-    if (inHeader) {
-      if (l.startsWith('+++ ')) file = l === '+++ /dev/null' ? null : l.slice(4).replace(/^b\//, '').replace(/\t.*$/, '');
-      if (h) { line = Number(h[1]); inHeader = false; }
-      continue;
-    }
-    if (h) { line = Number(h[1]); continue; }
-    if (file && l.startsWith('+')) {
-      const text = allowHonoured(file) ? l.slice(1) : l.slice(1).split(ALLOW).join('');
-      for (const rule of scanLine(text)) hits.push({ file, line, rule });
-      line += 1;
-    }
+  for (const { file, line, text } of addedLines(out)) {
+    for (const rule of scanLine(allowHonoured(file) ? text : text.split(ALLOW).join(''))) hits.push({ file, line, rule });
   }
   return hits;
 }
@@ -50,11 +42,16 @@ export function scanNames(names) {
   return names.filter(isEnvFile).map((file) => ({ file, line: 0, rule: 'env-file' }));
 }
 
-// no system or global git config, no system attributes: only the flags above decide how the diff reads
+// no system or global git config, no system attributes: only the flags above decide how the diff reads.
+// stderr is captured, not inherited: git's own text (which can quote PR-controlled names) must not reach the CI log,
+// where a line starting with "::" would be read as a workflow command. Callers print one escaped line instead.
 const GIT_ENV = { ...process.env, GIT_CONFIG_NOSYSTEM: '1', GIT_CONFIG_GLOBAL: '/dev/null', GIT_ATTR_NOSYSTEM: '1' };
 export function git(repo, args) {
-  return execFileSync('git', ['-C', repo, '-c', 'core.quotePath=false', ...args], { encoding: 'utf8', maxBuffer: 256 * 1024 * 1024, env: GIT_ENV });
+  return execFileSync('git', ['-C', repo, '-c', 'core.quotePath=false', ...args],
+    { encoding: 'utf8', maxBuffer: 256 * 1024 * 1024, env: GIT_ENV, stdio: ['ignore', 'pipe', 'pipe'] });
 }
+// text for a workflow-command message: % CR LF escaped, so nothing in it can start a new command (shared with repo-rules)
+export const data = (s) => String(s).replace(/%/g, '%25').replace(/\r/g, '%0D').replace(/\n/g, '%0A');
 
 // → { findings, files } ; throws if git fails (a failed diff must never read as "nothing added")
 // The net diff (base...head) plus every non-merge commit in base..head; findings de-duplicated by file, line and rule.
@@ -90,7 +87,7 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
   try {
     result = scanRange(repo, base, head);
   } catch (e) {
-    console.error(`::error::secret-scan could not read the PR diff (${String(e.message).split('\n')[0]}) — failing closed.`);
+    console.error(`::error::secret-scan could not read the PR diff (${data(String(e.message).split('\n')[0])}) — failing closed.`);
     process.exit(1);
   }
   // Zero-output guard: GitHub says the PR changed files, so a diff with fewer files means the scan saw the wrong range.
