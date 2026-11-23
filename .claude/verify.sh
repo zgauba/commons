@@ -25,8 +25,13 @@ node tests/ci/design-guard.mjs || fail=1
 [ "$fail" = 0 ] || { echo "verify: red (rule checks)"; exit 1; }
 
 # everything this branch changes: committed since main, uncommitted, and new files
-base=$(git merge-base HEAD origin/main 2>/dev/null || git rev-parse HEAD) || exit 1
-changed=$( { git diff --name-only "$base" && git ls-files --others --exclude-standard; } | sort -u) || exit 1
+if ! base=$(git merge-base HEAD origin/main 2>/dev/null); then
+  echo "verify: no origin/main here — checking uncommitted changes only"; base=$(git rev-parse HEAD) || exit 1
+fi
+# quotepath off: "café.js" would otherwise print quoted and escaped, and match nothing; no renames: a file moved out of
+# commons/ must still count as a commons/ change (code review 2026-11-23)
+changed=$( { git -c core.quotepath=false diff --name-only --no-renames "$base" &&
+             git -c core.quotepath=false ls-files --others --exclude-standard; } | sort -u) || exit 1
 sel=$(printf '%s\n' "$changed" | node tests/ci/affected-specs.mjs) || { echo "verify: red (affected-specs failed)"; exit 1; }
 if [ "$sel" = NONE ]; then echo "verify: green (no app or e2e files changed — no browser tests needed)"; exit 0; fi
 

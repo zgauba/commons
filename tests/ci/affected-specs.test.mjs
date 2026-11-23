@@ -42,7 +42,8 @@ test('shared or unknown app files and e2e helpers run everything', () => {
 });
 
 test('a changed spec runs itself; nothing app-related changed runs nothing', () => {
-  assert.deepEqual(select(['tests/e2e/specs/pets.spec.js'], SPECS, MODULES), ['pets.spec.js']);
+  assert.deepEqual(select(['tests/e2e/specs/cats.spec.js'], SPECS, MODULES), ['cats.spec.js']);
+  assert.equal(select(['tests/e2e/specs/deleted.spec.js'], SPECS, MODULES), 'NONE');                  // deleted: nothing to run
   assert.equal(select(['docs/x.md', 'index.html', 'supabase/commons/migrations/1.sql', 'tests/ci/x.mjs'], SPECS, MODULES), 'NONE');
   assert.equal(select([], SPECS, MODULES), 'NONE');
 });

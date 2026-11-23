@@ -41,6 +41,7 @@ export function select(changed, specs, modules) {
     if (rest.includes('/') && dir !== 'assets' && modules.has(dir)) hit.add(dir);
     else return 'ALL';                                            // assets, root files, a new or unknown folder
   }
+  for (const n of [...pick]) if (!specs.some((s) => s.name === n)) pick.delete(n);   // a deleted spec has nothing to run
   if (hit.size) for (const s of specs) {
     const t = specTargets(s.text);
     if (t.any || [...t.modules].some((m) => hit.has(m))) pick.add(s.name);
