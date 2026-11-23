@@ -18,7 +18,7 @@ The follow-up (`docs/qa/repo-rules-r9-review-2026-11-23.md` #6) said a secret in
 | C1 | code | Nit / plan row NOT FOLLOWED | New `oneLine` duplicated repo-rules' `data()` escaper | **Fixed**: `data` moved to secret-scan.mjs and imported by repo-rules; `oneLine` removed |
 | — | security | — | Not findings (attempted): 16 hostile names incl. quotes, tabs, newline, `\x7f`, invalid UTF-8, fake `+++`/`@@`/`diff --git` inside hunks, `* -diff`, NUL, CRLF, symlink, submodule, mode-only — every key reported. Allow marker not widened by any crafted name. No workflow-command injection via `--base`/`--head`/names. Every git failure exits 1 | — |
 
-Deliberately not changed (DEPART agreed in the plan): the local hook `~/.claude/scripts/hooks/git-guard.js` `parseDiff` keeps its own copy; there a quoted name only garbles the block message.
+**Addendum (same day, Zee: "go ahead, fix the duplication"):** the local-hook DEPART was reversed. The parser now lives in `~/.claude/scripts/hooks/lib/diff-lines.js` (claude-config) and is byte-copied to `tests/ci/diff-lines.cjs`, the same pattern as `secret-patterns`. `secret-scan.mjs` loads and re-exports it, and git-guard's `parseDiff` is rebuilt on it. A drift test (`mirror-drift.test.js`, formerly `secret-patterns-drift.test.js`) covers both pairs. The moved code is the reviewed code verbatim, so it was not re-reviewed. git-guard's `parseDiff` is now a 6-line wrapper, covered by a new hook test that fails on the old hook.
 
 ## Plan conformance
 
@@ -27,7 +27,7 @@ Deliberately not changed (DEPART agreed in the plan): the local hook `~/.claude/
 | Diff → added lines | EXTRACT into secret-scan.mjs, no new file | FOLLOWED | `unquote` + `addedLines` in secret-scan.mjs; repo-rules copies deleted, `addedLines` is a filter wrapper |
 | Secret finding | REUSE `scanDiff` on the shared parser | FOLLOWED | `scanDiff` loops over `addedLines()`, same output shape |
 | Error-text escaping | REUSE `data()` | FOLLOWED (after C1 fix) | `data` exported from secret-scan.mjs, imported by repo-rules; secret-scan's error line uses it |
-| Local hook parser | DEPART: left as is | FOLLOWED | git-guard.js not in the diff |
+| Local hook parser | DEPART: left as is → reversed (Re-agreed, contract #7) | FOLLOWED | git-guard.js uses `lib/diff-lines.js`; byte copy `tests/ci/diff-lines.cjs`, drift-tested |
 
 ## Tests
 
