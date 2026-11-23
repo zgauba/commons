@@ -23,25 +23,47 @@ export const DIFF = ['-a', '-U0', '--no-color', '--no-ext-diff', '--no-textconv'
 const ALLOW = 'secret-scan:allow';
 export const allowHonoured = (file) => /^tests\/.+\.(test|spec)\.[cm]?[jt]s$/.test(file);
 
-// Unified diff (-U0) → findings on added lines. `+++ ` is a header only between `diff --git` and the first `@@`;
-// inside a hunk it is an added line that starts with "++". Mirrors parseDiff in git-guard.js.
-export function scanDiff(out) {
-  const hits = [];
+/* git C-quotes a path with ", \ or a control character ("b/a\"b.js"); quotePath=false covers only non-ASCII. */
+export function unquote(q) {
+  const bytes = [], esc = { a: 7, b: 8, t: 9, n: 10, v: 11, f: 12, r: 13 };
+  for (let i = 1; i < q.length && !(q[i] === '"' && i === q.length - 1); i++) {
+    if (q[i] !== '\\') { bytes.push(...Buffer.from(q[i])); continue; }
+    const c = q[++i];
+    if (/[0-7]/.test(c)) { bytes.push(parseInt(q.slice(i, i + 3), 8)); i += 2; } else bytes.push(esc[c] ?? c.charCodeAt(0));
+  }
+  return Buffer.from(bytes).toString('utf8');
+}
+
+/* Unified diff (-U0) → every added line as { file, line, text }, with the real file name. The one parser for
+   secret-scan and repo-rules R9 (PR4c: the two copies had drifted). `+++ ` is a header only between `diff --git` and
+   the first `@@`; inside a hunk it is an added line that starts with "++". git ends the name with a tab when it holds a
+   space, after the closing quote if quoted ("b/a b\"c.js"<tab>). The local hook (~/.claude git-guard.js parseDiff)
+   keeps its own copy: there a quoted name only garbles the message, the line is still scanned. */
+export function addedLines(out) {
+  const res = [];
   let file = null, line = 0, inHeader = false;
   for (const l of out.split('\n')) {
     if (l.startsWith('diff --git ')) { inHeader = true; file = null; continue; }
     const h = /^@@ -\d+(?:,\d+)? \+(\d+)/.exec(l);
     if (inHeader) {
-      if (l.startsWith('+++ ')) file = l === '+++ /dev/null' ? null : l.slice(4).replace(/^b\//, '').replace(/\t.*$/, '');
+      if (l.startsWith('+++ ')) {
+        const p = l.slice(4);
+        file = l === '+++ /dev/null' ? null : (p[0] === '"' ? unquote(p.replace(/\t$/, '')) : p.replace(/\t.*$/, '')).replace(/^b\//, '');
+      }
       if (h) { line = Number(h[1]); inHeader = false; }
       continue;
     }
     if (h) { line = Number(h[1]); continue; }
-    if (file && l.startsWith('+')) {
-      const text = allowHonoured(file) ? l.slice(1) : l.slice(1).split(ALLOW).join('');
-      for (const rule of scanLine(text)) hits.push({ file, line, rule });
-      line += 1;
-    }
+    if (file && l.startsWith('+')) { res.push({ file, line, text: l.slice(1) }); line += 1; }
+  }
+  return res;
+}
+
+// added lines → findings
+export function scanDiff(out) {
+  const hits = [];
+  for (const { file, line, text } of addedLines(out)) {
+    for (const rule of scanLine(allowHonoured(file) ? text : text.split(ALLOW).join(''))) hits.push({ file, line, rule });
   }
   return hits;
 }
@@ -50,11 +72,15 @@ export function scanNames(names) {
   return names.filter(isEnvFile).map((file) => ({ file, line: 0, rule: 'env-file' }));
 }
 
-// no system or global git config, no system attributes: only the flags above decide how the diff reads
+// no system or global git config, no system attributes: only the flags above decide how the diff reads.
+// stderr is captured, not inherited: git's own text (which can quote PR-controlled names) must not reach the CI log,
+// where a line starting with "::" would be read as a workflow command. Callers print one escaped line instead.
 const GIT_ENV = { ...process.env, GIT_CONFIG_NOSYSTEM: '1', GIT_CONFIG_GLOBAL: '/dev/null', GIT_ATTR_NOSYSTEM: '1' };
 export function git(repo, args) {
-  return execFileSync('git', ['-C', repo, '-c', 'core.quotePath=false', ...args], { encoding: 'utf8', maxBuffer: 256 * 1024 * 1024, env: GIT_ENV });
+  return execFileSync('git', ['-C', repo, '-c', 'core.quotePath=false', ...args],
+    { encoding: 'utf8', maxBuffer: 256 * 1024 * 1024, env: GIT_ENV, stdio: ['ignore', 'pipe', 'pipe'] });
 }
+export const oneLine = (e) => String(e?.message ?? e).split('\n')[0].replace(/%/g, '%25').replace(/\r/g, '%0D');
 
 // → { findings, files } ; throws if git fails (a failed diff must never read as "nothing added")
 // The net diff (base...head) plus every non-merge commit in base..head; findings de-duplicated by file, line and rule.
@@ -90,7 +116,7 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
   try {
     result = scanRange(repo, base, head);
   } catch (e) {
-    console.error(`::error::secret-scan could not read the PR diff (${String(e.message).split('\n')[0]}) — failing closed.`);
+    console.error(`::error::secret-scan could not read the PR diff (${oneLine(e)}) — failing closed.`);
     process.exit(1);
   }
   // Zero-output guard: GitHub says the PR changed files, so a diff with fewer files means the scan saw the wrong range.
