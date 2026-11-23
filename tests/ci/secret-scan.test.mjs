@@ -7,7 +7,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { execFileSync, spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { scanDiff, scanNames, addedLines } from './secret-scan.mjs';
+import { scanDiff, scanNames, addedLines, unquote } from './secret-scan.mjs';
 
 const SCRIPT = path.join(path.dirname(fileURLToPath(import.meta.url)), 'secret-scan.mjs');
 const b64 = (o) => Buffer.from(JSON.stringify(o)).toString('base64url');
@@ -165,4 +165,9 @@ test('CLI: a key in a file whose name git quotes is reported under its real name
   for (const f of ['commons/a"b.js', 'commons/t\tab.js', 'commons/s p"q.js']) {
     assert.ok(p.stdout.includes(`::error file=${f},line=1::secret-scan: named-secret`), `${JSON.stringify(f)} not named:\n${p.stdout}`);
   }
+});
+
+test('unquote keeps characters outside the BMP (an emoji is two UTF-16 units)', () => {
+  assert.strictEqual(unquote('"b/commons/\u{1F600}\\"e.js"'), 'b/commons/\u{1F600}"e.js');
+  assert.strictEqual(unquote('"b/\\360\\237\\230\\200\\"e.js"'), 'b/\u{1F600}"e.js');
 });

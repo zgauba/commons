@@ -27,7 +27,7 @@ export const allowHonoured = (file) => /^tests\/.+\.(test|spec)\.[cm]?[jt]s$/.te
 export function unquote(q) {
   const bytes = [], esc = { a: 7, b: 8, t: 9, n: 10, v: 11, f: 12, r: 13 };
   for (let i = 1; i < q.length && !(q[i] === '"' && i === q.length - 1); i++) {
-    if (q[i] !== '\\') { bytes.push(...Buffer.from(q[i])); continue; }
+    if (q[i] !== '\\') { const ch = String.fromCodePoint(q.codePointAt(i)); bytes.push(...Buffer.from(ch)); i += ch.length - 1; continue; }   // whole code point: an emoji is 2 UTF-16 units
     const c = q[++i];
     if (/[0-7]/.test(c)) { bytes.push(parseInt(q.slice(i, i + 3), 8)); i += 2; } else bytes.push(esc[c] ?? c.charCodeAt(0));
   }
@@ -80,7 +80,8 @@ export function git(repo, args) {
   return execFileSync('git', ['-C', repo, '-c', 'core.quotePath=false', ...args],
     { encoding: 'utf8', maxBuffer: 256 * 1024 * 1024, env: GIT_ENV, stdio: ['ignore', 'pipe', 'pipe'] });
 }
-export const oneLine = (e) => String(e?.message ?? e).split('\n')[0].replace(/%/g, '%25').replace(/\r/g, '%0D');
+// text for a workflow-command message: % CR LF escaped, so nothing in it can start a new command (shared with repo-rules)
+export const data = (s) => String(s).replace(/%/g, '%25').replace(/\r/g, '%0D').replace(/\n/g, '%0A');
 
 // → { findings, files } ; throws if git fails (a failed diff must never read as "nothing added")
 // The net diff (base...head) plus every non-merge commit in base..head; findings de-duplicated by file, line and rule.
@@ -116,7 +117,7 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
   try {
     result = scanRange(repo, base, head);
   } catch (e) {
-    console.error(`::error::secret-scan could not read the PR diff (${oneLine(e)}) — failing closed.`);
+    console.error(`::error::secret-scan could not read the PR diff (${data(String(e.message).split('\n')[0])}) — failing closed.`);
     process.exit(1);
   }
   // Zero-output guard: GitHub says the PR changed files, so a diff with fewer files means the scan saw the wrong range.

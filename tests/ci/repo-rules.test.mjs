@@ -148,6 +148,13 @@ test('R9: a quoted name that also holds a space (git adds a tab after the quote)
   assert.deepEqual(checkAdded(addedLines(diff)).map((v) => [v.file, v.line]), [['tests/e2e/x y"z.spec.js', 1]]);
 });
 
+test('R9: a file name holding a newline is still in scope (security review PR4c)', () => {
+  const diff = (q) => [`diff --git ${q.replace('b/', 'a/')} ${q}`, 'new file mode 100644', '--- /dev/null', `+++ ${q}`, '@@ -0,0 +1 @@',
+    '+await page.waitForTimeout(5);'].join('\n');
+  assert.deepEqual(checkAdded(addedLines(diff('"b/tests/e2e/nl\\nx.spec.js"'))).map((v) => v.file), ['tests/e2e/nl\nx.spec.js']);
+  assert.deepEqual(addedLines(diff('"b/tests/nl\\nd/package.json"')).map((v) => v.file), ['tests/nl\nd/package.json']);
+});
+
 test('R9 reads added lines only, with their new line numbers; deleted files and removed lines are ignored', () => {
   const diff = ['diff --git a/tests/e2e/specs/a.spec.js b/tests/e2e/specs/a.spec.js', '--- a/tests/e2e/specs/a.spec.js', '+++ b/tests/e2e/specs/a.spec.js',
     '@@ -10 +10,2 @@', '-  await page.waitForTimeout(800);', '+  await expect(x).toBeVisible();', '+  await page.waitForTimeout(100);',

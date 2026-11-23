@@ -20,7 +20,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { git, DIFF, addedLines as parseAdded, unquote } from './secret-scan.mjs';
+import { git, DIFF, addedLines as parseAdded, unquote, data } from './secret-scan.mjs';
 
 export const REFS = { signalpost: 'hrdmhifeynnokzjqtlsa', commons: 'qrpxfssdeeuzmsmlbtbu' };
 // migrations written before the header rule; they predate it and stay as they are. Never add to this list.
@@ -137,8 +137,9 @@ export function collect(root) {
 }
 
 /* ---------- R9: lines a change adds ---------- */
-const TEST_CODE = (f) => /^tests\/.+\.[cm]?[jt]s$/.test(f);
-const RETRY_CLI = (f) => /^\.github\/workflows\/[^/]+\.ya?ml$/.test(f) || /^tests\/(.+\/)?package\.json$/.test(f);
+// `s` flag: the parser returns real names, and a name may hold a newline — `.` must still match it (security review PR4c)
+const TEST_CODE = (f) => /^tests\/.+\.[cm]?[jt]s$/s.test(f);
+const RETRY_CLI = (f) => /^\.github\/workflows\/[^/]+\.ya?ml$/.test(f) || /^tests\/(.+\/)?package\.json$/s.test(f);
 const R9_SCOPE = (f) => TEST_CODE(f) || RETRY_CLI(f);
 const R9_CODE = [
   [/\bwaitForTimeout\s*\(/, 'Adds a fixed sleep (waitForTimeout). Wait for the condition instead (expect, waitForFunction, waitForResponse) or fake time with page.clock'],
@@ -221,7 +222,6 @@ export function readAdded(root, base) {
 }
 
 const prop = (s) => String(s).replace(/%/g, '%25').replace(/\r/g, '%0D').replace(/\n/g, '%0A').replace(/:/g, '%3A').replace(/,/g, '%2C');
-const data = (s) => String(s).replace(/%/g, '%25').replace(/\r/g, '%0D').replace(/\n/g, '%0A');
 
 /* ---------- CLI ---------- */
 const isMain = () => { try { return fs.realpathSync(process.argv[1]) === fs.realpathSync(fileURLToPath(import.meta.url)); } catch { return false; } };
