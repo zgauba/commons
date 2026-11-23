@@ -28,7 +28,7 @@ No code execution, argument or annotation injection found (security areas 1–6 
 | Added-lines walker | DEPART (agreed) | FOLLOWED | own `addedLines`, comment states why |
 | `--expect-files` guard | REUSE | FOLLOWED | same flag; CLI test "fails closed" |
 | Local base rule | REUSE (verify.sh L27-29) | FOLLOWED | `readAdded` local branch |
-| Comment blanking | EXTEND `noJsComments` to blank strings | **NOT FOLLOWED → DEPART proposed** | New per-line `codeOnly`. Reason: `noJsComments` serves R8, which must still READ strings ("Soccer" lives in string literals); blanking strings there would blind R8. R9 also works per diff line, not per file. Awaiting Zee's acceptance |
+| Comment blanking | EXTEND `noJsComments` to blank strings | **NOT FOLLOWED → DEPART proposed** | New per-line `codeOnly`. Reason: `noJsComments` serves R8, which must still READ strings ("Soccer" lives in string literals); blanking strings there would blind R8. R9 also works per diff line, not per file. **DEPART accepted by Zee 2026-11-23 ("accept")** |
 | `page.clock` in message | REUSE | FOLLOWED | R9 sleep message |
 | No allow marker | decided | FOLLOWED | none exists |
 | Screens to match | No screen changes | FOLLOWED | no UI files |
