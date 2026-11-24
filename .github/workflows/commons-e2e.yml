@@ -46,7 +46,8 @@ jobs:
   e2e-webkit:
     name: e2e-webkit
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    # the suite alone takes 11.7–12.9 min (2026-11-24); at 15 a slow WebKit install cancelled a run before any test
+    timeout-minutes: 25
     continue-on-error: true
     defaults:
       run:
