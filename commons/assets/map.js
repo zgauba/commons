@@ -223,10 +223,12 @@ function jcSortedWire(o){
   });
 }
 
-/* All the pins in view; one pin at oneZoom (default JC_LABEL_ZOOM); no pins: the map stays where it is. */
+/* All the pins in view; one pin at oneZoom (default JC_LABEL_ZOOM); no pins: the map stays where it is.
+   Not animated: the map opens already framed. An animated fit moved every pin for ~250 ms after load, so a tap
+   then landed where the pin had been (the flaky stations-map test, 2026-11-24; a fast thumb too). */
 function jcFitPins(m, pts, oneZoom){
-  if (pts.length > 1) m.fitBounds(pts, { padding: [40, 40], maxZoom: 18 });
-  else if (pts.length === 1) m.setView(pts[0], oneZoom || JC_LABEL_ZOOM);
+  if (pts.length > 1) m.fitBounds(pts, { padding: [40, 40], maxZoom: 18, animate: false });
+  else if (pts.length === 1) m.setView(pts[0], oneZoom || JC_LABEL_ZOOM, { animate: false });
 }
 
 /* Walking directions as a link — always opener- and referrer-free (the page's URL can carry tokens) */
