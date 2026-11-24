@@ -374,7 +374,7 @@ test("My reports: what coordinators decided (the cat, linked); an older Pets-lin
   await expect(page.locator(`[data-myreport="${RID(4)}"]`)).not.toContainText("Old stray");
   await expect(page.locator("#rpMine")).not.toContainText("971");
   await page.locator(`[data-myreport="${RID(1)}"] [data-rpnum]`).click();
-  expect(named(calls, "jc_stray_report_contact_clear")[0].args).toEqual({ p_id: RID(1) });
+  await expect.poll(() => named(calls, "jc_stray_report_contact_clear").map((c) => c.args)).toEqual([{ p_id: RID(1) }]);
   await page.locator(`[data-myreport="${RID(2)}"] [data-rpcat]`).click();
   await expect(page.locator("h1")).toHaveText("Caramel");
 });
