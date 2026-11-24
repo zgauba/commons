@@ -3,7 +3,7 @@
 // it's derived from this checkout's folder (found from this file, never from where the command runs).
 //   E2E_PORT    set → that port; unset → 4300–4999 from the checkout folder   (suite, /shot, smoke, app-check)
 //   SWEEP_PORT  set → that port; unset → 5000–5699 from the checkout folder   (/shot sweep)
-// A port that's taken fails the run with "http://localhost:<port>/commons/ is already used" (reuseExistingServer
+// A port that's taken fails the run at once with "http://localhost:<port> is already used" (reuseExistingServer
 // stays false: a server already there could be another checkout's). Nothing ever falls back to another port.
 const crypto = require("crypto");
 const path = require("path");
@@ -31,10 +31,18 @@ function pick(name, base, env, root) {
   return n;
 }
 
+function baseURL(port) {
+  return "http://localhost:" + port + "/commons/";
+}
+
+// `port`, not `url`: Playwright then checks the port with a plain connect. With `url` it sends an HTTP request
+// first, which waits for as long as a holder that never answers keeps the port (seen 2026-11-24: 200 s, then ran).
+// If Python still can't bind (the port was taken in between), the command names the port.
 function webServer(port) {
   return {
-    command: "python3 -m http.server " + port + " --bind 127.0.0.1 --directory ../..",
-    url: "http://localhost:" + port + "/commons/",
+    command: "python3 -m http.server " + port + " --bind 127.0.0.1 --directory ../.. || { echo \"test server: port " + port +
+      " is taken (E2E_PORT / SWEEP_PORT pick another)\" >&2; exit 1; }",
+    port,
     reuseExistingServer: false,
   };
 }
@@ -43,4 +51,4 @@ function ports(env, root) {
   return { port: pick("E2E_PORT", 4300, env, root), sweepPort: pick("SWEEP_PORT", 5000, env, root) };
 }
 
-module.exports = Object.assign(ports(process.env, ROOT), { ports, webServer, ROOT, AVOID });
+module.exports = Object.assign(ports(process.env, ROOT), { ports, webServer, baseURL, ROOT, AVOID });

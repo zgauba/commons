@@ -13,7 +13,7 @@ import { createHash } from 'node:crypto';
 const require = createRequire(import.meta.url);
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 const PORT_JS = path.join(ROOT, 'tests', 'e2e', 'port.js');
-const { ports, webServer, AVOID } = require(PORT_JS);
+const { ports, webServer, baseURL, AVOID } = require(PORT_JS);
 
 const env = (extra = {}) => {
   const e = { ...process.env, ...extra };
@@ -87,7 +87,11 @@ test('an override the browsers refuse throws instead of failing every page later
 
 test('the server serves the repo root on that port and is never reused', () => {
   const w = webServer(4567);
-  assert.equal(w.url, 'http://localhost:4567/commons/');
-  assert.match(w.command, /http\.server 4567 --bind 127\.0\.0\.1 --directory \.\.\/\.\.$/);
+  // `port` (a plain connect check), never `url`: an HTTP check hangs while a silent holder keeps the port
+  assert.equal(w.port, 4567);
+  assert.equal(w.url, undefined);
+  assert.equal(baseURL(4567), 'http://localhost:4567/commons/');
+  assert.match(w.command, /^python3 -m http\.server 4567 --bind 127\.0\.0\.1 --directory \.\.\/\.\. \|\| /);
+  assert.match(w.command, /port 4567 is taken/);   // a holder that isn't our server still gets the port named
   assert.equal(w.reuseExistingServer, false);
 });

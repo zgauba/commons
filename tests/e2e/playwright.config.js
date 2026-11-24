@@ -1,7 +1,7 @@
 // Serves the repo root as-is (Pages has no build either) and runs against stubs —
 // no test ever reaches the real Supabase project (see specs/stub.js).
 const { defineConfig, devices } = require("@playwright/test");
-const { port, webServer } = require("./port.js");   // per checkout, see port.js
+const { port, webServer, baseURL } = require("./port.js");   // per checkout, see port.js
 
 module.exports = defineConfig({
   testDir: "specs",
@@ -9,7 +9,7 @@ module.exports = defineConfig({
   retries: 0,
   reporter: "list",
   use: {
-    baseURL: webServer(port).url,
+    baseURL: baseURL(port),
     serviceWorkers: "block",
   },
   projects: [

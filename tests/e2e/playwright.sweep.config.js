@@ -6,12 +6,12 @@
 //               suite's so a sweep never collides with a suite or /shot, here or in another worktree.
 // Chromium iPhone only: a review looks at layout, and WebKit doubles the time.
 const base = require("./playwright.config.js");
-const { sweepPort, webServer } = require("./port.js");
+const { sweepPort, webServer, baseURL } = require("./port.js");
 
 const out = process.env.SWEEP_OUT;
 if (!out || !out.startsWith("/")) throw new Error("SWEEP_OUT must be an absolute folder (the session scratchpad)");
 const server = webServer(sweepPort);
-const url = server.url;
+const url = baseURL(sweepPort);
 
 module.exports = Object.assign({}, base, {
   outputDir: out + "/raw",
