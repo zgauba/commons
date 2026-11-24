@@ -461,7 +461,7 @@ test("event admin of a draft sees Edit and 'a community admin publishes it' — 
   await expect(row.locator('[data-act="edit"]')).toBeVisible();
 });
 
-test("community admin: Admins panel — make a link (shown once), see holders, remove, cancel a link", async ({ page }) => {
+test("community admin: Admins panel — make a link (shown once), see holders, remove, cancel a link", async ({ page, baseURL }) => {
   const ab = adminBackend({ scopes: ["community"],
     admins: [{ user_id: "u-7", name: "Omar", village: "ain-al-maha", type: "villa", building: null, number: "7" }] });
   const { calls } = await stubBackend(page, { rpc: ab.rpc });
@@ -473,7 +473,7 @@ test("community admin: Admins panel — make a link (shown once), see holders, r
   await expect(row.locator(".adminlist li").first()).toContainText("Omar");
   await expect(row.locator(".adminlist li").first()).toContainText("Villa 7");
   await row.locator("#makeLink").click();
-  await expect(page.locator("#newLink")).toHaveText("http://localhost:4173/commons/admin/?eventadmin=TOKEN_eventadmin_1abcdef");
+  await expect(page.locator("#newLink")).toHaveText(baseURL + "admin/?eventadmin=TOKEN_eventadmin_1abcdef");
   expect(lastCall(calls, "jc_event_admin_link_create").args).toEqual({ p_event: LIVE_ID });
   await expect(row.locator(".adminlist li")).toHaveCount(2);               // + the unused link
   await expect(row.locator(".adminlist li").last()).toContainText("Unused link");

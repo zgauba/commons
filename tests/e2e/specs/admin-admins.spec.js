@@ -103,13 +103,13 @@ test("one invited community admin (plus a code holder) still warns", async ({ pa
   await expect(page.locator("#adWarn")).toBeVisible();
 });
 
-test("community invite link: fragment URL, shown once, says 24 h + full control; survives a language switch", async ({ page }) => {
+test("community invite link: fragment URL, shown once, says 24 h + full control; survives a language switch", async ({ page, baseURL }) => {
   const b = backend();
   const { calls } = await stubBackend(page, { rpc: b.rpc });
   await signIn(page);
   await openAdmins(page);
   await page.locator('[data-admake="community"]').click();
-  await expect(page.locator('[data-adurl="community"]')).toHaveText("http://localhost:4173/commons/admin/#admininvite=TOKEN_community_1abcdefghijklm");
+  await expect(page.locator('[data-adurl="community"]')).toHaveText(baseURL + "admin/#admininvite=TOKEN_community_1abcdefghijklm");
   expect(lastCall(calls, "jc_module_admin_link_create").args).toEqual({ p_scope: "community" });
   const box = page.locator('[data-scope="community"] .codebox');
   await expect(box).toContainText("24 hours");

@@ -100,7 +100,7 @@ test("pin: saving sends the map center; My Home shows it pinned", async ({ page 
   expect(Math.abs(a.p_lng - 54.43)).toBeLessThan(0.01);
 });
 
-test("My Home: invite link, display name, tab bar (Commons + My Home only while modules are off)", async ({ page }) => {
+test("My Home: invite link, display name, tab bar (Commons + My Home only while modules are off)", async ({ page, baseURL }) => {
   const hb = homeBackend(MEMBER);
   await stubBackend(page, { rpc: hb.rpc });
   await signIn(page);
@@ -114,7 +114,7 @@ test("My Home: invite link, display name, tab bar (Commons + My Home only while 
   await expect(page.locator(".members li")).toHaveCount(1);
   await expect(page.locator(".members .tag")).toHaveText("you");
   await page.locator("#invite").click();
-  await expect(page.locator("#inviteLink")).toHaveText("http://localhost:4173/commons/home/?invite=TOKEN_abcdefghijklmnop");
+  await expect(page.locator("#inviteLink")).toHaveText(baseURL + "home/?invite=TOKEN_abcdefghijklmnop");
   await page.locator("#mh-account").click();
   await expect(page.locator("#delete")).toBeVisible();
   await page.locator("#dname").fill("Omar");

@@ -9,7 +9,7 @@ If the first argument is `sweep`, skip to **Sweep mode** below.
 # /shot — see one Commons screen
 
 Never reaches the real Supabase project: it runs on the same stubs as the specs
-(`tests/e2e/specs/stub.js` + `specs/backends.js`), local server on :4173, iPhone 13 viewport.
+(`tests/e2e/specs/stub.js` + `specs/backends.js`), local server on this checkout's own port (`tests/e2e/port.js`), iPhone 13 viewport.
 
 ## Arguments
 
@@ -57,9 +57,8 @@ The counts are the check that a filter matched what you meant (each was verified
    SWEEP_OUT=<abs folder> SWEEP_FULL=<0 default; 1 when screens run past one phone height> npx playwright test -c playwright.sweep.config.js <filter> [--grep '<grep>'] 2>&1 | grep -v WebServer | tail -8
    node shots/sweep-index.js <abs folder>
    ```
-   The sweep serves on port 4174 so it never collides with a suite or `/shot` on 4173 in another
-   session. A few URL assertions pin `localhost:4173` (`grep -n 4173` the module's specs to see which):
-   they fail in a sweep — don't report them as bugs, but see step 4 on what that failure hid.
+   The sweep serves on its own per-checkout port (5000–5699, `tests/e2e/port.js`; `SWEEP_PORT` overrides), apart
+   from the suite's (4300–4999), so sweeps, suites and `/shot` in different worktrees never collide.
 3. The folder holds the numbered pictures, `index.md`, `report.json` (Playwright's raw report) and `raw/`.
    `index.md` lists every test → its picture (`NNN-<spec>-<title>.png`), result,
    and any test with **no picture** (it opened its own browser context; look at the spec if it matters).
