@@ -72,8 +72,8 @@ PASS 5 · FAIL 2 · DEFERRED 0 · HUMAN 1 → NOT READY. Notes from the evaluato
 | 5 | Regression: /shot, sweep, verify gate, app-check | PASS | /shot hub member en → picture "Jubail Commons", "Welcome, Villa 12", See Events; sweep home 31 passed, index "31 with a picture · 0 not passed"; verify.sh (no cache) "799 passed (1.5m)" "verify: green"; app-check (main's config) 28/28, all 28 pictures opened and matched, AR right-to-left |
 | 6 | No 4173 in tests or tooling; five URL assertions use baseURL | PASS | grep printed nothing (exit 1); the five assertions use `baseURL`; literals → `baseURL + same path`, open-redirect regex → exact `toHaveURL(baseURL)` (stricter) |
 | 7 | Two sweeps at once, own ports 5000–5699, `SWEEP_PORT` overrides | PASS | Sweep ports 5588 / 5257 (report.json server commands); together → A "31 passed (7.5s)", B "31 passed (7.5s)", both exit 0; override covered by row 2 |
-| 8 | Live-backend smoke test still works on the new port | HUMAN | Needs the live Supabase project; Zeeshan runs it once on this branch or confirms "not run, inferred" |
+| 8 | Live-backend smoke test still works on the new port | HUMAN | Needs the live Supabase project; Zeeshan runs it once on this branch or confirms "not run, inferred". **Accepted by Zeeshan: not run, inferred** (2026-11-24) |
 
 Re-agreed rows for Zeeshan to confirm: #3 (Check cells identical to 9b503b6). Possible flakes: none. The evaluator moved the verify cache aside for row 3 and the green run in row 5 wrote it back with the same key.
 
-Evaluator agreed: _Zeeshan to answer_
+Evaluator agreed: yes (Zeeshan, 2026-11-24)
