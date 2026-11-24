@@ -185,7 +185,7 @@ test("signed in but not a member → straight to the code step", async ({ page }
   await expect(page.locator(".who")).toContainText("a@example.com");
 });
 
-test("forgot password: same answer either way, redirect back to this page", async ({ page }) => {
+test("forgot password: same answer either way, redirect back to this page", async ({ page, baseURL }) => {
   const { calls } = await stubBackend(page);
   await page.goto("account/");
   await page.locator("#toForgot").click();
@@ -193,7 +193,7 @@ test("forgot password: same answer either way, redirect back to this page", asyn
   await page.locator("#go").click();
   await expect(page.locator("#msg")).toHaveText(/reset link is on its way/);
   const rec = calls.find((c) => c.name === "recover");
-  expect(rec.redirect).toBe("http://localhost:4173/commons/account/");
+  expect(rec.redirect).toBe(baseURL + "account/");
 });
 
 // PKCE (PR #18 review): the reset link comes back as ?code=, exchanged only in the
@@ -268,11 +268,11 @@ test("?community= override is shown on the join step, never silent", async ({ pa
   await expect(page.locator(".who")).toContainText("e2e");
 });
 
-test("?next= only accepts relative Commons paths (no open redirect)", async ({ page }) => {
+test("?next= only accepts relative Commons paths (no open redirect)", async ({ page, baseURL }) => {
   await stubBackend(page);
   await page.goto("account/?next=https://evil.example/");
   await signIn(page, "correct-horse");
-  await expect(page).toHaveURL(/localhost:4173\/commons\/$/);
+  await expect(page).toHaveURL(baseURL);
 });
 
 test("sign out returns to sign-in", async ({ page }) => {

@@ -60,6 +60,7 @@ if [ "$rc" = 0 ]; then
   echo "verify: green"
 else
   rm -f "$cache"
-  echo "verify: red (browser tests) — if the port is busy, another Playwright run is using 4173"
+  port=$(node -p "require('./tests/e2e/port.js').port" 2>/dev/null || echo "?")
+  echo "verify: red (browser tests) — test server port $port (this checkout's; E2E_PORT overrides). \"already used\" = another run holds it"
   exit 1
 fi
