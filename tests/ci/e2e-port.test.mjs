@@ -7,11 +7,13 @@ import { mkdtempSync, mkdirSync, copyFileSync, realpathSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { createRequire } from 'node:module';
+import { fileURLToPath } from 'node:url';
+import { createHash } from 'node:crypto';
 
 const require = createRequire(import.meta.url);
-const ROOT = path.resolve(path.dirname(new URL(import.meta.url).pathname), '..', '..');
+const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 const PORT_JS = path.join(ROOT, 'tests', 'e2e', 'port.js');
-const { ports, webServer } = require(PORT_JS);
+const { ports, webServer, AVOID } = require(PORT_JS);
 
 const env = (extra = {}) => {
   const e = { ...process.env, ...extra };
@@ -62,6 +64,25 @@ test('a bad override throws naming the value; it never falls back to another por
   assert.throws(() => ports({ E2E_PORT: '80' }, ROOT), /E2E_PORT="80"/);
   assert.throws(() => ports({ E2E_PORT: '70000' }, ROOT), /E2E_PORT="70000"/);
   assert.throws(() => ports({ SWEEP_PORT: '4174x' }, ROOT), /SWEEP_PORT="4174x"/);
+});
+
+test('a checkout whose hash lands on 5000 / 5060 / 5061 gets the next usable port, and keeps it', () => {
+  // the plain hash slot, as port.js computed it before the skip; find a folder that lands on each bad port
+  const raw = (root, base) => base + (createHash('sha1').update(root).digest().readUInt32BE(0) % 700);
+  for (const bad of [5000, 5060, 5061]) {
+    let root = null;
+    for (let i = 0; i < 200000 && !root; i++) if (raw('/checkouts/' + i, 5000) === bad) root = '/checkouts/' + i;
+    assert.ok(root, 'no folder found that hashes to ' + bad);
+    const got = ports({}, root).sweepPort;
+    assert.equal(got, bad === 5000 ? 5001 : 5062, root);
+    assert.equal(ports({}, root).sweepPort, got);
+  }
+  assert.deepEqual([...AVOID].sort(), [5000, 5060, 5061]);
+});
+
+test('an override the browsers refuse throws instead of failing every page later', () => {
+  assert.throws(() => ports({ SWEEP_PORT: '5060' }, ROOT), /SWEEP_PORT=5060 .*refuse/);
+  assert.throws(() => ports({ E2E_PORT: '5061' }, ROOT), /E2E_PORT=5061 .*refuse/);
 });
 
 test('the server serves the repo root on that port and is never reused', () => {

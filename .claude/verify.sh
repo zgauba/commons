@@ -8,7 +8,7 @@
 # LOCAL ONLY: never the live Supabase projects, never paid APIs, never a deploy. The browser tests run
 # against stubs (tests/e2e/specs/stub.js).
 #
-#   1. repo-rules (R1–R9) and design-guard — about a second, always
+#   1. repo-rules (R1–R9), design-guard and the port.js unit test — about a second, always
 #   2. the mobile (Chromium) Playwright specs that cover the change (tests/ci/affected-specs.mjs):
 #      none for docs-only changes, a few for one module, all for shared files. A green run is remembered
 #      for the same diff, so stopping again without new edits doesn't rerun them.
@@ -21,6 +21,9 @@ cd "$(git rev-parse --show-toplevel)" || exit 1
 fail=0
 node tests/ci/repo-rules.mjs || fail=1
 node tests/ci/design-guard.mjs || fail=1
+# the test server's per-checkout port (tests/e2e/port.js); not in a CI workflow, so this is where it runs
+node --test --test-reporter=dot tests/ci/e2e-port.test.mjs >/dev/null 2>&1 \
+  || { echo "e2e-port: FAILED — run: node --test tests/ci/e2e-port.test.mjs"; fail=1; }
 # fast checks first: don't spend a minute on browsers when a rule already failed
 [ "$fail" = 0 ] || { echo "verify: red (rule checks)"; exit 1; }
 
