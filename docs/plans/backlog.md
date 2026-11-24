@@ -36,6 +36,13 @@ Last groomed: 2026-11-02
       final numbers in `docs/halloween-2026-final.md`, season-2026 rows deleted,
       cron unscheduled. Private CSV export to be deleted 2026-11-17.
 - [ ] Update stale stats on `/` and `/jubail/` with final event numbers.
+- [ ] 2026-11-24 (found in cats-960-flake) **Popup buttons lose their tap when Leaflet re-renders an open popup.**
+      Leaflet 1.9.4 can redo an open popup's content without a new `popupopen` (e.g. `openPopup` on an already-open
+      circle pin → `_prepareOpen` → `update()`); listeners added on `popupopen` are then gone. Cats' cat buttons now use
+      one listener on the map box (#cats-960). Same pattern still in: the shared History / open button
+      (`jcMapPopups` `[data-popopen]`, `commons/assets/map.js` ~110: Events, Courts, Pets, Cats) — delegate on
+      `m.getContainer()`; and Events' "They're Out" (`[data-report]`, `events.js` ~880, needs the entry by
+      `dataset.report` and the open popup). What triggers the natural re-render (~1 in 400 test runs) is unconfirmed.
 - [ ] 2026-11-19 (found in DS-3) **WebKit e2e lane times out**: the job's 15-min limit cancels it on ~half the runs
       (3 of the last 6, incl. #172 and earlier PRs); the suite takes 11–15 min there. A cancelled lane says nothing about
       WebKit. Options: shard the WebKit job, or raise its `timeout-minutes` (`.github/workflows/commons-e2e.yml:49`).

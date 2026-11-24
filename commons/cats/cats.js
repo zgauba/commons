@@ -183,13 +183,15 @@ function drawStations(){
           }).join("") + '</div>' : ''),
         open: x.programme ? { id: s.id, label: jcT("ca_l_history") } : null }), home.length ? Object.assign({}, JC_POPUP, { maxHeight: 240 }) : JC_POPUP);
   });
-  /* a cat in a station's popup → its page (out of full screen first, as History) */
-  jcMapPopups(m, x.programme ? function(id){ sfull.set(false); openStationLog(id); } : null, { open: function(pe){
-    var node = pe.popup.getElement();
-    Array.prototype.forEach.call(node ? node.querySelectorAll("[data-popcat]") : [], function(b){
-      b.addEventListener("click", function(){ sfull.set(false); catId = b.dataset.popcat; catTab = "about"; show("cat"); try { window.scrollTo(0, 0); } catch(e){} });
-    });
-  } });
+  jcMapPopups(m, x.programme ? function(id){ sfull.set(false); openStationLog(id); } : null);
+  /* a cat in a station's popup → its page (out of full screen first, as History). One listener on the map box, not one
+     per button: Leaflet can re-render an open popup's content without a new "popupopen", and per-button listeners
+     added on open were lost with the old buttons (the flaky stations-map test, 2026-11-24) */
+  m.getContainer().addEventListener("click", function(e){
+    var b = e.target.closest && e.target.closest(".leaflet-popup [data-popcat]");
+    if (!b || smap !== m) return;
+    sfull.set(false); catId = b.dataset.popcat; catTab = "about"; show("cat"); try { window.scrollTo(0, 0); } catch(e2){}
+  });
   jcFitPins(m, pts);
 }
 
