@@ -772,7 +772,7 @@ var JC_STRINGS = {
     adm_tab_community: "Community",
     /* R4b-1b — Organizer tools → Bookings (B-1: was Courts; the noun is "place") */
     adm_tab_courts: "Bookings",
-    ct_new: "New Place",
+    ct_new: "New Place", ct_places: "Places",
     ct_edit: "Edit Place",
     ct_req_note: "Required.",
     ct_name_en: "Name (English)",
@@ -2396,7 +2396,7 @@ var JC_STRINGS = {
     adm_tab_community: "المجتمع",
     /* R4b-1b — DRAFT, pending Arabic review */
     adm_tab_courts: "الحجوزات",
-    ct_new: "ملعب جديد",
+    ct_new: "ملعب جديد", ct_places: "الملاعب",
     ct_edit: "تعديل الملعب",
     ct_req_note: "مطلوب.",
     ct_name_en: "الاسم (بالإنجليزية)",

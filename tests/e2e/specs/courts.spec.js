@@ -111,6 +111,7 @@ test("tabs List · Map · My Bookings (List first); the precedence line; courts 
     others: [], blocks: [] });
   await open(page, b);
   await expect(page.locator("#bkPrecedence")).toHaveText("Official community-management bookings take precedence.");
+  await expect(page.locator("#bkPrecedence")).toHaveClass("help");                     // a quiet line on the tabs, not a box (UI review #8)
   await expect(page.locator('[role="tab"]')).toHaveText(["List", "Map", "My Bookings"]);
   await expect(page.locator("#bktab-list")).toHaveAttribute("aria-selected", "true");
   await expect(page.locator("#bkmap")).toHaveCount(0);
@@ -232,6 +233,11 @@ test("the Private switch on My bookings sends the choice; an organizer cancel sh
   const { calls } = await open(page, b, { q: "?tab=mine" });
   await expect(page.locator('#bkMine li[data-bk="m3"]')).toContainText("Cancelled by the organizers. Time blocked: Resurfacing")   // an old-format row, worded the new way;
   await expect(page.locator('#bkMine li[data-bk="m3"] button, #bkMine li[data-bk="m3"] input')).toHaveCount(0);
+  // UI review #5: Past's cancelled card (muted, a "Cancelled" chip), not an amber outline of its own
+  const m3 = page.locator('#bkMine li[data-bk="m3"]');
+  await expect(m3).toHaveClass(/slot-past/);
+  await expect(m3.locator(".slotchip")).toHaveText("Cancelled");
+  expect(await m3.evaluate((n) => getComputedStyle(n).borderTopColor)).not.toBe("rgb(242, 179, 60)");
   await page.locator('[data-bkpriv="m1"]').check();
   await expect(page.locator("#msg")).toHaveText("Now private: others see just \"Booked\".");
   expect(lastCall(calls, "jc_booking_privacy_set").args).toEqual({ p_booking: "m1", p_private: true });
@@ -239,6 +245,15 @@ test("the Private switch on My bookings sends the choice; an organizer cancel sh
   await page.locator('[data-bkpriv="m1"]').uncheck();
   await expect(page.locator("#msg")).toHaveText("Others now see your home on this booking.");
   expect(lastCall(calls, "jc_booking_privacy_set").args).toEqual({ p_booking: "m1", p_private: false });
+});
+
+test("UI review #2: a free slot is one row (time, Free, Book); the court page keeps the full precedence notice", async ({ page }) => {
+  await open(page, backend(), { q: "?court=" + C1 });
+  const r = row(page, 14), t = await r.locator(".time").boundingBox(), bk = await r.locator("[data-bkbook]").boundingBox();
+  await expect(r.locator(".slotchip")).toHaveText("Free");                          // the word stays: colour is never the only signal
+  expect(Math.abs((bk.y + bk.height / 2) - (t.y + t.height / 2))).toBeLessThan(4);  // Book on the time's line
+  expect((await r.boundingBox()).height).toBeLessThanOrEqual(64);
+  await expect(page.locator("#view .notice")).toHaveText("Official community-management bookings take precedence.");
 });
 
 test("a free slot that starts while the page is open turns Over on the next redraw (no Book on it)", async ({ page }) => {
@@ -482,9 +497,11 @@ test("no home: told to claim it first, no Book buttons, nothing asked of the day
   const { calls } = await open(page, b);
   await expect(page.locator("#bkNoHome")).toHaveText("Claim your home first to book.");
   await expect(page.locator('#view a[href="../home/"]')).toBeVisible();
-  await page.locator(`[data-open="${C1}"]`).click();
-  await expect(page.locator("#msg")).toHaveText("Claim your home first to book.");     // the server's NO_HOME, back on the list
-  expect(calls.some((c) => c.name === "jc_booking_book")).toBe(false);
+  await expect(page.locator(`[data-court="${C1}"]`)).toContainText("Tennis");
+  // UI review #1: no See times — the server refuses a day without a home, so the tap was a dead end
+  await expect(page.locator("[data-open]")).toHaveCount(0);
+  await expect(page.getByText("Claim your home first to book.")).toHaveCount(1);
+  expect(calls.some((c) => c.name === "jc_facility_day" || c.name === "jc_booking_book")).toBe(false);
 });
 
 test("Courts switched off: a plain page, nothing asked of the server", async ({ page }) => {

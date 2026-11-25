@@ -90,7 +90,7 @@ test("list: status, pin, hours, upcoming; walk-on shows no grid; retired apart w
   await expect(c2).toContainText("No pin");
   await expect(c2).not.toContainText("Upcoming bookings");
   await expect(c2.locator("[data-ct]")).toHaveText(["Edit", "Publish", "Retire"]);
-  await expect(page.locator("h2.group")).toHaveText(["Bookings", "Retired"]);
+  await expect(page.locator("h2.group")).toHaveText(["Places", "Retired"]);          // places, not bookings (UI review #7)
   await expect(page.locator('[data-court="c3"] [data-ct]')).toHaveCount(0);
   if (process.env.SHOT_DIR) {                     // /shot-style look (no courts stubs in the shot harness yet)
     await page.screenshot({ path: process.env.SHOT_DIR + "/courts-list.png", fullPage: true });
@@ -406,6 +406,11 @@ test("publish state: Save as Draft says so, with Publish right in the message (n
   await expect(page.locator("#msg")).toHaveClass(/ok/);
   expect(calls.some((c) => c.name === "jc_admin_facility_status")).toBe(false);
   await expect(page.locator('[data-court="new-1"] .chip.draft')).toHaveText("Draft — residents can't see it yet");
+  // UI review #3: message, the Bookings-off notice, the rules line — 12px apart, nothing touches
+  const box = (sel) => page.locator(sel).boundingBox();
+  const [m, off, rules] = [await box("#msg"), await box("#ctOff"), await box("#ctRules")];
+  expect(off.y - (m.y + m.height)).toBeGreaterThanOrEqual(11.5);
+  expect(rules.y - (off.y + off.height)).toBeGreaterThanOrEqual(11.5);
   if (process.env.SHOT_DIR) await page.screenshot({ path: process.env.SHOT_DIR + "/courts-draft-saved.png" });
   page.on("dialog", () => { throw new Error("no confirm"); });
   await page.locator("#ctMsgPub").click();
@@ -459,6 +464,7 @@ test("publish state AR: buttons, note and the amber draft chip in Arabic", async
   await page.addInitScript(() => { try { localStorage.setItem("jc_lang", "ar"); } catch (e) {} });
   await openCourts(page);
   await expect(page.locator('[data-court="c1"] .chip.draft')).toHaveText("مسودة — لا يراه السكان بعد");
+  await expect(page.locator("h2.group").first()).toHaveText("الملاعب");
   const amber = await page.locator('[data-court="c1"] .chip.draft').evaluate((n) => getComputedStyle(n).color);
   expect(amber).toBe("rgb(242, 179, 60)");
   await page.locator('[data-ct="edit"][data-id="c1"]').click();

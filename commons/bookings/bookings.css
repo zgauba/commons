@@ -1,7 +1,8 @@
 /* R4c — Courts (residents). Page shell, list cards and chips: shared, in assets/app.css (DS-3b). */
 .bklist .time{font-variant-numeric:tabular-nums}
 .bklist li.s-past .time{color:var(--jc-muted)}
-.bklist li.cancelled{border-color:var(--jc-warn)}
+/* a free slot's Book ends its time row (UI review #2) */
+.bklist li.slot .bkbook{margin-inline-start:auto}
 /* the day strip: one button per day of the window, scrolls sideways */
 .strip{display:flex; gap:6px; overflow-x:auto; padding-bottom:4px; scrollbar-width:none}
 .strip button{flex:0 0 auto; min-width:56px; min-height:52px; font:inherit; font-size:13px; line-height:1.2; cursor:pointer;
