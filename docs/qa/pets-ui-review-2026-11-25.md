@@ -70,3 +70,17 @@ APPROVE: 0 high, 0 medium, 2 low.
 
 **Round 1 → fix:** the missing-pet send test (location + note) now checks that Report seeing Luna is still offered (filled) and that there's no "reported" line.
 
+### Round 2 (HEAD a3fc101): READY (PASS 6 · FAIL 0 · DEFERRED 0 · HUMAN 0)
+
+| # | Check (short) | Verdict | Evidence |
+|---|---|---|---|
+| 1 | No repeated Sightings heading | PASS | pets.spec:320 ✓; Ginger + Luna Sightings pictures EN / AR |
+| 2 | Filled while missing, outlined at home | PASS | pets.spec:320 + :180 ✓; Luna / Ginger / Rex pictures |
+| 3 | Manage help line 12px from the list | PASS | admin-pets:526 ✓ (≥ 11.5px); sweep picture (older list, same rule) |
+| 4 | Reported line at home; a missing pet still offers Report seeing | PASS | pets.spec:180 ✓ (reported line, no button) and :243 ✓ (Report seeing Luna still offered, filled, no reported line) |
+| 5 | Short line + What happens to the photo | PASS | pets.spec:986 ✓; Mochi edit pictures EN opened, AR closed |
+| 6 | Regression + CI | PASS | 136 passed locally incl. axe en/ar; design guard OK; PR #219 CI green on a3fc101 |
+
+Contract unchanged since d8961bb; no test weakened. **Tuning record:** round 1 FAIL #4 was correct (the second half of
+the proof had no assertion). Evaluator agreed: pending Zeeshan (merged on his "fix all and merge", 2026-11-25).
+
