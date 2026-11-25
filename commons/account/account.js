@@ -15,6 +15,8 @@ var NEXT = jcSafeNext(params.get("next"));
 
 var joinCode = "";      /* code step → account step; memory only */
 var joinName = "";      /* optional display name, account step → after jc_join; memory only */
+var signinEmail = "";   /* sign-up → Sign In hand-off (email taken / confirm first); memory only, used once */
+var handedEmail = "";   /* the email that hand-off was for: a different one signing in drops the typed name (shared phone) */
 var state = null;       /* last jcState() */
 
 /* Supabase Auth errors → our codes (err_* strings). Codes first, messages as a
@@ -57,6 +59,7 @@ var VIEWS = {
         '<button class="btn" id="go" type="submit">' + esc(jcT("acct_signin_btn")) + '</button>' +
       '</form>' +
       '<div class="links">' + linkBtn("toForgot", "acct_forgot") + linkBtn("toJoin", "acct_join_prompt") + '</div>';
+    if (signinEmail) { el("email").value = handedEmail = signinEmail; signinEmail = ""; }
     on("toForgot", function(){ show("forgot"); });
     on("toJoin", function(){ show("code"); });
     onSubmit(doSignIn);
@@ -77,7 +80,7 @@ var VIEWS = {
         '<button class="btn" id="go" type="submit">' + esc(jcT("join_continue")) + '</button>' +
       '</form>' +
       '<div class="links">' +
-        (signedIn ? linkBtn("signOut", "acct_sign_out") : linkBtn("toSignin", "acct_have_account")) +
+        (signedIn ? linkBtn("signOut", "acct_sign_out_link") : linkBtn("toSignin", "acct_have_account")) +
       '</div>';
     el("code").value = joinCode;
     on("toSignin", function(){ show("signin"); });
@@ -102,13 +105,20 @@ var VIEWS = {
         '<label>' + esc(jcT("mh_name")) +
           '<input id="dname" type="text" maxlength="40" autocomplete="nickname" dir="auto"></label>' +
         '<p class="help" id="dnameHelp">' + esc(jcT("join_name_help")) + '</p>' +
-        '<p class="help" id="privacy">' + esc(jcT("join_privacy")) + '</p>' +
+        /* the disclosure stays on the screen that collects the email: one line + the full text a tap away (C2) */
+        '<p class="help" id="privacy">' + esc(jcT("join_privacy_short")) + '</p>' +
+        '<details class="more" id="privacyMore"><summary>' + esc(jcT("join_privacy_more")) + '</summary>' +
+          '<p class="help">' + esc(jcT("join_privacy")) + '</p></details>' +
         msgBox() +
+        /* EMAIL_TAKEN: the way to Sign In, right under the message that says to (C1) */
+        '<div class="row" id="takenRow" hidden><button class="btn ghost" type="button" id="toSigninTaken">' +
+          esc(jcT("acct_signin_btn")) + '</button></div>' +
         '<button class="btn" id="go" type="submit">' + esc(jcT("join_create_btn")) + '</button>' +
       '</form>' +
       '<div class="links">' + linkBtn("back", "acct_back") + '</div>';
     el("dname").value = joinName;
     on("back", function(){ joinName = el("dname").value; show("code"); });
+    on("toSigninTaken", function(){ joinName = el("dname").value; signinEmail = val("email"); show("signin"); });
     onSubmit(doSignUp);
   },
 
@@ -136,7 +146,7 @@ var VIEWS = {
         msgBox() +
         '<button class="btn" id="go" type="submit">' + esc(jcT("recover_btn")) + '</button>' +
       '</form>' +
-      '<div class="links">' + linkBtn("toForgot", "acct_forgot") + '</div>';
+      '<div class="links">' + linkBtn("toForgot", "recover_new_link") + '</div>';
     on("toForgot", function(){ show("forgot"); });
     onSubmit(doRecover);
   },
@@ -155,7 +165,16 @@ var VIEWS = {
 };
 
 var current = "signin";
-function show(name){ current = name; VIEWS[name](); var f = document.querySelector("#view input"); if (f) f.focus(); }
+/* "?" help per step (D): sign-in, joining (code + account), password reset (forgot + new password) */
+var HELP = { signin: "signin", code: "join", account: "join", forgot: "reset", recover: "reset" };
+function show(name){
+  current = name; VIEWS[name]();
+  jcHelp(HELP[name] || null);
+  /* the first empty field (Sign In with the email handed over → the password) */
+  var f = Array.prototype.filter.call(document.querySelectorAll("#view input"), function(i){ return !i.value; })[0] ||
+          document.querySelector("#view input");
+  if (f) f.focus();
+}
 
 /* ---------- actions ---------- */
 function val(id){ return el(id).value.trim(); }
@@ -170,21 +189,25 @@ function afterAuth(){
 }
 
 function doSignIn(){
+  /* the display name typed at sign-up belongs to the email it was handed over with — never to someone else's account */
+  if (handedEmail && val("email").toLowerCase() !== handedEmail.toLowerCase()) joinName = "";
   busy("go", true);
   jcDb.auth.signInWithPassword({ email: val("email"), password: el("password").value })
     .then(function(r){
       if (r.error) throw jcErr(authCode(r.error), r.error);
+      handedEmail = "";                /* kept across failed tries, so a retry with another email still drops the name */
       return afterAuth();
     })
     .catch(function(e){ busy("go", false); showErr(e.code || "UNKNOWN"); });
 }
 
 function doSignUp(){
-  var pw = el("password").value;
+  var pw = el("password").value, email = val("email");
+  el("takenRow").hidden = true;      /* only the latest attempt's answer decides whether Sign In is offered */
   joinName = el("dname").value.trim();
   if (pw.length < 8) return showErr("WEAK_PASSWORD");
   busy("go", true);
-  jcDb.auth.signUp({ email: val("email"), password: pw })
+  jcDb.auth.signUp({ email: email, password: pw })
     .then(function(r){
       if (r.error) throw jcErr(authCode(r.error), r.error);
       /* Email confirmation is OFF by decision (manifest, Auth layer). No session
@@ -192,7 +215,12 @@ function doSignUp(){
       if (!r.data || !r.data.session) throw jcErr("EMAIL_CONFIRM_REQUIRED");
       return doJoin("go");
     })
-    .catch(function(e){ busy("go", false); showErr(e.code || "UNKNOWN"); });
+    .catch(function(e){
+      /* confirm-first (drift): not an error — Sign In, email filled, the next step said in green (C3) */
+      if (e.code === "EMAIL_CONFIRM_REQUIRED") { signinEmail = email; show("signin"); return showOk(jcT("err_EMAIL_CONFIRM_REQUIRED")); }
+      busy("go", false); showErr(e.code || "UNKNOWN");
+      if (el("takenRow")) el("takenRow").hidden = e.code !== "EMAIL_TAKEN";
+    });
 }
 
 /* The optional display name typed at sign-up, saved once the account is a member (jc_display_name_set needs one).
@@ -245,7 +273,7 @@ function doRecover(){
 }
 
 function doSignOut(){
-  joinName = "";      /* a shared phone: never carry one person's typed name into the next account */
+  joinName = ""; joinCode = ""; handedEmail = "";   /* a shared phone: never carry one person's typed name or code into the next account */
   jcDb.auth.signOut().then(function(){ state = { status: "signed_out" }; show("signin"); });
 }
 
