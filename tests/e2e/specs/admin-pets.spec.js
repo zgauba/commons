@@ -206,7 +206,7 @@ test("group link: shown; a non-WhatsApp link is refused before sending; saving s
   page.once("dialog", (d) => d.dismiss());
   await page.locator("#paLinkClear").click();
   expect(b.st.sets).toEqual([LINK]);                                                // said no: nothing sent
-  page.once("dialog", (d) => { expect(d.message()).toContain("Send to someone else"); d.accept(); });
+  page.once("dialog", (d) => { expect(d.message()).toContain("Send to Someone Else"); d.accept(); });
   await page.locator("#paLinkClear").click();
   await expect(page.locator("#msg")).toHaveText("Group link removed.");
   expect(b.st.sets).toEqual([LINK, ""]);
@@ -444,7 +444,7 @@ test("R5d-3b: hide a sighting (Pets on) — asks first, the exact call, read aga
   const { calls } = await manageAny(page, b, ID(3));
   await expect(page.locator("#pmSight li")).toHaveCount(2);
   await expect(page.locator('#pmSight [data-sighting="41"] a')).toHaveAttribute("href", /query=24\.531%2C54\.432/);
-  page.once("dialog", (d) => { expect(d.message()).toBe("Hide this sighting? Residents stop seeing it. You can show it again from Hidden sightings below."); d.dismiss(); });
+  page.once("dialog", (d) => { expect(d.message()).toBe("Hide this sighting? Residents stop seeing it. You can show it again from Hidden Sightings below."); d.dismiss(); });
   await page.locator('[data-pmhide="42"]').click();
   expect(b.st.hides).toEqual([]);
   page.once("dialog", (d) => d.accept());
@@ -606,7 +606,7 @@ test("soft archive: Hidden sightings on Manage — folded, Show again (no confir
   b.rpc.jc_pet_get = (a) => (gate ? gate.then(() => get(a)) : get(a));
   await manageAny(page, b, ID(3));
   await expect(page.locator("#pmSight li")).toHaveCount(1);
-  await expect(page.locator("#pmHiddenToggle")).toHaveText("Hidden sightings (1)");
+  await expect(page.locator("#pmHiddenToggle")).toHaveText("Hidden Sightings (1)");
   await expect(page.locator("#pmHiddenToggle")).toHaveAttribute("aria-expanded", "false");
   await expect(page.locator("#pmHidden")).toHaveCount(0);
   await page.locator("#pmHiddenToggle").click();
@@ -625,7 +625,7 @@ test("soft archive: Hidden sightings on Manage — folded, Show again (no confir
   // hide → it lands under Hidden sightings
   page.once("dialog", (d) => d.accept());
   await page.locator('[data-pmhide="41"]').click();
-  await expect(page.locator("#pmHiddenToggle")).toHaveText("Hidden sightings (1)");
+  await expect(page.locator("#pmHiddenToggle")).toHaveText("Hidden Sightings (1)");
 });
 
 test("soft archive: Show again on one someone else already showed → read again, no error", async ({ page }) => {

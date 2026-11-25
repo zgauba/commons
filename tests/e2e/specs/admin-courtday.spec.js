@@ -100,7 +100,7 @@ test("Day view sits on bookable courts only (not walk-on, not retired)", async (
   await stubBackend(page, { rpc: b.rpc });
   await signIn(page);
   await page.goto("admin/?tab=courts");
-  await expect(page.locator('[data-court="c1"] [data-ct]')).toHaveText(["Day view", "Edit", "Unpublish", "Retire"]);
+  await expect(page.locator('[data-court="c1"] [data-ct]')).toHaveText(["Day View", "Edit", "Unpublish", "Retire"]);
   await expect(page.locator('[data-court="c2"] [data-ct="day"]')).toHaveCount(0);
   await expect(page.locator('[data-court="c3"] [data-ct]')).toHaveCount(0);
 });
@@ -200,7 +200,7 @@ test("block one day: a start moves an earlier end to it; preset reason; the conf
   await page.locator("#cdBlockGo").click();
   await expect(page.locator("#msg")).toHaveText("Write a reason of at least 3 characters.");
   await page.locator('[data-cdpre="official"]').click();
-  await expect(page.locator("#cdWhy")).toHaveValue("Official booking");
+  await expect(page.locator("#cdWhy")).toHaveValue("Official Booking");
   let asked = "";
   page.once("dialog", (d) => { asked = d.message(); d.dismiss(); });
   await page.locator("#cdBlockGo").click();
@@ -210,7 +210,7 @@ test("block one day: a start moves an earlier end to it; preset reason; the conf
   await page.locator("#cdBlockGo").click();
   await expect(page.locator("#msg")).toHaveText("Blocked. 1 bookings cancelled.");
   expect(lastCall(calls, "jc_admin_block_create").args).toEqual(
-    { p_facility: "c1", p_starts: at(D, 13), p_ends: at(D, 16), p_reason: "Official booking" });
+    { p_facility: "c1", p_starts: at(D, 13), p_ends: at(D, 16), p_reason: "Official Booking" });
   await expect(page.locator("#cdBlockForm")).toHaveCount(0);
   await expect(page.locator(".cdlist li.cd-blocked .cdtime")).toHaveText(["⁦13:00–16:00⁩", "⁦18:00–20:00⁩"]);
 });

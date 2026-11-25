@@ -181,6 +181,8 @@ function eventsBackend(opts = {}) {
       jc_entry_withdraw: () => { st.mine = Object.assign({}, st.mine, { status: "withdrawn" }); return ok(get()); },
       jc_my_history: () => ok([{ event_id: PAST_ID, slug: "halloween-2026", title_en: "Halloween 2026",
         starts_at: "2026-10-30T20:00:00Z", event_status: "archived" }]),
+      // My Home › Household › Invite (same shape as home.spec's homeBackend) — lets /shot reach the invite panel
+      jc_invite_create: () => ok({ token: "TOKEN_abcdefghijklmnop", expires_at: "2026-11-06T10:00:00Z" }),
     }, opts.rpc || {}),
   };
 }

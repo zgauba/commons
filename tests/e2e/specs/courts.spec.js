@@ -119,7 +119,7 @@ test("tabs List · Map · My Bookings (List first); the precedence line; courts 
   const c1 = page.locator(`[data-court="${C1}"]`);
   await expect(c1).toContainText("Tennis · ⁦07:00–22:00⁩");
   await expect(c1).toContainText("By the beach park");
-  await expect(c1.locator("[data-open]")).toHaveText("See times");
+  await expect(c1.locator("[data-open]")).toHaveText("See Times");
   const c2 = page.locator(`[data-court="${C2}"]`);
   await expect(c2).toContainText("Walk-on: no booking needed.");
   await expect(c2.locator("[data-open]")).toHaveCount(0);

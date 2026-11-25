@@ -115,7 +115,7 @@ test("CC-7c: a stray's old link (the server still answers) lands on the list as 
 test("CC-7c: the Pets tab's 'Report a stray cat' line goes to the Cats page's form — only while Cats is on", async ({ page }) => {
   await open(page, straysBackend({ cats: true }));
   await expect(page.locator("#ptList b")).toHaveText(["Rex"]);
-  await expect(page.locator("#rpOpen")).toHaveText("Report a stray cat");
+  await expect(page.locator("#rpOpen")).toHaveText("Report a Stray Cat");
   await expect(page.locator("#rpOpen")).toHaveAttribute("href", "../cats/?report=1");
   await expect(page.locator("#rpCtaHelp")).toHaveText("Stray cat reports go to the Cats coordinators, on the Cats page.");
   await page.locator("#pttab-mine").click();
@@ -187,7 +187,7 @@ test("a neighbor's pet at home: 'Seen Rex out on their own?' — household-only 
   await expect(page.locator("#ptSightings")).toHaveCount(0);                 // the server sends a neighbor none
   await expect(page.locator("#ptShare")).toHaveCount(0);                     // nothing to share until something was seen
   expect(named(calls, "jc_pets_group_get")).toEqual([]);
-  await expect(page.locator("#ptSight")).toHaveText("Seen Rex out on their own?");
+  await expect(page.locator("#ptSight")).toHaveText("Seen Rex Out on Their Own?");
   await expect(page.locator("#ptSight")).toHaveClass(/\bghost\b/);            // UI review P2: at home, the outlined one
   await page.locator("#ptSight").click();
   await expect(page.locator("#ptSightPrivacy")).toHaveText("Only Rex's household and the community's pet admins see this report. If they report Rex missing within a day, neighbors helping to search see it too. It never shows who you are. We delete the record of who sent it within 48 hours, and the report itself after 30 days.");
@@ -261,7 +261,7 @@ test.describe("a sighting", () => {
     await page.locator("#ptSightGo").click();
     await expect(page.locator("#msg")).toHaveText("Thanks. Your sighting was sent.");
     // UI review P4: a missing pet still offers Report seeing again (a second sighting elsewhere helps); no "reported" line
-    await expect(page.locator("#ptSight")).toHaveText("Report seeing Luna");
+    await expect(page.locator("#ptSight")).toHaveText("Report Seeing Luna");
     await expect(page.locator("#ptSight")).not.toHaveClass(/\bghost\b/);
     await expect(page.locator("#ptSightDone")).toHaveCount(0);
     expect(lastCall(calls, "jc_pet_sighting_add").args).toEqual({ p_pet: ID(2), p_note: "Under a car on Marsa road", p_lat: 24.53123, p_lng: 54.43299 });
@@ -338,7 +338,7 @@ test("a neighbour's missing pet: no care record / territory / log; sightings wit
   await expect(s.nth(1)).toContainText("your report");
   await expect(s.nth(2)).toContainText("Sleeping in the shade");
   await expect(s.nth(2)).not.toContainText("your report");               // reporter erased: never guessed as mine
-  await expect(page.locator("#ptSight")).toHaveText("Report seeing Ginger");
+  await expect(page.locator("#ptSight")).toHaveText("Report Seeing Ginger");
   // UI review P2: on a missing pet, the filled (primary) button
   await expect(page.locator("#ptSight")).toHaveClass(/\bbtn\b/);
   await expect(page.locator("#ptSight")).not.toHaveClass(/\bghost\b/);
@@ -381,7 +381,7 @@ test("My Pets: add (exact fields), then edit, then remove; the pet opens after a
     p_fields: { species: "dog", name: "Pepper", description: "Black lab, red collar", wanderer: true, microchipped: true } });
   await expect(page.locator("#ptArchive")).toHaveCount(0);               // not on the pet page — it's in Edit, away from the alarm
   await page.locator("#ptEdit").click();
-  await expect(page.locator("#ptArchive")).toHaveText("Remove Pepper from the directory");
+  await expect(page.locator("#ptArchive")).toHaveText("Remove Pepper from the Directory");
   if (process.env.SHOT_DIR) await page.screenshot({ path: process.env.SHOT_DIR + "/pt-edit.png", fullPage: true });
   page.once("dialog", (d) => { expect(d.message()).toBe("Remove Pepper from the directory? For 30 days a Pets organizer can bring Pepper back; after that it's for good."); d.accept(); });
   await page.locator("#ptArchive").click();
@@ -399,8 +399,8 @@ test("Remove is only in Edit (never on Add, never on the pet page); the home's t
   await expect(page.locator("#ptSave")).toBeVisible();
   await expect(page.locator("#ptArchive")).toHaveCount(0);
   await page.goto("pets/?pet=" + ID(6));
-  await expect(page.locator("#ptEdit")).toHaveText("Edit details");
-  await expect(page.locator("#ptOwner .btn")).toHaveText(["Report as missing", "Edit details"]);
+  await expect(page.locator("#ptEdit")).toHaveText("Edit Details");
+  await expect(page.locator("#ptOwner .btn")).toHaveText(["Report as Missing", "Edit Details"]);
   if (process.env.SHOT_DIR) await page.screenshot({ path: process.env.SHOT_DIR + "/pt-owner-buttons.png", fullPage: true });
   await page.goto("pets/?pet=" + ID(8));
   await expect(page.locator("#ptFacts")).toContainText("Townhouse 7 · Ain Al Maha");
@@ -893,7 +893,7 @@ test("R5c: the upload fails → the details are still saved and it says the phot
   await page.locator("#ptPhotoIn").setInputFiles(await bigJpeg(page));
   await expect(page.locator("#ptPhotoNew")).toBeVisible();
   await page.locator("#ptSave").click();
-  await expect(page.locator("#msg")).toHaveText("Mochi is saved, but the photo didn't upload: The upload didn't go through. Check your connection. Try again from Edit details.");
+  await expect(page.locator("#msg")).toHaveText("Mochi is saved, but the photo didn't upload: The upload didn't go through. Check your connection. Try again from Edit Details.");
   await expect(page.locator("#msg")).toHaveClass(/err/);
   expect(named(calls, "jc_pet_photo_commit")).toHaveLength(0);
   expect(named(calls, "jc_pet_save")).toHaveLength(1);
@@ -1077,7 +1077,7 @@ test("NF-2 Pets tab: the owned pets' line is the shared one, with no button (the
   await page.locator("#jcHelpBtn").click();
   await expect(page.locator("#jcHelp li")).toHaveCount(4);
   await expect(page.locator("#jcHelp")).not.toContainText("Strays");                 // CC-7c: help says where stray cats go now
-  await expect(page.locator("#jcHelp")).toContainText("Report a stray cat");
+  await expect(page.locator("#jcHelp")).toContainText("Report a Stray Cat");
 });
 
 // ── R5d-1: the way into Organizer Tools → Pets, as on a court's page ──
@@ -1140,7 +1140,7 @@ test("Pets team: a neighbour's pet — the same Report as missing sheet (team wo
   await expect(page.locator("h1")).toHaveText("Rex");
   await expect(page.locator("#ptOwner")).toBeVisible();
   await expect(page.locator("#ptOwner").locator("xpath=preceding-sibling::h2[1]")).toHaveText("Pets team");
-  await expect(page.locator("#ptOwner .btn")).toHaveText(["Report as missing"]);            // no Edit: not their pet
+  await expect(page.locator("#ptOwner .btn")).toHaveText(["Report as Missing"]);            // no Edit: not their pet
   if (process.env.SHOT_DIR) await page.screenshot({ path: process.env.SHOT_DIR + "/pt-team-panel.png", fullPage: true });
   await page.locator("#ptMiss").click();
   await expect(page.locator("#ptOwner .help")).toHaveText("Everyone in the community will see the alert. The household will see that the Pets team reported it.");
@@ -1181,7 +1181,7 @@ test("Pets team: an admin's own pet keeps the household's panel and the househol
   const b = backend({ me: Object.assign({}, MEMBER, { admin_scopes: ["pets"] }) });
   await open(page, b, { q: "?pet=" + ID(6) });
   await expect(page.locator("h1")).toHaveText("Mochi");
-  await expect(page.locator("#ptOwner .btn")).toHaveText(["Report as missing", "Edit details"]);
+  await expect(page.locator("#ptOwner .btn")).toHaveText(["Report as Missing", "Edit Details"]);
   await page.locator("#ptMiss").click();
   await expect(page.locator("#ptOwner .help")).toHaveText("Everyone in your community will see the alert at the top of Pets until you mark it found.");
   await page.locator("#ptMissGo").click();

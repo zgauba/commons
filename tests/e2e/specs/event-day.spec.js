@@ -23,7 +23,7 @@ test("event day: the switch shows both sides, the current one pressed; supply sh
   await expect(tog).toHaveText(["🎃 Handing Out", "✕ Out of Treats"]);
   await expect(tog.nth(0)).toHaveAttribute("aria-pressed", "true");
   await expect(tog.nth(1)).toHaveAttribute("aria-pressed", "false");
-  await expect(page.locator("#live .seg4 button")).toHaveText(["Plenty", "Some left", "Running low", "Almost out"]);
+  await expect(page.locator("#live .seg4 button")).toHaveText(["Plenty", "Some Left", "Running Low", "Almost Out"]);
   await expect(page.locator("#live .seg4 [aria-pressed=true]")).toHaveCount(0);   // not set yet
   await expect(page.locator("#upd")).toHaveText(/^Updated \d{2}:\d{2} · refreshes every 2 minutes$/);   // UI review E2: 24-hour, as Courts
 });
@@ -61,7 +61,7 @@ test("supply: one tap sets the level (supply only, never the state) and neighbor
   expect(rpcCalls(calls, "jc_entry_live_set").map((c) => c.args))
     .toEqual([{ p_event: DAY_ID, p_state: null, p_supply: 1 }]);
   await page.locator("#tab-list").click();
-  await expect(page.locator(".entries li.mine .supply")).toHaveText("Supply: Running low");
+  await expect(page.locator(".entries li.mine .supply")).toHaveText("Supply: Running Low");
 });
 
 test("other events say Open | Done; the controls follow the organizer's feature switches", async ({ page }) => {
