@@ -302,6 +302,7 @@ test("the form: a place is enough; the note is trimmed; no number unless ticked;
   // Cats UI review #3: the "deleted after 30 days" line never touches the card above it
   const list = await page.locator("#rpMine").boundingBox(), kept = await page.locator("#rpMineBox > p.help").boundingBox();
   expect(kept.y - (list.y + list.height)).toBeGreaterThanOrEqual(8);
+  if (process.env.SHOT_DIR) await page.locator("#rpMineBox").screenshot({ path: process.env.SHOT_DIR + "/cats-my-reports.png" });
 });
 
 test("WhatsApp number: only when ticked; 00971 → +971; the help names the Cats coordinators", async ({ page }) => {

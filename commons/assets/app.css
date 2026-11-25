@@ -160,6 +160,7 @@ fieldset{border:0; margin:0; padding:0; display:flex; flex-direction:column; gap
 legend{font-size:13px; font-weight:700; color:var(--jc-muted); margin-bottom:6px; padding:0}
 h2.group{font-size:12.5px; letter-spacing:.08em; text-transform:uppercase; color:var(--jc-muted); margin:10px 0 0}
 .notice{margin:0; padding:10px 12px; border-radius:10px; border:1px solid var(--jc-accent); background:var(--jc-surface); font-size:13.5px; line-height:1.4}
+.notice.warn{border-color:var(--jc-warn)} .notice.warn b{color:var(--jc-warn)}   /* a heads-up inside a card, e.g. a feeding visit's problem (Cats UI review #1) */
 
 /* filter chips (api.js jcChipsHtml; OT-1 moved them here from pets.css): Pets, Organizer Tools */
 .filters, .opts{display:flex; flex-wrap:wrap; gap:6px}

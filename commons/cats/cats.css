@@ -18,6 +18,3 @@
 .row .rqMain{flex-basis:100%}
 /* the other two keep one line each; when both don't fit (a wider font, Arabic), the second takes its own row */
 .row .rqSub{flex:1 1 auto; white-space:nowrap}
-/* a feeding visit's problem is a heads-up, not a success (Cats UI review #1) */
-.caProblem{border-color:var(--jc-warn)}
-.caProblem b{color:var(--jc-warn)}

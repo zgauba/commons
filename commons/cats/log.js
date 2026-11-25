@@ -86,7 +86,7 @@ function logItem(it, mini){
     if (counts.length) h.push('<div>' + esc(counts.join(" · ")) + '</div>');
     var cats = Array.isArray(it.cats) ? it.cats : [];
     if (cats.length) h.push('<div class="head"><span class="meta">' + esc(jcT("ca_l_recognised")) + '</span>' + catLinks(cats) + '</div>');
-    if (typeof it.problem === "string" && it.problem) h.push('<p class="notice caProblem" dir="auto"><b>' + esc(jcT("ca_l_problem")) + ':</b> ' + esc(it.problem) + '</p>');
+    if (typeof it.problem === "string" && it.problem) h.push('<p class="notice warn caProblem" dir="auto"><b>' + esc(jcT("ca_l_problem")) + ':</b> ' + esc(it.problem) + '</p>');
   } else {
     if (hObj(it.cat)) h.push('<div class="head">' + hid + catLinks([it.cat]) + (it.linked === true ? '<span class="meta">' + esc(jcT("ca_l_linked")) + '</span>' : '') + '</div>');
     else h.push('<div class="head">' + hid + '<span class="chip" data-unid>' + esc(jcT("ca_l_unid")) + '</span></div>');

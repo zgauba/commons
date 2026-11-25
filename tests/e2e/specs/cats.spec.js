@@ -86,7 +86,9 @@ test("Cats on, a resident: the page, the bar button, the page hit; no role line;
   await signIn(page);
   await page.goto("cats/");
   await expect(page.locator("h1")).toHaveText("Community Cats");
+  await expect(page.locator("#rpOpen")).toBeVisible();          // the Cats tab body has drawn (the notice was drawn in the same string)
   await expect(page.locator("#caSoon")).toHaveCount(0);                  // Cats UI review #6: the "moving here" notice is gone
+  await expect(page.locator("main")).not.toContainText("moving here step by step");
   await page.locator("#caTab_stations").click();                         // DS-4a: residents get Cats · Stations tabs
   await expect(page.locator(".caStation")).toHaveCount(1);
   await expect(page.locator("#caRole")).toHaveCount(0);
@@ -1350,6 +1352,10 @@ test("Cats UI review #1 + #7: a problem is amber, not the success green; a hidde
   await expect(chips).toHaveCount(2);                                         // Hidden + Not identified yet, one row
   const ys = await chips.evaluateAll((cs) => cs.map((c) => Math.round(c.getBoundingClientRect().top)));
   expect(ys[0]).toBe(ys[1]);
+  if (process.env.SHOT_DIR) {
+    await page.locator(`.caLog[data-log="${V1}"]`).screenshot({ path: process.env.SHOT_DIR + "/cats-problem-amber.png" });
+    await page.locator(`.caLog[data-log="${SI1}"]`).screenshot({ path: process.env.SHOT_DIR + "/cats-hidden-chips.png" });
+  }
 });
 
 test("Cats UI review #4 + #8: Add a cat is the compact button like Add a station; a wrapped status line never starts with the dot", async ({ page }) => {
@@ -1358,6 +1364,7 @@ test("Cats UI review #4 + #8: Add a cat is the compact button like Add a station
   await page.goto("cats/");
   const add = await page.locator("#caAddCat").boundingBox(), vw = page.viewportSize().width;
   expect(add.width).toBeLessThan(vw / 2);
+  if (process.env.SHOT_DIR) await page.screenshot({ path: process.env.SHOT_DIR + "/cats-add-cat-compact.png" });
   await page.locator(`[data-cat="${K1}"]`).click();
   const status = await page.locator("#caFacts dd").first().textContent();
   expect(status).toContain("\u00a0· ");
