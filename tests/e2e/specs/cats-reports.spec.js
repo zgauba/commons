@@ -299,6 +299,9 @@ test("the form: a place is enough; the note is trimmed; no number unless ticked;
   expect(add.p_fields).toEqual({ species: "cat", note: "Brown, limping", place: "Behind the clubhouse" });
   await page.locator("#rpToCats").click();
   await expect(page.locator("#rpMine li")).toContainText("Behind the clubhouse");
+  // Cats UI review #3: the "deleted after 30 days" line never touches the card above it
+  const list = await page.locator("#rpMine").boundingBox(), kept = await page.locator("#rpMineBox > p.help").boundingBox();
+  expect(kept.y - (list.y + list.height)).toBeGreaterThanOrEqual(8);
 });
 
 test("WhatsApp number: only when ticked; 00971 → +971; the help names the Cats coordinators", async ({ page }) => {

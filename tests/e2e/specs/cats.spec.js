@@ -86,7 +86,7 @@ test("Cats on, a resident: the page, the bar button, the page hit; no role line;
   await signIn(page);
   await page.goto("cats/");
   await expect(page.locator("h1")).toHaveText("Community Cats");
-  await expect(page.locator("#caSoon")).toContainText("The cat programme is moving here");
+  await expect(page.locator("#caSoon")).toHaveCount(0);                  // Cats UI review #6: the "moving here" notice is gone
   await page.locator("#caTab_stations").click();                         // DS-4a: residents get Cats · Stations tabs
   await expect(page.locator(".caStation")).toHaveCount(1);
   await expect(page.locator("#caRole")).toHaveCount(0);
@@ -404,13 +404,13 @@ test("a volunteer reads the full record (old ID, station, TNVR, history) but get
   await expect(page.locator("#caCats .ptcard")).toHaveCount(1);                                // (the missing group stays on top)
   await page.locator(`[data-cat="${K1}"]`).click();
   await expect(page.locator("#caPage")).toContainText("JB-07");
-  await expect(page.locator("#caPage")).toContainText(/S-001 · \u2068?Behind the souk/);
+  await expect(page.locator("#caPage")).toContainText(/S-001\u00a0· \u2068?Behind the souk/);
   await expect(page.locator("#caPage")).toContainText("Returned");
   await expect(page.locator("#caPage")).toContainText("Clinic card");
   await expect(page.locator("#caHist li")).toHaveCount(2);
   await expect(page.locator("#caHist li").nth(1)).toContainText("C-003");
   await expect(page.locator("#caFacts")).toContainText("Also filed as");
-  await expect(page.locator("#caFacts")).toContainText(/C-003 · \u2068?Caramel 2/);
+  await expect(page.locator("#caFacts")).toContainText(/C-003\u00a0· \u2068?Caramel 2/);
   if (process.env.SHOT_DIR) await page.screenshot({ path: process.env.SHOT_DIR + "/cats-volunteer-cat.png", fullPage: true });
   await expect(page.locator("#caEditCat")).toHaveCount(0);
 });
@@ -1102,6 +1102,7 @@ test("CC-5: vet entries in Activity — Vet chip asks the server; coordinators s
   await expect(v).toContainText("Invoice INV-42");
   const a = v.locator("a", { hasText: "Open the document (Google Drive)" });
   await expect(a).toHaveAttribute("href", DRIVE);
+  await expect(a).not.toHaveAttribute("class", /mini/);                       // Cats UI review #5: a plain link, like Open in Google Maps
   await expect(a).toHaveAttribute("rel", "noopener noreferrer");
   await expect(a).toHaveAttribute("target", "_blank");
   await page.locator(`[data-lhide="vet:${VT1}"]`).click();
@@ -1314,4 +1315,51 @@ test("UI review #9: a coordinator's Activity help adds what residents see", asyn
   await page.goto("cats/");
   await page.locator("#caTab_log").click();
   await expect(page.locator("#caLogHelp")).toContainText("Residents see only \"Vaccinated\" and invoices you choose to show them.");
+});
+
+// ---------- Cats UI review (2026-11-25) ----------
+test("Cats UI review #2: one active station / cat seen / kitten is singular", async ({ page }) => {
+  const rpc = logBackend(["cats"], { activity: [] });
+  const one = Object.assign({}, ITEMS[0], { headcount: 1, unfamiliar: 1, kittens: 1 });
+  rpc.jc_cat_activity = () => ok({ items: [one], more: false, can_edit: true });
+  await stubBackend(page, { rpc });
+  await signIn(page);
+  await page.goto("cats/");
+  await page.locator("#caTab_areas").click();
+  await expect(page.locator(".caArea .help").first()).toHaveText("1 active station");
+  await page.locator("#caTab_log").click();
+  await expect(page.locator(`.caLog[data-log="${V1}"]`)).toContainText("1 cat seen · 1 unfamiliar · 1 kitten");
+  await expect(page.locator(`.caLog[data-log="${V1}"]`)).not.toContainText("kittens");
+});
+
+test("Cats UI review #1 + #7: a problem is amber, not the success green; a hidden sighting's chips share one row", async ({ page }) => {
+  const rpc = logBackend(["cats"], { activity: [] });
+  rpc.jc_cat_activity = () => ok({ items: [ITEMS[0], Object.assign({}, ITEMS[1], { hidden: true })], more: false, can_edit: true });
+  await stubBackend(page, { rpc });
+  await signIn(page);
+  await page.goto("cats/");
+  await page.locator("#caTab_log").click();
+  const prob = page.locator(`.caLog[data-log="${V1}"] .caProblem`);
+  const [border, warn, accent] = await prob.evaluate((p) => {
+    const probe = document.createElement("i"); document.body.appendChild(probe);
+    const col = (v) => { probe.style.color = "var(" + v + ")"; return getComputedStyle(probe).color; };
+    const r = [getComputedStyle(p).borderTopColor, col("--jc-warn"), col("--jc-accent")]; probe.remove(); return r; });
+  expect(border).toBe(warn);
+  expect(border).not.toBe(accent);
+  const chips = page.locator(`.caLog[data-log="${SI1}"] .head`).first().locator(".chip");
+  await expect(chips).toHaveCount(2);                                         // Hidden + Not identified yet, one row
+  const ys = await chips.evaluateAll((cs) => cs.map((c) => Math.round(c.getBoundingClientRect().top)));
+  expect(ys[0]).toBe(ys[1]);
+});
+
+test("Cats UI review #4 + #8: Add a cat is the compact button like Add a station; a wrapped status line never starts with the dot", async ({ page }) => {
+  await stubBackend(page, { rpc: member(["cats"]) });
+  await signIn(page);
+  await page.goto("cats/");
+  const add = await page.locator("#caAddCat").boundingBox(), vw = page.viewportSize().width;
+  expect(add.width).toBeLessThan(vw / 2);
+  await page.locator(`[data-cat="${K1}"]`).click();
+  const status = await page.locator("#caFacts dd").first().textContent();
+  expect(status).toContain("\u00a0· ");
+  expect(status).not.toMatch(/ ·/);                                           // every dot is held to the word before it
 });
