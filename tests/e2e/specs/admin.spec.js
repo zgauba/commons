@@ -1052,3 +1052,52 @@ test("per-event admin link: Done asks only if not copied, then shows Make a link
   await expect(page.locator("#newLink")).toHaveCount(0);
   await expect(row.locator("#makeLink")).toBeVisible();
 });
+
+// Admin UI review 2026-11-25 G5: each description reads label → toolbar → box; the toolbar stays out of the label
+test("G5: description label, then its toolbar, then the box; the box's name is just the label", async ({ page }) => {
+  const ab = adminBackend({ scopes: ["community"] });
+  await stubBackend(page, { rpc: ab.rpc });
+  await signIn(page);
+  await page.goto("admin/");
+  await page.locator("#newEv").click();
+  await page.locator('[data-tpl="blank"]').click();
+  for (const id of ["description_en", "description_ar"]) {
+    const box = page.locator("#" + id), label = page.locator('label[for="' + id + '"]');
+    const bar = page.locator(".richfield:has(#" + id + ") .richbar");
+    await expect(label).toBeVisible();
+    await expect(page.locator("label .richbar")).toHaveCount(0);
+    await expect.poll(async () => {
+      const l = await label.boundingBox(), b = await bar.boundingBox(), t = await box.boundingBox();
+      return l.y + l.height <= b.y + 1 && b.y + b.height <= t.y + 1;
+    }).toBe(true);
+    await expect(box).toHaveAccessibleName(await label.innerText());
+    await label.click();
+    await expect(box).toBeFocused();
+  }
+});
+
+// Admin UI review 2026-11-25 G2: a tab row wider than the phone fades at the cut edge; the selected tab is fully in view
+test("G2: Organizer Tools tab row fades where more tabs are, and keeps the selected tab in view (EN + AR)", async ({ page }) => {
+  const ab = adminBackend({ scopes: ["community"], owner: true });
+  await stubBackend(page, { rpc: ab.rpc });
+  await signIn(page);
+  await page.goto("admin/");
+  const row = page.locator(".subtabs");
+  await expect(row).toHaveClass(/\bmore-end\b/);                          // Events selected: more to the right
+  await expect(row).not.toHaveClass(/\bmore-start\b/);
+  const inView = async (tab) => {
+    const r = await row.boundingBox(), b = await page.locator(tab).boundingBox();
+    return b.x >= r.x - 1 && b.x + b.width <= r.x + r.width + 1;
+  };
+  await page.locator("#atab-banner").click();                              // the last tab
+  await expect(page.locator("#atab-banner")).toHaveAttribute("aria-selected", "true");
+  await expect.poll(() => inView("#atab-banner")).toBe(true);
+  await expect(row).toHaveClass(/\bmore-start\b/);
+  await expect(row).not.toHaveClass(/\bmore-end\b/);
+  // Arabic: the row runs right to left, so the end fade is on the left
+  await page.locator("#langBtn").click();
+  await page.locator("#atab-events").click();
+  await expect(row).toHaveClass(/\bmore-end\b/);
+  await expect.poll(() => row.evaluate((n) => getComputedStyle(n).getPropertyValue("--tab-end").trim())).toBe("left");
+  await expect.poll(() => inView("#atab-events")).toBe(true);
+});

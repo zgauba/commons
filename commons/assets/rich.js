@@ -52,9 +52,18 @@ function jcRichToolbar(textarea, preview){
     btn.addEventListener("click", function(){ apply(b[0]); });
     bar.appendChild(btn);
   });
-  /* outside the field's <label>: the buttons must not become part of the box's spoken name (review) */
-  var host = textarea.closest("label") || textarea;
-  host.parentNode.insertBefore(bar, host);
+  /* label → buttons → box (admin UI review G5), with the buttons outside the <label> so they never become
+     part of the box's spoken name (review): the box moves out of its label, which then points at it with for= */
+  var lab = textarea.closest("label");
+  if (lab && textarea.id) {
+    var field = document.createElement("div");   /* not "wrap": that's the bold / underline function below */
+    field.className = "richfield";
+    lab.parentNode.insertBefore(field, lab);
+    lab.htmlFor = textarea.id;
+    field.appendChild(lab);
+    field.appendChild(bar);
+    field.appendChild(textarea);
+  } else (lab || textarea).parentNode.insertBefore(bar, lab || textarea);
 
   function draw(){
     var html = jcRich(textarea.value);

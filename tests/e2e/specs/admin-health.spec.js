@@ -48,7 +48,7 @@ test("problems are named, not hidden: stale backup, failed job, storage near ful
   r.traffic = { hits_24h: 0, counter_suspect: true };
   r.rate_limited_now = { admin_unlock: 1, join_pre_membership: 2 };
   await openHealth(page, { report: r });
-  await expect(page.locator(".hsum")).toHaveText("⚠️ 6 thing(s) need a look.");
+  await expect(page.locator(".hsum")).toHaveText("⚠️ 6 things need a look.");
   await expect(row(page, "Hourly backup copy")).toHaveClass(/\bbad\b/);
   await expect(row(page, "Hourly backup copy")).toContainText("Last copy 5 h ago — it should be hourly.");
   await expect(row(page, "Backup schedule")).toHaveClass(/\bbad\b/);
@@ -74,7 +74,7 @@ test("missing or odd values are 'couldn't check', never ✅", async ({ page }) =
     await expect(row(page, label)).toContainText("Couldn't check this one.");
     await expect(row(page, label).locator(".hic")).toHaveAttribute("aria-label", "Couldn't check");
   }
-  await expect(page.locator(".hsum")).toHaveText("⚠️ 7 thing(s) need a look.");
+  await expect(page.locator(".hsum")).toHaveText("⚠️ 7 things need a look.");
 });
 
 test("the report failing says so (no rows, no ✅); the notices still load", async ({ page }) => {
@@ -96,7 +96,7 @@ test("Mark Resolved removes the notice; Check Again re-runs the report", async (
   ab.st.report = healthReport({ traffic: { hits_24h: 0, counter_suspect: true } });   // something changed meanwhile
   await page.locator("#healthRefresh").click();
   await expect.poll(() => calls.filter((c) => c.name === "jc_admin_report").length).toBe(n + 1);
-  await expect(page.locator(".hsum")).toHaveText("⚠️ 1 thing(s) need a look.");
+  await expect(page.locator(".hsum")).toHaveText("⚠️ 1 thing needs a look.");
 });
 
 test("a flag the server always sends, missing, is 'couldn't check' — not ✅ (broken counter, job error)", async ({ page }) => {
@@ -110,7 +110,7 @@ test("a flag the server always sends, missing, is 'couldn't check' — not ✅ (
 test("an empty report: nine 'couldn't check', no ✅ anywhere", async ({ page }) => {
   await openHealth(page, { report: {} });
   await expect(page.locator(".hrow.unknown")).toHaveCount(9);
-  await expect(page.locator(".hsum")).toHaveText("⚠️ 9 thing(s) need a look.");
+  await expect(page.locator(".hsum")).toHaveText("⚠️ 9 things need a look.");
   await expect(page.locator(".hrow.ok")).toHaveCount(0);
 });
 
@@ -123,7 +123,7 @@ test("a time in the future (wrong clock somewhere) is not 'fresh'", async ({ pag
 
 test("notices that fail to load: the summary is not 'All good'", async ({ page }) => {
   await openHealth(page, { rpc: { jc_admin_notices_list: () => raise("UNKNOWN") } });
-  await expect(page.locator(".hsum")).toHaveText("⚠️ 1 thing(s) need a look.");
+  await expect(page.locator(".hsum")).toHaveText("⚠️ 1 thing needs a look.");
   await expect(page.locator("#view")).toContainText("Couldn't load the notices.");
 });
 

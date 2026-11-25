@@ -382,7 +382,7 @@ test("a resident sees the cats (resident view only), searches, opens a cat; neve
   await expect(page.locator("h1")).toHaveText("Caramel");
   await expect(page.locator("#caStory")).toHaveText("Very gentle, loves cuddles.");
   if (process.env.SHOT_DIR) await page.screenshot({ path: process.env.SHOT_DIR + "/cats-resident-cat.png", fullPage: true });
-  await expect(page.locator("#caPage")).toContainText("Ear-tipped");
+  await expect(page.locator("#caPage")).toContainText("Ear-Tipped");
   await expect(page.locator("#caPage")).toContainText("Sterilised");
   // DS-4a: one photo beside the name (the hero); it opens the viewer with every photo
   await expect(page.locator(".pthero [data-view]")).toHaveCount(1);
