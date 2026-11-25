@@ -68,7 +68,8 @@ label.check span small{display:block; color:var(--jc-muted); font-size:12.5px; f
 
 /* T5.2 PR 4 — sign-ups tab */
 .sulist{list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:8px}
-.sulist li{background:var(--jc-surface); border:1px solid var(--jc-line); border-radius:var(--jc-radius); padding:12px 14px;
+/* direct rows only: a list inside a card (household members) stays plain rows (admin UI review G1) */
+.sulist > li{background:var(--jc-surface); border:1px solid var(--jc-line); border-radius:var(--jc-radius); padding:12px 14px;
   display:flex; flex-direction:column; gap:6px; font-size:14px}
 .sulist li.hidden{opacity:.65; border-style:dashed}
 .sulist b{font-size:15px}
@@ -160,6 +161,6 @@ li[data-event] .chip.draft{display:table; margin:3px 0 2px}
 .mnform + .mnform{margin-top:12px}
 .desc{margin:0 0 4px; font-size:14.5px; line-height:1.5}
 /* OT-3: the switched-off notice above the Pets group row */
-.notice + .setrows, .help + .sulist{margin-top:12px}   /* nothing touches (UI review P3: Manage's hide help → sightings) */
+.notice + .setrows, .help + .sulist, .sulist + .jcsearch{margin-top:12px}   /* nothing touches (UI review P3: Manage's hide help → sightings) */
 /* a live event's title opens its page (UI review E8: replaces the View button) */
 .evtitle-link{color:inherit; text-decoration-color:var(--jc-line); text-underline-offset:3px}

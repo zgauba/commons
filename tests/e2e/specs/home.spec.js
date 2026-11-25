@@ -111,6 +111,7 @@ test("My Home: invite link, display name, tab bar (Commons + My Home only while 
   // sub-menu, not one long scroll: Home first (the house), then Household, Account
   await expect(page.locator('.subtabs [role="tab"]')).toHaveText(["Home", "Household", "Account"]);
   await expect(page.locator(".homehead b")).toHaveText("Villa 12");
+  await expect(page.locator(".subtabs")).not.toHaveClass(/\bmore-(start|end)\b/);   // a row that fits: no fade (admin UI review G2)
   await expect(page.locator("#invite")).toHaveCount(0);
   await page.locator("#mh-household").click();
   await expect(page).toHaveURL(/\/home\/\?tab=household$/);

@@ -463,3 +463,34 @@ test("search: typing while an edit is open closes it, never leaving an emptied f
   await expect(page.locator("#hhNumber")).toHaveCount(0);
   await expect(card(page, "h7")).toBeVisible();
 });
+
+// Admin UI review 2026-11-25
+test("G3: counts say 1 home / 1 member, and 2 homes / 2 members", async ({ page }) => {
+  await openHouseholds(page);
+  await expect(page.locator(".help", { hasText: "2 homes · 1 pinned · 2 members" })).toBeVisible();
+  await expect(page.locator(".help", { hasText: "1 home · 1 pinned · 1 member" })).toBeVisible();   // Seef Al Jubail: Apt 304
+  await expect(page.locator(".help", { hasText: /\b1 homes\b|\b1 members\b/ })).toHaveCount(0);
+});
+
+test("G1: a member is a plain row in the home card (no card of its own), Remove at the row's end", async ({ page }) => {
+  await openHouseholds(page);
+  const row = card(page, "h7").locator(".adminlist li").first();
+  await expect(row).toBeVisible();
+  const st = await row.evaluate((li) => { const s = getComputedStyle(li); return { border: s.borderTopWidth, dir: s.flexDirection }; });
+  expect(st).toEqual({ border: "0px", dir: "row" });
+  // Remove sits at the row's end edge, level with the name (not centred under it)
+  await expect.poll(async () => {
+    const r = await row.boundingBox(), b = await row.locator('[data-hh="remove"]').boundingBox();
+    return Math.round(r.x + r.width - (b.x + b.width)) <= 1 && b.y < r.y + r.height / 2;
+  }).toBe(true);
+  // the home card itself is still a card
+  expect(await card(page, "h7").evaluate((li) => getComputedStyle(li).borderTopWidth)).toBe("1px");
+});
+
+test("G4: 12px between the join-request cards and the search box", async ({ page }) => {
+  await openHouseholds(page);
+  await expect.poll(async () => {
+    const reqs = await page.locator("[data-invite]").last().boundingBox(), s = await page.locator("#hhSearch").boundingBox();
+    return Math.round(s.y - (reqs.y + reqs.height));
+  }).toBeGreaterThanOrEqual(12);
+});

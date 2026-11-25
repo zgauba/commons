@@ -942,7 +942,7 @@ var VIEWS = {
     var when = health.report && isFinite(Date.parse(health.report.generated_at)) ? fmtDate(health.report.generated_at) : fmtDate(health.at.toISOString());
     html += health.reportErr
       ? '<p class="hsum bad" role="status">' + esc(jcT("adm_h_failed")) + ' ' + esc(jcErrText({ code: health.reportErr })) + '</p>'
-      : '<p class="hsum ' + (issues ? 'warn' : 'ok') + '" role="status">' + esc(issues ? jcFmt("adm_h_issues", { n: issues }) : jcT("adm_h_all_good")) + '</p>';
+      : '<p class="hsum ' + (issues ? 'warn' : 'ok') + '" role="status">' + esc(issues ? jcFmt(issues === 1 ? "adm_h_issues_1" : "adm_h_issues", { n: issues }) : jcT("adm_h_all_good")) + '</p>';
     html += '<p class="sub">' + esc(jcFmt("adm_h_checked", { t: when })) + '</p>' +
       '<div class="row"><button class="btn ghost" type="button" id="healthRefresh">' + esc(jcT("adm_h_again")) + '</button></div>';
     if (rows.length) html += '<ul class="hlist">' + rows.map(function(r){
@@ -1174,7 +1174,7 @@ var VIEWS = {
       return loadHouseholds();
     }
     var d = hh.data;
-    html += '<p class="sub">' + esc(jcFmt("adm_hh_sub", { h: d.homes.length, m: d.homes.reduce(function(n, h){ return n + h.members.length; }, 0) })) + '</p>' +
+    html += '<p class="sub">' + esc(jcFmt("adm_hh_sub", { h: hhCount("homes", d.homes.length), m: hhCount("members", d.homes.reduce(function(n, h){ return n + h.members.length; }, 0)) })) + '</p>' +
       '<div class="row"><button class="btn ghost" type="button" id="logOpen">' + esc(jcT("adm_log_open")) + '</button></div>';
     if (d.pending.length) html += '<h2 class="group">' + esc(jcFmt("adm_hh_pending", { n: d.pending.length })) + '</h2>' +
       '<p class="help">' + esc(jcT("adm_hh_pending_help")) + '</p>' +
@@ -1381,11 +1381,12 @@ function hhListHtml(){
     var pinned = hs.filter(function(h){ return h.lat != null; }).length;
     var people = hs.reduce(function(n, h){ return n + h.members.length; }, 0);
     return '<h2 class="group">' + esc(jcVillageName(cfg, k)) + '</h2>' +
-      '<p class="help">' + esc(jcFmt("adm_hh_counts", { h: hs.length, p: pinned, m: people })) + '</p>' +
+      '<p class="help">' + esc(jcFmt("adm_hh_counts", { h: hhCount("homes", hs.length), p: pinned, m: hhCount("members", people) })) + '</p>' +
       '<ul class="sulist jcgrid">' + hs.map(homeCard).join("") + '</ul>';
   }).join("") || '<p class="help" id="hhNone" role="status">' +
     esc(q && d.homes.length ? jcFmt("adm_hh_no_match", { q: q }) : jcT("adm_hh_none")) + '</p>';
 }
+function hhCount(what, n){ return jcFmt(n === 1 ? "adm_hh_n_" + what + "_1" : "adm_hh_n_" + what, { n: n }); }   /* UI review G3: 1 home, 2 homes */
 function hhLabel(h){ return jcHomeLabel(h) + " · " + jcVillageName(cfg, h.village); }
 function loadHouseholds(){
   if (!hh) hh = { data: null, open: null, focus: null };

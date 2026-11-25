@@ -52,6 +52,10 @@ function labelKeys(EN) {
         for (const lit of call[1].matchAll(/"([a-z0-9_]+)"(\s*\+)?/g)) lit[2] ? addPrefix(lit[1], f) : add(lit[1], f);
       }
     }
+    // 1b. local button builders: b("edit", jcT("key")), btn("signups", jcT("key")) (admin UI review G6 found "Sign-ups" here)
+    for (const call of src.matchAll(/\b(?:b|btn)\( *"[a-z_]+", *jc(?:T|Fmt)\(([^()]*)\)/g)) {
+      for (const lit of call[1].matchAll(/"([a-z0-9_]+)"(\s*\+)?/g)) lit[2] ? addPrefix(lit[1], f) : add(lit[1], f);
+    }
     // 2. choice pills / filter rows: items of { text: jcT(...) } rendered by jcPillsHtml / jcFiltersHtml
     for (const call of src.matchAll(/(?:key|value): *[^,{}]+, *text: *jc(?:T|Fmt)\(([^()]*)\)/g)) {
       for (const lit of call[1].matchAll(/"([a-z0-9_]+)"(\s*\+)?/g)) lit[2] ? addPrefix(lit[1], f) : add(lit[1], f);
@@ -65,6 +69,9 @@ function labelKeys(EN) {
 function notTitleCase(s) {
   return s.replace(/\{[a-z]+\}/g, "X").split(/\s+/).some((w, i) => {
     const word = w.replace(/^[^A-Za-z]+/, "");
+    const parts = word.split("-");
+    /* each part after a hyphen counts as a word too: "Sign-Ups", "Check-Up" (admin UI review G6) */
+    if (parts.slice(1).some(p => /^[a-z]/.test(p) && !SMALL.has(p.replace(/[^a-z]/g, "")))) return true;
     if (!/^[a-z]/.test(word)) return false;
     return !(i > 0 && SMALL.has(word.toLowerCase().replace(/[^a-z]/g, "")));
   });

@@ -158,10 +158,34 @@ function jcTabsHtml(prefix, keys, selected, labelOf, name, panelId){
       ' aria-controls="' + esc(panelId) + '" tabindex="' + (on ? 0 : -1) + '">' + esc(labelOf(k)) + '</button>';
   }).join("") + '</div>';
 }
+/* A row wider than the screen (Organizer Tools, Cats: admin UI review G2): the selected tab scrolls fully into view,
+   and a fade marks each edge with more tabs past it (.more-start / .more-end, logical: mirrored in Arabic).
+   Only the row scrolls, never the page. */
+function jcTabsOverflow(row){
+  if (!row || !row.classList.contains("subtabs")) return;
+  var ro = window.ResizeObserver ? new ResizeObserver(edges) : null;
+  function edges(){
+    if (!row.isConnected) { if (ro) ro.disconnect(); return; }   /* the row was redrawn: let this one go */
+    var max = row.scrollWidth - row.clientWidth, pos = Math.abs(row.scrollLeft);   /* scrollLeft is ≤ 0 in right-to-left */
+    row.classList.toggle("more-start", max > 1 && pos > 1);
+    row.classList.toggle("more-end", max > 1 && pos < max - 1);
+  }
+  var sel = row.querySelector('[aria-selected="true"]');
+  if (sel && row.scrollWidth > row.clientWidth) {
+    var r = row.getBoundingClientRect(), b = sel.getBoundingClientRect(), pad = 36;   /* clear of the 32px fade (code review) */
+    if (b.left < r.left + pad) row.scrollLeft -= r.left + pad - b.left;
+    else if (b.right > r.right - pad) row.scrollLeft += b.right - (r.right - pad);
+  }
+  edges();
+  row.addEventListener("scroll", edges, { passive: true });
+  if (ro) ro.observe(row);
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(edges);   /* a late font widens the tabs */
+}
 function jcTabPanel(prefix, selected, panelId){
   return 'id="' + esc(panelId) + '" role="tabpanel" aria-labelledby="' + esc(prefix + selected) + '"';
 }
 function jcTabsWire(prefix, keys, pick){
+  jcTabsOverflow(el(prefix + keys[0]) && el(prefix + keys[0]).parentNode);
   function go(k){
     pick(k);                                       /* a click on the selected tab still redraws (as before) */
     if (el(prefix + k)) el(prefix + k).focus();   /* the row was redrawn: keyboard focus stays on the tab */

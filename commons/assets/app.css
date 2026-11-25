@@ -89,6 +89,13 @@ main:not(.jcpage) .msg.ok, main:not(.jcpage) .msg.err{margin-block:12px}
    the row fits (basis 0), never narrower than the label */
 .subtabs{display:flex; gap:4px; margin:8px 0 14px; box-shadow:inset 0 -1px 0 var(--jc-line); overflow-x:auto; overflow-y:hidden; scrollbar-width:none}
 .subtabs::-webkit-scrollbar{display:none}
+/* more tabs past an edge: that edge fades out (admin UI review G2); end/start mirror in Arabic */
+.subtabs{--tab-end:right; --tab-start:left}
+html[dir="rtl"] .subtabs{--tab-end:left; --tab-start:right}
+.subtabs.more-end{--tab-mask:linear-gradient(to var(--tab-end), #000 calc(100% - 32px), transparent)}
+.subtabs.more-start{--tab-mask:linear-gradient(to var(--tab-start), #000 calc(100% - 32px), transparent)}
+.subtabs.more-start.more-end{--tab-mask:linear-gradient(to right, transparent, #000 32px, #000 calc(100% - 32px), transparent)}
+.subtabs.more-start, .subtabs.more-end{-webkit-mask-image:var(--tab-mask); mask-image:var(--tab-mask)}
 .subtabs button{flex:1 0 0; min-width:max-content; white-space:nowrap; font:inherit; font-weight:700; cursor:pointer; color:var(--jc-muted); background:none;
   border:0; border-bottom:3px solid transparent; padding:10px 6px}
 .subtabs button[aria-selected="true"]{color:var(--jc-ink); border-bottom-color:var(--jc-accent)}
@@ -111,7 +118,8 @@ main:not(.jcpage) .msg.ok, main:not(.jcpage) .msg.err{margin-block:12px}
 .rich h3, .richpreview h3{font-size:16px; margin:8px 0 4px}
 .rich ul, .rich ol, .richpreview ul, .richpreview ol{margin:0 0 6px; padding-inline-start:22px}
 .rich > :last-child, .richpreview > :last-child{margin-bottom:0}
-.richbar{display:flex; gap:6px; margin:2px 0 -2px}
+.richfield{display:grid; gap:5px}   /* label, buttons, box: the same 5px a label keeps around its box */
+.richbar{display:flex; gap:6px}
 .richbar .rich-b{font-weight:900} .richbar .rich-u{text-decoration:underline}
 .richpreview{border:1px dashed var(--jc-line); border-radius:10px; padding:10px 12px; font-size:14px; overflow-wrap:anywhere}
 
@@ -249,7 +257,7 @@ main.jcpage, .jcpage #view, .jcpage [role="tabpanel"], .jcstack{display:flex; fl
 .jcpage #view > .subtabs + .msg{margin-top:-4px}
 /* list cards: text entries without photos (sightings, care log, bookings, reports); actions in .acts at the foot */
 .bklist{list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:8px}
-.bklist li{background:var(--jc-surface); border:1px solid var(--jc-line); border-radius:var(--jc-radius); padding:12px 14px;
+.bklist > li{background:var(--jc-surface); border:1px solid var(--jc-line); border-radius:var(--jc-radius); padding:12px 14px;
   display:flex; flex-direction:column; gap:6px; font-size:14px; overflow-wrap:anywhere}
 .bklist li.missing{border-color:var(--jc-danger)}
 .bklist b{font-size:15px}
