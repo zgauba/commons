@@ -85,6 +85,9 @@ Evaluator notes (not verdicts): the pictures for rows 1, 3, 4, 6 and 7 come from
 
 **Tuning record:** Round 1 FAIL #6 was correct: the check ran before the body drew, so it couldn't detect the notice (my own "fails on main" run had been right on uncommitted code but didn't prove the committed test). Round 1 FAILs #3, #4 and #7 were correct: the contract named pictures and no test produced them. Round 2 FAIL #4/#8/#9 was correct: a real race (boundingBox does not wait). Also noted: the contract arrived with the code, not before it. Evaluator agreed: pending Zeeshan.
 
+## After the final round: CI flake in my own test (fixed)
+CI on abffe06 (a docs-only commit after evaluator round 3) failed one test in e2e shard 1: `cats.spec.js:1361` "Cats UI review #4 + #8", `TypeError: Cannot read properties of null (reading 'width')`. The round-2 fix (wait for visible, then one `boundingBox()`) still raced: the tab draws more than once as its data arrives. Fix: the width is read inside `expect.poll` (retries; a missing box counts as Infinity, so it can never pass by accident). Proof: 40 / 40 repeats with 8 workers; against origin/main's `commons/` it still fails (`Expected < 195, Received 354`). **This test change came after the evaluator's READY round 3 (the 3-round limit): round 4 is Zeeshan's call.**
+
 ## Merge evidence
 TIER: 2
 EVALUATOR: READY head=249565afd65757bc202da917c5518c607a998b07 contract=20fe926d
