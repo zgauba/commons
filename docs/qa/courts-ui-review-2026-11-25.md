@@ -91,8 +91,7 @@ Evaluator's notes (proof drift, not a fail): row 2 checks centres within 4px rat
 11.5px for sub-pixel rounding.
 
 **Tuning record:** round 1 FAIL on row 1 was correct. The named proof couldn't run (`/shot` had Courts off), and fixing
-the cause made `/shot` useful for every later Courts review. Evaluator agreed: pending Zeeshan (merged on his
-standing "fix all and merge", 2026-11-25).
+the cause made `/shot` useful for every later Courts review. Evaluator agreed: yes (Zeeshan, 2026-11-25).
 
 ## CI flake fixed on this branch (Events, not Courts)
 

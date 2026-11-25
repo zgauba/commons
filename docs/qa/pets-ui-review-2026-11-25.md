@@ -82,5 +82,5 @@ APPROVE: 0 high, 0 medium, 2 low.
 | 6 | Regression + CI | PASS | 136 passed locally incl. axe en/ar; design guard OK; PR #219 CI green on a3fc101 |
 
 Contract unchanged since d8961bb; no test weakened. **Tuning record:** round 1 FAIL #4 was correct (the second half of
-the proof had no assertion). Evaluator agreed: pending Zeeshan (merged on his "fix all and merge", 2026-11-25).
+the proof had no assertion). Evaluator agreed: yes (Zeeshan, 2026-11-25).
 
