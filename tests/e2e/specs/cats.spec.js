@@ -933,6 +933,26 @@ test("DS-4c: residents' stations — a map with the public pins, the sort choice
   await expect(page.locator(".leaflet-popup")).not.toContainText("S-0");
 });
 
+test("UI review E3: stations sort — no home pin → Nearest Home off and said why; a refused location says so and changes nothing", async ({ page }) => {
+  const rpc = member([]);
+  const noPin = Object.assign({}, MEMBER, { admin_scopes: [], home: Object.assign({}, MEMBER.home, { lat: null, lng: null, pin_set_at: null }) });
+  rpc.jc_me_get = (a, c) => (c.signedIn ? ok(noPin) : raise("NOT_SIGNED_IN"));
+  await stubBackend(page, { rpc });
+  await signIn(page);
+  await page.goto("cats/");
+  await page.locator("#caTab_stations").click();
+  await expect(page.locator("#sortHome")).toBeDisabled();
+  await expect(page.locator('.sortopts [aria-pressed="true"]')).toHaveCount(0);           // by area: neither distance choice
+  await expect(page.locator("#caSorted")).toHaveText("Sorted by: area. Pin your home on My Home, or use where you are, to see the nearest first.");
+  const before = await page.locator("#caStList > li").evaluateAll((l) => l.map((x) => x.dataset.station));
+  await page.evaluate(() => { navigator.geolocation.getCurrentPosition = (ok, bad) => bad({ code: 1 }); });
+  await page.locator("#sortHere").click();
+  await expect(page.locator("#msg")).toContainText("Location is off for this site");
+  await expect(page.locator("#sortHere")).toBeEnabled();
+  await expect(page.locator('.sortopts [aria-pressed="true"]')).toHaveCount(0);
+  expect(await page.locator("#caStList > li").evaluateAll((l) => l.map((x) => x.dataset.station))).toEqual(before);
+});
+
 test("DS-4c: the programme's stations — private pins too, popup opens the history; Nearest Me sorts nearest first", async ({ page, context }) => {
   await context.grantPermissions(["geolocation"]);
   await context.setGeolocation({ latitude: 24.5402, longitude: 54.4402 });                  // next to S-002

@@ -38,7 +38,7 @@ test("list: live events open from the whole card + Sign up (no status pill), the
   await expect(past.locator("small")).toContainText("you took part");
   await expect(past.locator("small")).not.toContainText("you're in");
   await expect(past.locator("small")).toHaveText("31 Oct · 124 homes in · you took part");   // nothing about sign-ups
-  await expect(past.locator(".evmore")).toHaveText("See the numbers");
+  await expect(past.locator(".evmore")).toHaveText("See the numbers ›");
   const [more, accent] = await past.locator(".evmore").evaluate((n) =>
     [getComputedStyle(n).color, getComputedStyle(document.documentElement).getPropertyValue("--jc-accent").trim()]);
   expect(more).toBe("rgb(" + accent.match(/\w\w/g).map((h) => parseInt(h, 16)).join(", ") + ")");
@@ -415,6 +415,21 @@ test("list (NF-2): opens on Nearest Home from my home pin, my village first; By 
     await page.evaluate(() => document.querySelector("#map .leaflet-marker-icon").click());
     await expect(page.locator(".leaflet-popup")).toContainText("from you");
   } finally { ENTRIES.splice(-2, 2); }
+});
+
+test("UI review E3: Nearest Me refused → the message, the choice back, the order unchanged", async ({ page }) => {
+  await stubBackend(page, { rpc: eventsBackend().rpc });
+  await signIn(page);
+  await page.goto("events/?id=" + LIVE_ID + "&tab=list");
+  await expect(page.locator("#sortHome")).toHaveAttribute("aria-pressed", "true");
+  const before = await page.locator("#groups").innerText();
+  await page.evaluate(() => { navigator.geolocation.getCurrentPosition = (ok, bad) => bad({ code: 1 }); });
+  await page.locator("#sortHere").click();
+  await expect(page.locator("#msg")).toContainText("Location is off for this site");
+  await expect(page.locator("#sortHere")).toBeEnabled();
+  await expect(page.locator("#sortHere")).toHaveAttribute("aria-pressed", "false");
+  await expect(page.locator("#sortHome")).toHaveAttribute("aria-pressed", "true");
+  expect(await page.locator("#groups").innerText()).toBe(before);
 });
 
 test("code review L: on a 320px phone the three sort choices stay inside the screen, EN and AR", async ({ page }) => {

@@ -69,3 +69,24 @@ passes with it.
 | R3 | LOW | `pets.spec` still checked `#sortHereBtn` has count 0. That id no longer exists, so the check passed no matter what. | **Fixed:** it now checks there's no `.sortopts` and that `#ptSorted` is visible. |
 | R4 | LOW | Three never-wrapping buttons could clip on a 320px phone (EN / AR). | **Fixed:** equal widths that wrap when the content can't fit (`min-width:fit-content`). Test: `events.spec` 320px, EN + AR, nothing overflows. |
 
+## Evaluator
+
+### Round 1 (HEAD 6683b7f): NOT READY (PASS 7 · FAIL 2)
+
+| # | Check (short) | Verdict | Evidence |
+|---|---|---|---|
+| 1 | Message line never touches its neighbours | PASS | event-day "We're Not Out" + organizer-acts "mark done / open" ✓ (≥ 11.5px above and below); pictures show clear gaps |
+| 2 | 24-hour, community time zone | PASS | event-day + organizer-acts time tests ✓; `fmtTime` under TZ=America/Los_Angeles with cfg.tz Asia/Dubai: 07:43Z → "11:43", 20:05Z → "00:05" |
+| 3 | One sort row; sorts as named; no pin → Home off + line; refusal says so | FAIL | (a) The labels are "By Number · Nearest Home · Nearest Me"; the Check says "By House Number · Nearest My Home", and there was no Re-agreed line. (b) Only courts.spec tests refusal; cats.spec has no disabled test. The rest passes. |
+| 4 | Same no-home piece in Events, Courts, Pets | PASS | three tests ✓ (href, `btn`, not `ghost`); three pictures |
+| 5 | Organizer answers as label → value | PASS | admin-signups `dl.facts` ✓; picture |
+| 6 | "out of treats by the end" | PASS | events.spec E6 ✓ |
+| 7 | "you took part", "See the numbers ›" in link colour | FAIL | No "›" on screen, in the string or in the test |
+| 8 | Title opens a live event; no View | PASS | events.spec #5/#6 ✓; app-check admin picture |
+| 9 | Specs, axe EN + AR, design guard, CI | PASS | 805 passed locally (sweep config); design guard OK; PR #218 CI all green on 6683b7f |
+
+**Round 1 → fixes:**
+- **Row 7:** "See the numbers ›" (AR "‹", pointing forward in Arabic). The test expects the chevron.
+- **Row 3b:** new tests. Events: Nearest Me refused → message, choice back, order unchanged. Cats: no pin → Home disabled + the reason line; refused → message, order unchanged.
+- **Row 3a:** Zeeshan chose the short labels (one line on an iPhone). Re-agreed line added to the contract.
+
