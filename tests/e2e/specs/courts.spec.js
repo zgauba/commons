@@ -504,6 +504,15 @@ test("no home: told to claim it first, no Book buttons, nothing asked of the day
   expect(calls.some((c) => c.name === "jc_facility_day" || c.name === "jc_booking_book")).toBe(false);
 });
 
+test("no home, by a court link: the server's NO_HOME takes it back to the list and says so once", async ({ page }) => {
+  const b = backend({ me: MEMBER_NO_HOME });
+  const { calls } = await open(page, b, { q: "?court=" + C1 });                        // See times is hidden, a link still gets here
+  await expect(page.locator("#msg")).toHaveText("Claim your home first to book.");
+  await expect(page.locator("#bkNoHome")).toBeVisible();
+  await expect(page.locator("#bkSlots")).toHaveCount(0);
+  expect(calls.some((c) => c.name === "jc_facility_day")).toBe(true);                // the server decided, not the page
+});
+
 test("Courts switched off: a plain page, nothing asked of the server", async ({ page }) => {
   const b = backend({ enabled: false });
   const { calls } = await open(page, b);
