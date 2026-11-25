@@ -1362,11 +1362,11 @@ test("Cats UI review #4 + #8: Add a cat is the compact button like Add a station
   await stubBackend(page, { rpc: member(["cats"]) });
   await signIn(page);
   await page.goto("cats/");
+  await expect(page.locator("#caAddCat")).toBeVisible();                       // drawn before it is measured
   const add = await page.locator("#caAddCat").boundingBox(), vw = page.viewportSize().width;
   expect(add.width).toBeLessThan(vw / 2);
   if (process.env.SHOT_DIR) await page.screenshot({ path: process.env.SHOT_DIR + "/cats-add-cat-compact.png" });
   await page.locator(`[data-cat="${K1}"]`).click();
-  const status = await page.locator("#caFacts dd").first().textContent();
-  expect(status).toContain("\u00a0· ");
-  expect(status).not.toMatch(/ ·/);                                           // every dot is held to the word before it
+  // every dot is held to the word before it (regex: matched on the raw text, no whitespace folding)
+  await expect(page.locator("#caFacts dd").first()).toHaveText(/^(?![\s\S]* ·)[\s\S]*\u00a0· /);
 });
