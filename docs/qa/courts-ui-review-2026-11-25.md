@@ -105,3 +105,18 @@ standing "fix all and merge", 2026-11-25).
 - **Proof:** WebKit `--repeat-each=10` → 10 passed. Chromium, all 20 `event-day` tests pass. With the fast-forward
   cut to 10 s (before the end), the test fails, so it still bites.
 - **Evaluator:** the contract rows aren't affected (a test-only change in a spec outside the contract). Not re-run.
+
+### Round 3 (HEAD dcb1c39, after the event-day test fix): READY (PASS 7 · FAIL 0 · DEFERRED 0 · HUMAN 0)
+
+| # | Check (short) | Verdict | Evidence |
+|---|---|---|---|
+| 1 | No home: no See times, sentence once | PASS | Local `courts.spec admin-court` 98 passed; `courts.spec:495` + the deep-link test `:507`; `/shot bookings/ member-no-home` EN + AR show the List with the sentence once and no See times. |
+| 2 | Free slot = one row | PASS | `courts.spec:250` ✓; the sweep picture shows "11:00–12:00 Free Book" on one line. |
+| 3 | Message, off notice and rules line don't touch | PASS | `admin-courts.spec:396` ✓ (≥ 11.5px); the picture shows clear gaps. |
+| 4 | Quiet precedence on the tabs, `.notice` on the court page | PASS | `courts.spec:109` + `:250` ✓; one shared header for all three tabs (`bookings.js:303`); pictures. |
+| 5 | Cancelled booking = Past cancelled card | PASS | `courts.spec:230` ✓; the picture shows a muted, neutral card. |
+| 6 | "Places" / "الملاعب" | PASS | `admin-courts.spec:74` + `:460` ✓. |
+| 7 | Regression + CI | PASS | Local 98 passed incl. axe en/ar; PR #216 on dcb1c39: e2e, e2e-webkit, design-guard, plan-followed, review-saved, repo-rules, secret-scan all pass. |
+
+Evaluator on the event-day change (outside the contract): a 1.5 s real-time window swapped for the page clock; it
+still asserts the controls go without a reload. Not weaker. Passed in both CI jobs.
