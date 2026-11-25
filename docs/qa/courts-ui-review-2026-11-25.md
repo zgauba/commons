@@ -93,3 +93,15 @@ Evaluator's notes (proof drift, not a fail): row 2 checks centres within 4px rat
 **Tuning record:** round 1 FAIL on row 1 was correct. The named proof couldn't run (`/shot` had Courts off), and fixing
 the cause made `/shot` useful for every later Courts review. Evaluator agreed: pending Zeeshan (merged on his
 standing "fix all and merge", 2026-11-25).
+
+## CI flake fixed on this branch (Events, not Courts)
+
+- **What:** on 5a4584d (docs only, same code as 3ccdd2c, which passed WebKit 796/796), `e2e-webkit` failed one test:
+  `event-day.spec.js:230` "when the event ends, the controls go without a reload": `#live .tog` never appeared.
+- **Cause:** a real-time race in the test. The stub event ended 1.5 s after the stub was built. When CI WebKit's
+  first draw took longer than that, the event was already over, so the controls the test waits for never rendered.
+- **Fix:** the test runs on Playwright's page clock. The event ends 60 s after opening; the test checks the controls,
+  fast-forwards 65 s, and checks they're gone. The app is unchanged.
+- **Proof:** WebKit `--repeat-each=10` → 10 passed. Chromium, all 20 `event-day` tests pass. With the fast-forward
+  cut to 10 s (before the end), the test fails, so it still bites.
+- **Evaluator:** the contract rows aren't affected (a test-only change in a spec outside the contract). Not re-run.
