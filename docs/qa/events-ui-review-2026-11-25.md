@@ -127,6 +127,5 @@ Re-agreed row: #3 (labels), chosen by Zeeshan in this session. No test weakened.
 its Re-agreed line.
 
 **Tuning record:** round 1 FAIL #3a was correct: I changed agreed labels without asking. #3b and #7 were real gaps.
-Round 2 FAIL (Cats Nearest Home unproven) was correct. Evaluator agreed: pending Zeeshan (merged on his standing
-"fix and merge", 2026-11-25).
+Round 2 FAIL (Cats Nearest Home unproven) was correct. Evaluator agreed: yes (Zeeshan, 2026-11-25).
 
