@@ -13,8 +13,6 @@
 1	bare|commons/admin/admin.css|#ctForm .row label
 1	bare|commons/bookings/bookings.css|.strip button
 1	bare|commons/bookings/bookings.css|.strip button[aria-pressed="true"]
-1	bare|commons/events/events.css|.seg2 button
-1	bare|commons/events/events.css|.seg2 button[aria-pressed="true"]
 1	bare|commons/events/events.css|.seg4 button
 1	bare|commons/events/events.css|.seg4 button:disabled
 1	bare|commons/events/events.css|.seg4 button[aria-pressed="true"]

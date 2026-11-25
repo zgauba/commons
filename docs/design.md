@@ -134,6 +134,7 @@ Cats today: sex (3), life stage (4), ear tip (3), sterilisation (3) → pills ·
 | Accessibility | `jcSay` scrolls it into view after a write |
 | Wiring | `jcShowErr(code)`, `jcShowErrFor(prefix, code)`, `jcShowOk(text)`; in-flight button: `jcBusy(id, on)` ("Working…" + disabled) |
 | Use / Don't | One per screen. Errors by code, worded in `strings.js`. Don't add ad-hoc alert boxes |
+| Spacing | Never touches its neighbours (Events UI review E1, 2026-11-25): the 12px stack on `main.jcpage`; elsewhere (Events, Organizer Tools, My Home, Account) a 12px block margin in `app.css`. No per-page fixes |
 
 ### Bottom tab bar · footer · banner
 | | |
@@ -201,16 +202,16 @@ Cats today: sex (3), life stage (4), ear tip (3), sterilisation (3) → pills ·
 | Use / Don't | Any record or status history. **Never a bulleted list (D5)** |
 | Reference | `design/pet-stray.jpg` (CARE RECORD; the stray page was retired in CC-7c; screenshot kept as the reference) |
 
-### Filters · search · sort line
+### Filters · search · sort choice
 | | |
 |---|---|
 | Status | **Shared** |
-| Native basis | `button` group · `input` · `p` + `button` |
-| Markup | `jcChipsHtml({id, prefix, label, items, current})` → `.filters` · `jcSearchHtml({id, placeholder, value})` · `jcSortedHtml(o)` (`map.js`) |
-| Variants / states | Filter pill with a count `.n`; pressed = accent ring |
-| Accessibility | Filters `role=group` + label, `aria-pressed`; search has `aria-label`, `inputmode=search`, `dir=auto`, matches without accents / Arabic short vowels |
-| Wiring | `jcChipsWire(id, prefix, onPick)` (focus returns to the pill) · page filters on `input` · `jcSortedWire(o)` |
-| Use / Don't | Order on a list page: urgent group → filters → search → sorted-by → cards |
+| Native basis | `button` group · `input` · `button` group (+ `p`) |
+| Markup | `jcChipsHtml({id, prefix, label, items, current})` → `.filters` · `jcSearchHtml({id, placeholder, value})` · `jcSortChoiceHtml(o)` (`map.js`) → `.sortbox` › `.opts.sortopts` + the reason line · `jcSortedHtml(o)`: a status line only (Pets' owned pets, where there's nothing to choose) |
+| Variants / states | Filter pill with a count `.n`; pressed = accent ring. Sort choice (Events UI review E3, option B, 2026-11-25): **By Number · Nearest Home · Nearest Me** on Events, **Nearest Home · Nearest Me** on Courts and Cats stations, one line, equal widths. No home pin → Nearest Home disabled and one line says why (never colour alone) |
+| Accessibility | Filters and sort `role=group` + label, `aria-pressed`; search has `aria-label`, `inputmode=search`, `dir=auto`, matches without accents / Arabic short vowels |
+| Wiring | `jcChipsWire(id, prefix, onPick)` (focus returns to the pill) · page filters on `input` · `jcSortChoiceWire({ onHouse, onNear, onError, alive, late })` (Nearest Me asks for location once per visit) |
+| Use / Don't | Order on a list page: urgent group → filters → search → sort choice → cards. Never a "Sorted by" line plus a button for the same choice |
 | Reference | `design/pets-list.jpg` |
 
 ---
@@ -250,6 +251,13 @@ Cats today: sex (3), life stage (4), ear tip (3), sterilisation (3) → pills ·
 | Wiring | `jcMinisDraw(st, root)` after `innerHTML` (builds each `.ptmini` once scrolled into view; the page keeps `st = { maps: [], obs: null }` and calls `jcMinisClear(st)` before a redraw). Newest 10 with a pin get a map |
 | Use / Don't | Every "seen this animal" feature. One component, not a Cats-only one (D4) |
 | Reference | `design/pet-sightings.jpg` |
+
+### No home yet
+| | |
+|---|---|
+| Status | **Shared** (`jcNoHomeHtml(id, key)` in `api.js`, Events UI review E4, 2026-11-25; Events, Courts, Pets) |
+| Markup | `p.help#<id>` with the module's sentence ("Claim your home first to …") + `.row` › `a.btn` **Claim My Home** → `../home/` |
+| Use / Don't | Where a module needs a home and the account has none. The filled button is the next step, so it's the one primary action on the screen. Don't use a bordered notice or a ghost "Go to My Home" |
 
 ### State boxes
 | | |

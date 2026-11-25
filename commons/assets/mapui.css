@@ -51,4 +51,9 @@ body.mapfull{overflow:hidden}
 /* NF-2: the "Sorted by" line on every resident list — the words, then Use Where I Am / Use My Home beside them */
 .sortedby{display:flex; flex-wrap:wrap; align-items:center; gap:6px 10px; margin:8px 0 10px}
 .sortedby .help{margin:0; flex:1 1 12em}
-.sortedby .lang{flex:0 0 auto}
+/* the sort choice row (map.js jcSortChoiceHtml, UI review E3): one line of equal choices, the reason under it */
+main:not(.jcpage) .sortbox{margin:8px 0 12px}           /* Events: no shared 12px stack around it */
+.sortopts{flex-wrap:nowrap}
+.sortopts button{flex:1 1 0; padding-inline:8px; white-space:nowrap}
+.sortopts button:disabled{color:var(--jc-faint); cursor:default}
+.sortbox .help{margin:6px 0 0}

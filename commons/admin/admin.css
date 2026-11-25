@@ -73,7 +73,6 @@ label.check span small{display:block; color:var(--jc-muted); font-size:12.5px; f
 .sulist li.hidden{opacity:.65; border-style:dashed}
 .sulist b{font-size:15px}
 .sulist .meta{color:var(--jc-muted); font-size:13px; overflow-wrap:anywhere}
-.sulist .note{font-size:13.5px; font-style:italic; overflow-wrap:anywhere}
 .sulist .orgnote{font-size:13.5px; border-inline-start:3px solid var(--jc-accent); padding-inline-start:8px; overflow-wrap:anywhere}
 .sulist .orgnote small{display:block; color:var(--jc-muted); font-size:12px}
 .flags{display:flex; flex-wrap:wrap; gap:5px}
@@ -162,5 +161,5 @@ li[data-event] .chip.draft{display:table; margin:3px 0 2px}
 .desc{margin:0 0 4px; font-size:14.5px; line-height:1.5}
 /* OT-3: the switched-off notice above the Pets group row */
 .notice + .setrows{margin-top:12px}
-/* a shown message line never touches the tab panel under it (Courts UI review #3) */
-.msg.ok + [role="tabpanel"], .msg.err + [role="tabpanel"]{margin-top:12px}
+/* a live event's title opens its page (UI review E8: replaces the View button) */
+.evtitle-link{color:inherit; text-decoration-color:var(--jc-line); text-underline-offset:3px}

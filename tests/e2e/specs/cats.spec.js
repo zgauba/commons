@@ -914,7 +914,7 @@ test("DS-4b: activity entries are the shared dated list — actions at the foot,
 
 // DS-4c (docs/plans/DS-4-cats-rebuild.md, Done-when 7): the Stations tab is the (CC-7c: retired) Pets Strays layout — a map of the
 // stations above a nearest-first list; residents only ever get public stations (the server sends no others)
-test("DS-4c: residents' stations — a map with the public pins, a sorted-by line, list cards with Directions", async ({ page }) => {
+test("DS-4c: residents' stations — a map with the public pins, the sort choice, list cards with Directions", async ({ page }) => {
   await stubBackend(page, { rpc: member([]) });
   await signIn(page);
   await page.goto("cats/");
@@ -922,7 +922,7 @@ test("DS-4c: residents' stations — a map with the public pins, a sorted-by lin
   await expect(page.locator("#caMap")).toHaveAttribute("aria-label", "Map of the feeding stations");
   await expect(page.locator("#caMap .bklabel")).toHaveText(["Behind the souk"]);
   await expect(page.locator("#caMap")).not.toContainText("S-0");                            // no Station ID for residents
-  await expect(page.locator("#caSorted")).toBeVisible();
+  await expect(page.locator(".sortopts [data-sort]")).toHaveText(["Nearest Home", "Nearest Me"]);   // UI review E3: as Courts
   await expect(page.locator("#caStList > li.caStation .acts").getByRole("link", { name: "Directions" })).toHaveCount(1);
   if (process.env.SHOT_DIR) await page.screenshot({ path: process.env.SHOT_DIR + "/ds4c-resident-stations.png", fullPage: true });
   // the popup: Directions only — no History button, no Station ID, no private chip (review M)
@@ -933,7 +933,7 @@ test("DS-4c: residents' stations — a map with the public pins, a sorted-by lin
   await expect(page.locator(".leaflet-popup")).not.toContainText("S-0");
 });
 
-test("DS-4c: the programme's stations — private pins too, popup opens the history; Use Where I Am sorts nearest first", async ({ page, context }) => {
+test("DS-4c: the programme's stations — private pins too, popup opens the history; Nearest Me sorts nearest first", async ({ page, context }) => {
   await context.grantPermissions(["geolocation"]);
   await context.setGeolocation({ latitude: 24.5402, longitude: 54.4402 });                  // next to S-002
   const sink = { activity: [] };
@@ -943,7 +943,8 @@ test("DS-4c: the programme's stations — private pins too, popup opens the hist
   await page.locator("#caTab_stations").click();
   await expect(page.locator("#caMap .bklabel")).toHaveCount(2);
   await expect(page.locator("#caMap .bklabel")).toContainText(["S-002 · Next door"]);
-  await page.locator("#sortHereBtn").click();
+  await page.locator("#sortHere").click();
+  await expect(page.locator("#sortHere")).toHaveAttribute("aria-pressed", "true");
   await expect(page.locator("#caStList > li").first()).toHaveAttribute("data-station", S2);
   await expect(page.locator(`#caStList > li[data-station="${S2}"] .meta`).nth(1)).toContainText("≈");
   await expect(page.locator(`#caStList > li[data-station="${S2}"] [data-private]`)).toHaveText("Private location");

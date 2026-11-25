@@ -120,7 +120,7 @@ function stationOrder(d, list){
   return jcNear(byArea, jcOrigin(), stationAt);
 }
 function stationListHtml(d, live, programme){
-  return jcSortedHtml({ id: "caSorted", fallback: "ca_sorted_area" }) +
+  return jcSortChoiceHtml({ id: "caSorted", fallback: "ca_sorted_area" }) +
     '<ul class="bklist" id="caStList">' + stationOrder(d, live).map(function(s){ return stationCard(d, s, programme); }).join("") + '</ul>';
 }
 /* the whole Stations tab body below its buttons / help line */
@@ -142,7 +142,7 @@ function redrawStList(){
   wireStationActs(box); wireStSort();
   r();
 }
-function wireStSort(){ jcSortedWire({ onChange: redrawStList, onError: caMsg, alive: function(){ return current === "home" && tab === "stations"; } }); }
+function wireStSort(){ jcSortChoiceWire({ onNear: redrawStList, onError: caMsg, alive: function(){ return current === "home" && tab === "stations"; } }); }
 function wireStationActs(root){
   root = root || document;
   function onClick(sel, fn){ Array.prototype.forEach.call(root.querySelectorAll(sel), function(b){ b.addEventListener("click", function(){ fn(b); }); }); }

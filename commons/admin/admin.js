@@ -1623,13 +1623,13 @@ function eventRow(e){
       btn(e.signups_open ? "pause" : "open", jcT(e.signups_open ? "adm_pause_signups" : "adm_open_signups"), true) +
       btn("close", jcT("adm_close"), true, true) +           /* UI review #6: red outline, as Not a stray */
       /* T5.4b: back to coming soon — organizers, while nobody has signed up (the server checks too) */
-      (isOrganizer() && !e.coming_soon && !e.entries ? btn("announce", jcT("adm_back_to_soon"), true) : '') +
-      '<a class="btn ghost small" href="../events/?id=' + esc(e.id) + '">' + esc(jcT("adm_view")) + '</a>';
+      (isOrganizer() && !e.coming_soon && !e.entries ? btn("announce", jcT("adm_back_to_soon"), true) : '');   /* E8: the title opens it */
   }
   if (e.status === "archived") acts = '<a class="btn ghost small" href="../events/?id=' + esc(e.id) + '">' + esc(jcT("adm_numbers")) + '</a>';
   if (e.status !== "draft") acts = btn("signups", jcT("adm_signups")) + acts;      /* T5.2 PR 4 */
   if (e.status !== "archived" && has("community")) acts += btn("admins", jcT("adm_admins"), true);
-  return '<li data-event="' + esc(e.slug) + '"><div><b>' + esc(title(e)) + '</b>' +
+  return '<li data-event="' + esc(e.slug) + '"><div><b>' + (e.status === "live"
+      ? '<a class="evtitle-link" href="../events/?id=' + esc(e.id) + '">' + esc(title(e)) + '</a>' : esc(title(e))) + '</b>' +
     (isDraft ? '<span class="chip draft">' + esc(jcT("adm_status_draft")) + '</span>' : '') +
     '<small>' + esc(line) + '</small></div>' +
     '<div class="acts">' + acts + '</div>' +
@@ -2936,12 +2936,13 @@ function answerText(spec, v){
   return (spec && (jcOwn(spec["labels_" + jcLang()], v) || jcOwn(spec.labels_en, v))) || String(v);
 }
 function questionText(k, spec){ return (spec && (spec["label_" + jcLang()] || spec.label_en)) || k; }
-/* "Kids should come to…: Front gate" — every answer, short answers included (organizers only) */
+/* [question, answer] for every answer, short answers included, then the household's note — the shared label → value
+   list, as the household sees it on My Sign-Up (UI review E5) */
 function answersOf(x){
   var fields = fieldsOf(su.ev);
-  return Object.keys(x.payload || {}).map(function(k){
-    return questionText(k, fields[k]) + ": " + answerText(fields[k], x.payload[k]);
-  });
+  var rows = Object.keys(x.payload || {}).map(function(k){ return [questionText(k, fields[k]), answerText(fields[k], x.payload[k])]; });
+  if (x.note) rows.push([jcT("ev_note_h"), x.note]);
+  return rows;
 }
 
 /* R2b-1: event-night actions on one sign-up. Treat nights say "out of treats" (as the household's own switch). */
@@ -3001,9 +3002,7 @@ function entryCard(x, ro){
   /* everything residents typed is escaped */
   return '<li class="' + (x.hidden ? 'hidden' : '') + '" data-entry="' + esc(x.id) + '"><b>' + esc(jcHomeLabel(x)) + '</b>' +
     (flags.length ? '<div class="flags">' + flags.map(function(f){ return '<span>' + esc(f) + '</span>'; }).join("") + '</div>' : '') +
-    answersOf(x).map(function(t){ return '<div class="meta" dir="auto">' + esc(t) + '</div>'; }).join("") +
-    /* typed in either language: each line picks its own direction */
-    (x.note ? '<div class="note" dir="auto">' + esc(x.note) + '</div>' : '') +
+    (answersOf(x).length ? jcFactsHtml(answersOf(x)) : '') +          /* typed text: dd dir="auto" in the kit */
     (x.org_note ? '<div class="orgnote"><small>' + esc(jcT("adm_su_note_label")) + '</small><span dir="auto">' + esc(x.org_note) + '</span></div>' : '') +
     acts + form + '</li>';
 }

@@ -191,34 +191,53 @@ function jcNear(items, origin, posOf){
     }).map(function(o){ return o.x; });
 }
 
-/* The "Sorted by" line, the same on every list (o.id: the line's id; o.fallback: the string key when there's no origin
-   — "Sorted by: name…"; o.noButton: Pets' owned pets, whose homes never reach the phone). The button:
-   Use Where I Am (from the home pin, or no origin) / Use My Home (from the phone, when there's a home pin). */
+/* The "Sorted by" status line (Pets' owned pets: the server's home order, nothing to choose). o.id: the line's id;
+   o.fallback: the string key when there's no home pin. */
 function jcSortedHtml(o){
-  var home = !!jcHomePin(), org = o.noButton ? (home ? { from: "home" } : null) : jcOrigin();   /* noButton: the server's home order */
-  var text = !org ? o.fallback : org.from === "here" ? "sort_near_here" : "sort_near_home";
-  var btn = o.noButton ? "" : !org || org.from === "home" ? "sort_use_here" : home ? "sort_use_home" : "";
-  return '<div class="sortedby"><p class="help" id="' + esc(o.id) + '">' + esc(jcT(text)) + '</p>' +
-    (btn ? '<button type="button" class="lang" id="sortHereBtn" data-to="' + (btn === "sort_use_here" ? "here" : "home") + '">' +
-      esc(jcT(btn)) + '</button>' : '') + '</div>';
+  return '<div class="sortedby"><p class="help" id="' + esc(o.id) + '">' + esc(jcT(jcHomePin() ? "sort_near_home" : o.fallback)) + '</p></div>';
 }
-/* Wire the button: onChange() redraws the list; onError(code) shows LOCATE_DENIED / LOCATE_FAILED; alive() — false once
-   the page has moved on (a late fix still keeps the position, but nothing is redrawn or shown); late() — run instead of
-   onChange when a fix lands after a redraw replaced this button (Events' event-night refresh), so the tap isn't lost. */
-function jcSortedWire(o){
-  var b = document.getElementById("sortHereBtn");
-  if (!b) return;
-  b.addEventListener("click", function(){
-    if (b.dataset.to === "home") { jcHere = null; o.onChange(); return; }
-    jcBusy("sortHereBtn", true);
-    jcLocate(function(lat, lng){
-      jcHere = { lat: lat, lng: lng };
-      if (o.alive && !o.alive()) { if (o.late) o.late(); return; }
-      o.onChange();
-    }, function(code){
-      if (o.alive && !o.alive()) return;
-      jcBusy("sortHereBtn", false);
-      if (o.onError) o.onError(code);
+
+/* The sort choice (Events UI review E3, option B, 2026-11-25): one row of choices instead of "Sorted by" + a button.
+   Events: By House Number · Nearest My Home · Nearest Me. Courts, Cats stations: Nearest My Home · Nearest Me.
+   o.id: the id of the line under the row; o.house: the house-number choice's string key (Events only);
+   o.mode: "house" while the list is in that order; o.fallback: the line when there's no home pin and no position.
+   No home pin → Nearest My Home is disabled and the line says why (colour is never the only signal). */
+function jcSortMode(o){
+  if (o.house && o.mode === "house") return "house";
+  if (jcHere) return "here";
+  if (jcHomePin()) return "home";
+  return o.house ? "house" : null;                        /* Courts / Cats with neither: by name / area, nothing pressed */
+}
+function jcSortChoiceHtml(o){
+  var m = jcSortMode(o), pin = !!jcHomePin();
+  function b(id, key, val, off){
+    return '<button type="button" id="' + id + '" data-sort="' + val + '" aria-pressed="' + (m === val) + '"' + (off ? ' disabled' : '') + '>' + esc(jcT(key)) + '</button>';
+  }
+  return '<div class="sortbox"><div class="opts sortopts" role="group" aria-label="' + esc(jcT("sort_label")) + '">' +
+    (o.house ? b("sortNum", o.house, "house") : '') + b("sortHome", "sort_home", "home", !pin) + b("sortHere", "sort_here", "here") + '</div>' +
+    (pin ? '' : '<p class="help" id="' + esc(o.id) + '">' + esc(jcT(jcHere ? "sort_no_pin" : o.fallback)) + '</p>') + '</div>';
+}
+/* Wire the row. onHouse() (Events): the house-number order. onNear(): redraw nearest first (jcHere says from where).
+   onError(code): LOCATE_DENIED / LOCATE_FAILED. alive(): false once the page has moved on (a late fix still keeps the
+   position, but nothing is redrawn or shown). late(): run instead of onNear when a fix lands after a redraw replaced
+   this row (Events' event-night refresh), so the tap isn't lost. */
+function jcSortChoiceWire(o){
+  Array.prototype.forEach.call(document.querySelectorAll(".sortopts [data-sort]"), function(b){
+    b.addEventListener("click", function(){
+      var v = b.dataset.sort;
+      if (v === "house") return o.onHouse();
+      if (v === "home") { jcHere = null; return o.onNear(); }
+      if (jcHere) return o.onNear();                                       /* already have this visit's position */
+      jcBusy(b.id, true);
+      jcLocate(function(lat, lng){
+        jcHere = { lat: lat, lng: lng };
+        if (o.alive && !o.alive()) { if (o.late) o.late(); return; }
+        o.onNear();
+      }, function(code){
+        if (o.alive && !o.alive()) return;
+        jcBusy(b.id, false);
+        if (o.onError) o.onError(code);
+      });
     });
   });
 }

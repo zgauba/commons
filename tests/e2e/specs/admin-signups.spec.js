@@ -28,11 +28,12 @@ test("sign-ups: grouped by village with counts; withdrawn left out; flags, notes
   await expect(page.locator(".sub")).toHaveText("3 homes");                       // a4 withdrew
   await expect(page.locator("h2.group")).toHaveText(["Ain Al Maha · 2", "Seef Al Jubail · 1"]);
   await expect(card(page, "12").locator(".flags")).toContainText("2 neighbor reports");
-  await expect(card(page, "12").locator(".note")).toHaveText('=HYPERLINK("x")');   // shown as text, never markup
+  // UI review E5: the shared label → value list, as My Sign-Up; the note is a row too, shown as text, never markup
+  await expect(card(page, "12").locator("dl.facts dt")).toHaveText(["treats", "Note"]);
+  await expect(card(page, "12").locator("dl.facts dd")).toHaveText(["candy", '=HYPERLINK("x")']);
   await expect(card(page, "14").locator(".flags")).toContainText("No pin");
   await expect(card(page, "14").locator(".orgnote")).toContainText("Pin looks off");
   await expect(card(page, "7").locator(".flags")).toContainText("Pin moved for this event");
-  await expect(card(page, "12").locator(".meta")).toHaveText(["treats: candy"]);
   await expect(page.locator('[data-su="spot"]')).toHaveCount(0);                  // a homes event has no spots
   await page.locator("#jcBackBtn").click();                                      // back lives in the top bar
   await expect(page.locator("#newEv")).toBeVisible();

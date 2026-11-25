@@ -257,8 +257,7 @@ function card(p){
       out && jcMetaHtml(jcFmt("pt_seen_out", { t: out }), "seenout") ] });
 }
 function noHomeHtml(){
-  return '<p class="notice" id="ptNoHome">' + esc(jcT("pt_no_home")) + '</p>' +
-    '<div class="row"><a class="btn ghost" href="../home/">' + esc(jcT("bk_go_home")) + '</a></div>';
+  return jcNoHomeHtml("ptNoHome", "pt_no_home");
 }
 
 var VIEWS = {

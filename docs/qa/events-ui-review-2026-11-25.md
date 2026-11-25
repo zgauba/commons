@@ -39,4 +39,20 @@ Zeeshan agreed with the evaluator's verdicts on #216 (rounds 1–3), 2026-11-25.
 
 ## Verification
 
-(filled in on the PR branch)
+**Tier 2 (screen logic):** client only, no schema / RPC / auth / PII change. Shared pieces touched (`app.css`, `map.js`,
+`mapui.css`, `api.js`, `strings.js`), so every module that uses them was run.
+
+- **Tests:** events, events-audit, event-day, organizer-acts, every `admin*`, courts, cats, pets, home, account,
+  strings-parity on mobile (Chromium), run once locally: **636 passed**. WebKit and the full suite run in CI. Design guard: OK. Two
+  baseline lines deleted (`.seg2` is gone).
+- **The tests catch the bugs:** the new and changed assertions run against the old `commons/` (13 files): **21
+  failed**, 372 passed. Restored: all pass.
+- **Caught by a picture, not a test:** the first build showed "sign-ups closed" on the past card (the "closed" branch
+  had come loose when "see the numbers" moved). Fixed, and the test now checks the card's line exactly.
+- **Screenshots looked at (after):** Events List on event night (message 12px from "Updated" and the search; one
+  sort row); the same in Arabic (the row fits on one line); Courts List with no home pin after Nearest Me (Home off +
+  the reason); Courts with no home (Claim My Home); Organizer › Sign-ups (message spaced; answers as label → value);
+  Events list (past card: "you took part", "See the numbers" in link colour).
+- **Labels shortened to fit one line on a phone:** "By Number · Nearest Home · Nearest Me" (the agreed mock-up said
+  "By House Number · Nearest My Home"; at iPhone width that wraps to two lines).
+- **Design doc:** message-line spacing, the sort choice, and the no-home piece are recorded in `docs/design.md`.

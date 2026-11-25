@@ -51,7 +51,7 @@ test("adjusted by an organizer: the time, never who; the household's own tap cle
     db.rpc.jc_event_get = async (a) => { const r = await get(a); r.body.mine.org_by = "organizer-secret-id"; return r; };
   });
   const line = page.locator(".cta .orgline");
-  await expect(line).toHaveText(/^Adjusted by an organizer · \u2068\d{1,2}:\d{2}\s?[AP]M\u2069$/);
+  await expect(line).toHaveText(/^Adjusted by an organizer · \u2068\d{2}:\d{2}\u2069$/);
   await expect(line).toHaveAttribute("role", "note");
   expect(await page.content()).not.toContain("organizer-secret-id");
   await page.locator("#live [data-live=done]").click();
@@ -62,7 +62,7 @@ test("adjusted by an organizer: the time, never who; the household's own tap cle
 
 test("an older change shows its date too", async ({ page }) => {
   await openDay(page, { orgAdjusted: new Date(Date.now() - 3 * 86400e3).toISOString() });
-  await expect(page.locator(".cta .orgline")).toHaveText(/^Adjusted by an organizer · \u2068\d{1,2} [A-Z][a-z]{2} \d{1,2}:\d{2}\s?[AP]M\u2069$/);
+  await expect(page.locator(".cta .orgline")).toHaveText(/^Adjusted by an organizer · \u2068\d{1,2} [A-Z][a-z]{2} \d{2}:\d{2}\u2069$/);
 });
 
 test("removed by an organizer: said, and Sign Up again is offered while open", async ({ page }) => {
@@ -114,6 +114,16 @@ test("mark done / open: exact args, the card says so, the button flips", async (
   await card(page, "12").locator('[data-su="open"]').click();
   await expect(page.locator("#msg")).toHaveText("Villa 12 is marked open again.");
   expect(lastCall(calls, "jc_admin_entry_live_set").args).toEqual({ p_entry: "a1", p_state: "active", p_supply: null, p_supply_clear: false });
+  // UI review E1: the message never touches what's above or below it (≥ 12px, half a pixel for rounding)
+  const gapAround = async (sel) => page.evaluate((s) => {
+    const m = document.querySelector(s), r = m.getBoundingClientRect();
+    const sib = (n, dir) => { do { n = dir < 0 ? n.previousElementSibling : n.nextElementSibling; } while (n && !n.getClientRects().length); return n; };
+    const p = sib(m, -1), n = sib(m, 1);
+    return [p ? r.top - p.getBoundingClientRect().bottom : 99, n ? n.getBoundingClientRect().top - r.bottom : 99];
+  }, sel);
+  const [above, below] = await gapAround("#msg");                                   // the count above, the CSV box below
+  expect(above).toBeGreaterThanOrEqual(11.5);
+  expect(below).toBeGreaterThanOrEqual(11.5);
   await expect(card(page, "12").locator('[data-su="done"]')).toBeVisible();
 });
 
