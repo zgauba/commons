@@ -20,8 +20,17 @@ affected specs + CI + code-reviewer.
 Left alone: event-card actions wrapping unevenly (owned by the Events review, #218). Not issues: Health showing a
 hostile `<b>x</b>` as text (the test feeds it on purpose); the green "Bookings are switched off" box (information).
 
-## Code review
-Pending; added below before merge.
+## Code review (code-reviewer, 2026-11-25) — APPROVE, nothing HIGH/MEDIUM
+| # | LOW finding | Disposition |
+|---|---|---|
+| 1 | The selected tab is scrolled 24px clear of the edge, but the fade is 32px: up to 8px of a tab could sit under it | **Fixed**: 36px |
+| 2 | A tab row wired while hidden (`display:none`) never scrolls its selected tab into view | Accepted: no caller does this; the fade still updates when it appears |
+| 3 | Re-wiring the same row without redrawing it would stack scroll listeners | Accepted: every caller redraws the row first |
+Reviewer verified: no other nested list sits inside a `.sulist`/`.bklist` card and every builder emits direct `<li>`s; the
+class-qualified card selectors still match; RTL scroll math uses rect deltas (Chrome + Safari negative `scrollLeft`), only
+the row scrolls, the observer disconnects once the row is gone; every caller of the count strings goes through the
+singular/plural pick; the description box keeps its accessible name via `for=`, preview placement unchanged.
+After the fix: admin, admin-households, admin-health, admin-signups, home, button-case, cats — 217 passed.
 
 ## Evidence
 - New checks fail on main's `commons/` (6 of 6: G1, G2, G3, G4, G5, Title Case); the My Home no-fade check is a regression guard (passes on both).

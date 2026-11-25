@@ -172,7 +172,7 @@ function jcTabsOverflow(row){
   }
   var sel = row.querySelector('[aria-selected="true"]');
   if (sel && row.scrollWidth > row.clientWidth) {
-    var r = row.getBoundingClientRect(), b = sel.getBoundingClientRect(), pad = 24;   /* clear of the fade */
+    var r = row.getBoundingClientRect(), b = sel.getBoundingClientRect(), pad = 36;   /* clear of the 32px fade (code review) */
     if (b.left < r.left + pad) row.scrollLeft -= r.left + pad - b.left;
     else if (b.right > r.right - pad) row.scrollLeft += b.right - (r.right - pad);
   }
