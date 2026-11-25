@@ -45,3 +45,28 @@ apart from a split; the PII rule "disclosed on the screen that collects it" stil
   before it's sent. A replaced or removed photo is deleted within a day. If you remove the pet, no one can see its
   photo, but it's kept for 30 days in case the pet is brought back, then deleted." (The same words as before, split.)
 - **Design doc:** Sightings markup (P2 filled while missing; P4 line) and a new shared "Tap-to-open line".
+
+## Code review (code-reviewer, 2026-11-25)
+
+APPROVE: 0 high, 0 medium, 2 low.
+
+| # | Severity | Finding | Disposition |
+|---|---|---|---|
+| R1 | LOW | "What happens to the photo" closes again when the edit form redraws (a photo picked or dropped, a language switch). | **Accepted:** the full disclosure stays on the form, just collapsed. Nothing is lost. |
+| R2 | LOW | `.help + .sulist{margin-top:12px}` also reaches the household-pending list and the hidden-sightings list in Organizer Tools. | **Accepted as intended:** both are a help line touching a list, the same "nothing touches" break. |
+
+## Evaluator
+
+### Round 1 (HEAD 9eb9b98): NOT READY (PASS 5 · FAIL 1)
+
+| # | Check (short) | Verdict | Evidence |
+|---|---|---|---|
+| 1 | No repeated Sightings heading | PASS | pets.spec:316 ✓ (0 `h2.group` "Sightings" in the real `role=tabpanel`); Luna pictures EN + AR (app-check flow) |
+| 2 | Filled while missing, outlined at home | PASS | pets.spec:316 + :180 ✓; Luna and Rex pictures |
+| 3 | Manage help line 12px from the list | PASS | admin-pets:526 ✓; sweep picture |
+| 4 | Reported line at home; a missing pet still offers Report seeing | FAIL | The first half is proven (pets.spec:180). No test checks `#ptSight` after a send on a missing pet. |
+| 5 | Short line + What happens to the photo | PASS | R5c spec:982 ✓; Mochi edit pictures EN / AR, closed and opened |
+| 6 | Regression + CI | PASS | 136 passed locally incl. axe en/ar; design guard OK; PR #219 CI green on 9eb9b98 |
+
+**Round 1 → fix:** the missing-pet send test (location + note) now checks that Report seeing Luna is still offered (filled) and that there's no "reported" line.
+

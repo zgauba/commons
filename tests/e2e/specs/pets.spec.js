@@ -260,6 +260,10 @@ test.describe("a sighting", () => {
     await expect(page.locator("#ptPosClear")).toBeFocused();
     await page.locator("#ptSightGo").click();
     await expect(page.locator("#msg")).toHaveText("Thanks. Your sighting was sent.");
+    // UI review P4: a missing pet still offers Report seeing again (a second sighting elsewhere helps); no "reported" line
+    await expect(page.locator("#ptSight")).toHaveText("Report seeing Luna");
+    await expect(page.locator("#ptSight")).not.toHaveClass(/\bghost\b/);
+    await expect(page.locator("#ptSightDone")).toHaveCount(0);
     expect(lastCall(calls, "jc_pet_sighting_add").args).toEqual({ p_pet: ID(2), p_note: "Under a car on Marsa road", p_lat: 24.53123, p_lng: 54.43299 });
     const url = new URL(page.url()).origin + "/commons/pets/?pet=" + ID(2);
     const text = "I just saw Luna (Cat): Under a car on Marsa road. Details on Commons: " + url;
