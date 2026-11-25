@@ -172,7 +172,8 @@ function mineHtml(){
   var rows = (mine || []).map(function(b){
     var name = ar() && b.facility_ar ? b.facility_ar : (b.facility || "");
     if (b.status !== "booked") {
-      return '<li class="cancelled" data-bk="' + esc(b.id) + '"><b dir="auto">' + esc(name) + '</b>' +
+      return '<li class="slot slot-past cancelled" data-bk="' + esc(b.id) + '"><div class="head"><b dir="auto">' + esc(name) + '</b>' +
+        '<span class="chip slotchip">' + esc(jcT("bk_cancelled")) + '</span></div>' +
         '<div class="meta">' + esc(when(b)) + '</div>' +
         '<div class="meta" dir="auto">' + esc(jcCancelText(b.cancel_reason)) + '</div></li>';
     }
@@ -250,6 +251,7 @@ function courtCard(f){
     '<div class="meta bkwhere">' + esc(courtVillage(f)) + (d !== null ? ' · <bdi dir="ltr">' + esc(jcFmt("sort_dist", { d: jcFmtDist(d) })) + '</bdi>' : '') + '</div>' +
     (f.location_note ? '<div class="meta" dir="auto">' + esc(f.location_note) + '</div>' : '') +
     (f.walk_on ? '<div class="meta">' + esc(jcT("bk_walk_on")) + '</div>'
+      : !hasHome() ? ''                                   /* the server refuses a day without a home (NO_HOME): no dead-end tap (UI review #1) */
       : '<div class="acts"><button class="btn small" type="button" data-open="' + esc(f.id) + '">' + esc(jcT("bk_see_times")) + '</button></div>') +
     '</li>';
 }
@@ -298,7 +300,7 @@ var VIEWS = {
 
   list: function(){
     var html = '<h1 dir="auto">' + esc(jcModTitle("bookings")) + '</h1>' +
-      '<p class="notice" id="bkPrecedence">' + esc(jcT("bk_precedence")) + '</p>' +
+      '<p class="help" id="bkPrecedence">' + esc(jcT("bk_precedence")) + '</p>' +
       jcTabsHtml("bktab-", TABS, tab, function(t){ return jcT("bk_tab_" + t); }, jcModName("bookings"), "bkBody") + msgBox();
     function wireTabs(){
       jcTabsWire("bktab-", TABS, function(t){
@@ -373,7 +375,10 @@ function slotRow(s, i){
   if (st === "free" && Date.parse(s.starts_at) <= Date.now()) st = "past";    /* started: the server refuses a past start */
   var h = '<li class="slot slot-' + st + ' s-' + st + '" data-slot="' + i + '"><div class="head"><b class="time">⁦' + esc(jcClock(s.starts_at, cfg) + "–" + jcClock(s.ends_at, cfg)) + '⁩</b>' +
     '<span class="chip slotchip">' + esc(jcT("bk_st_" + st)) + '</span>' +
-    (st === "mine" && s.is_private === true ? '<span class="chip">' + esc(jcT("bk_private_chip")) + '</span>' : '') + '</div>';
+    (st === "mine" && s.is_private === true ? '<span class="chip">' + esc(jcT("bk_private_chip")) + '</span>' : '') +
+    (st === "free" && day.pick !== i && hasHome()          /* one row per free slot: Book ends the time row (UI review #2) */
+      ? '<button class="mini bkbook" type="button" id="bkBook-' + i + '" data-bkbook="' + i + '" aria-label="' +
+        esc(jcT("bk_book") + " " + jcClock(s.starts_at, cfg)) + '">' + esc(jcT("bk_book")) + '</button>' : '') + '</div>';
   /* another home: its label only if the server sent one (never for Private / hidden homes) */
   if (st === "booked" && hObj(s.home)) {
     var who = [jcHomeLabel(s.home), s.home.village ? jcVillageName(cfg, s.home.village) : ""].filter(Boolean).join(" · ");
@@ -395,9 +400,6 @@ function slotRow(s, i){
         '<p class="help">' + esc(jcFmt("bk_rules", { d: rule("per_home_per_day", 1), a: rule("per_home_active", 2) })) + '</p>' +
         '<div class="acts"><button class="btn small" type="button" id="bkGo"' + (bkBusy ? ' disabled' : '') + '>' + esc(jcT("bk_book_go")) + '</button>' +
         '<button class="btn ghost small" type="button" id="bkKeep">' + esc(jcT("ct_cancel")) + '</button></div></div>';
-    } else if (hasHome()) {
-      h += '<div class="acts"><button class="mini" type="button" id="bkBook-' + i + '" data-bkbook="' + i + '" aria-label="' +
-        esc(jcT("bk_book") + " " + jcClock(s.starts_at, cfg)) + '">' + esc(jcT("bk_book")) + '</button></div>';
     }
   }
   return h + '</li>';

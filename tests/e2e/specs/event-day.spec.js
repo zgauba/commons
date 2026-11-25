@@ -228,10 +228,13 @@ test("switching language with a popup open and a redraw waiting: no error, the p
 });
 
 test("when the event ends, the controls go without a reload", async ({ page }) => {
-  // started 3 h 59.5 m ago, 4 h long: ends ~0.5 s after the page opens
-  await openDay(page, { startsIn: -(4 * 3600e3 - 1500), refreshMs: 300 });
+  // Ends 60 s after the page opens, on the page's own clock: a slow first draw (CI WebKit, PR #216) can no longer
+  // land after the end, which the old 1.5 s real-time window allowed.
+  await page.clock.install();
+  await openDay(page, { startsIn: -(4 * 3600e3 - 60e3), refreshMs: 300 });
   await expect(page.locator("#live .tog")).toBeVisible();
-  await expect(page.locator("#live")).toHaveCount(0, { timeout: 5000 });
+  await page.clock.fastForward("01:05");                                          // past the end; the refresh timer fires
+  await expect(page.locator("#live")).toHaveCount(0);
   await expect(page.locator("#upd")).toBeHidden();
 });
 

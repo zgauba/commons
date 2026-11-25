@@ -15,7 +15,7 @@ Never reaches the real Supabase project: it runs on the same stubs as the specs
 
 `$ARGUMENTS` → `<path> [persona] [lang] [full]`, any order after the path:
 
-- **path** — under `/commons/`: `""` (hub), `events/`, `events/?id=11111111-1111-4111-8111-111111111111` (live test event), `events/?id=22222222-2222-4222-8222-222222222222` (archived Halloween), `home/`, `account/`, `admin/`, `pets/` (list), `pets/?pet=22222222-bbbb-4bbb-8bbb-00000000000N` (N = 1 Rex · 2 Luna missing · 3 Ginger stray · 4 Sandy community · 6 Mochi mine) — Pets uses the Pets stub; 1–3 have photos
+- **path** — under `/commons/`: `""` (hub), `events/`, `events/?id=11111111-1111-4111-8111-111111111111` (live test event), `events/?id=22222222-2222-4222-8222-222222222222` (archived Halloween), `home/`, `account/`, `admin/`, `pets/` (list), `pets/?pet=22222222-bbbb-4bbb-8bbb-00000000000N` (N = 1 Rex · 2 Luna missing · 3 Ginger stray · 4 Sandy community · 6 Mochi mine) — Pets uses the Pets stub; 1–3 have photos; `bookings/` (`?tab=map`, `?tab=mine`, `?court=11111111-aaaa-4aaa-8aaa-000000000001`) — Courts uses the Courts stub (`courtsBackend`: Court 1 + walk-on Hoops, a free day; `member-no-home` gets the server's NO_HOME on a day)
 - **persona** — `member` (default), `anon`, `member-no-home`, `member-no-pin`, `organizer`, `community-admin`, `event-admin` (runs only the live test event)
 - **lang** — `en` (default) or `ar`
 - **full** — whole page instead of one screen

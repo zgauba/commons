@@ -2244,10 +2244,11 @@ function admCourtsHtml(){
   var r = ct.rules;
   var live = courtOrder(ct.list.filter(function(f){ return courtStatus(f) !== "retired"; }));
   var gone = courtOrder(ct.list.filter(function(f){ return courtStatus(f) === "retired"; }));
-  return (r.enabled === true ? '' : '<p class="notice" id="ctOff">' + esc(jcT("ct_module_off")) + '</p>') +
+  return '<div class="jcstack">' +                     /* the shared 12px stack: nothing touches (UI review #3) */
+    (r.enabled === true ? '' : '<p class="notice" id="ctOff">' + esc(jcT("ct_module_off")) + '</p>') +
     '<p class="help" id="ctRules">' + esc(jcFmt("ct_rules", { d: r.per_home_per_day, a: r.per_home_active, k: r.retention_days || 90 })) + '</p>' +
-    '<div class="row"><button class="btn" type="button" id="ctNew">' + esc(jcT("ct_new")) + '</button></div>' +
-    '<h2 class="group">' + esc(jcModName("bookings")) + '</h2>' +
+    '<div class="row"><button class="btn" type="button" id="ctNew">' + esc(jcT("ct_new")) + '</button></div></div>' +
+    '<h2 class="group">' + esc(jcT("ct_places")) + '</h2>' +
     (live.length ? '<ul class="sulist ctlist">' + live.map(courtRow).join("") + '</ul>' : '<p class="help">' + esc(jcT("ct_none")) + '</p>') +
     (gone.length ? '<h2 class="group">' + esc(jcT("ct_retired")) + '</h2><ul class="sulist ctlist">' + gone.map(courtRow).join("") + '</ul>' : '');
 }

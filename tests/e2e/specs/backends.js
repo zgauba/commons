@@ -648,6 +648,31 @@ function petsBackend(opts = {}) {
   };
   return { st, rpc, storage };
 }
-module.exports = { tapWhenStill, petsBackend, PET_GROUP, petId, PET_MY_HOME, PET_V40, PET_MINE_HOME, PET_PNG, eventsBackend, adminBackend, signIn, LIVE_ID, PAST_ID, SCHEMA, LIVE, PAST, ENTRIES, STATS,
+// /shot bookings/ (Courts UI review 2026-11-25): a small Courts stub — two courts (one walk-on), every slot of a day free.
+// The full Courts backend, with bookings, blocks and refusals, stays in courts.spec.js.
+const COURT_ID = "11111111-aaaa-4aaa-8aaa-000000000001";
+function courtsBackend(opts = {}) {
+  const me = opts.me || MEMBER;
+  const courts = [
+    { id: COURT_ID, kind: "tennis", name_en: "Court 1", name_ar: "ملعب 1", location_note: "By the beach park", village_key: null,
+      lat: 24.5301, lng: 54.4312, open_time: "07:00:00", close_time: "22:00:00", slot_minutes: 60, window_days: 7, walk_on: false },
+    { id: "11111111-aaaa-4aaa-8aaa-000000000002", kind: "basketball", name_en: "Hoops", name_ar: null, location_note: null, village_key: null,
+      lat: null, lng: null, open_time: "07:00:00", close_time: "22:00:00", slot_minutes: 60, window_days: 7, walk_on: true }];
+  const day = (date) => Array.from({ length: 15 }, (_, i) => {
+    const s = new Date(Date.parse(date + "T00:00:00Z") + (i + 3) * 3600e3);          // 07:00 Dubai = 03:00Z
+    return { starts_at: s.toISOString(), ends_at: new Date(+s + 3600e3).toISOString(), state: "free",
+      booking_id: null, home: null, is_private: null, block_id: null, block_reason: null };
+  });
+  const rpc = {
+    jc_config_get: () => ok(Object.assign({}, CONFIG, { tz: "Asia/Dubai",
+      modules: { events: { enabled: true }, bookings: { enabled: true }, pets: { enabled: false } } })),
+    jc_facilities_list: () => ok(courts.map((c) => Object.assign({}, c))),
+    jc_my_bookings: () => ok([]),
+    jc_my_bookings_past: () => ok([]),
+    jc_facility_day: (a) => (me.home ? ok({ slots: day(a.p_date) }) : raise("NO_HOME")),
+  };
+  return { rpc };
+}
+module.exports = { tapWhenStill, petsBackend, courtsBackend, COURT_ID, PET_GROUP, petId, PET_MY_HOME, PET_V40, PET_MINE_HOME, PET_PNG, eventsBackend, adminBackend, signIn, LIVE_ID, PAST_ID, SCHEMA, LIVE, PAST, ENTRIES, STATS,
   PIN_SCHEMA, home, pinEvent, PINS_ID, HAQ_ID, DAY_ID, LIGHTS_ID, LIGHTS_EVENT, LIGHTS_SAFETY, dayBackend, healthReport, NOTICES,
   ADMIN_DRAFT_ID, ADMIN_LIVE_ID, ADMIN_PAST_ID, ADMIN_MARKET_ID, ADMIN_MARKET };
