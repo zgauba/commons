@@ -44,7 +44,7 @@ test("join: code first → account → jc_join with community + code → in", as
   await page.goto("account/?view=join");
   await page.locator("#code").fill("ABCD-EFGH-JK");
   await page.locator("#go").click();
-  await expect(page.locator("#privacy")).toContainText("no third parties");
+  await expect(page.locator("#privacyMore")).toContainText("no third parties");
   await page.locator("#email").fill("a@example.com");
   await page.locator("#password").fill("long-enough-pw");
   await page.locator("#go").click();
@@ -151,6 +151,32 @@ test("email already registered → offer sign-in", async ({ page }) => {
   await page.locator("#password").fill("long-enough-pw");
   await page.locator("#go").click();
   await expect(page.locator("#msg")).toHaveText("That email already has an account. Sign in instead.");
+  // C1: the way to Sign In is right there, the email handed over, the password next
+  await expect(page.locator("#toSigninTaken")).toBeVisible();
+  await expect(page.locator("#toSigninTaken")).toHaveText("Sign In");
+  await page.locator("#toSigninTaken").click();
+  await expect(page.locator("h1")).toHaveText("Sign In");
+  await expect(page.locator("#email")).toHaveValue("a@example.com");
+  await expect(page.locator("#password")).toBeFocused();
+});
+
+test("email taken → Sign In → the code typed before is kept (straight back to the code step)", async ({ page }) => {
+  await stubBackend(page, {
+    rpc: joinFlowRpc(() => ok(MEMBER_NO_HOME)),
+    auth: { signup: () => ({ status: 422, body: { code: "user_already_exists", error_code: "user_already_exists", msg: "User already registered" } }) },
+  });
+  await page.goto("account/?view=join");
+  await page.locator("#code").fill("ABCD-EFGH-JK");
+  await page.locator("#go").click();
+  await expect(page.locator("#takenRow")).toBeHidden();          // only after the server says the email is taken
+  await page.locator("#email").fill("a@example.com");
+  await page.locator("#password").fill("long-enough-pw");
+  await page.locator("#go").click();
+  await page.locator("#toSigninTaken").click();
+  await page.locator("#password").fill("correct-horse");
+  await page.locator("#go").click();
+  await expect(page.locator("h1")).toHaveText("Join Your Community");
+  await expect(page.locator("#code")).toHaveValue("ABCD-EFGH-JK");
 });
 
 test("sign-up without a session (confirmation drifted ON) is said out loud", async ({ page }) => {
@@ -161,8 +187,30 @@ test("sign-up without a session (confirmation drifted ON) is said out loud", asy
   await page.locator("#email").fill("a@example.com");
   await page.locator("#password").fill("long-enough-pw");
   await page.locator("#go").click();
-  await expect(page.locator("#msg")).toHaveText(/confirm your account/);
+  // C3: not an error — Sign In with the email filled in, the next step said in green, no second Create Account
+  await expect(page.locator("h1")).toHaveText("Sign In");
+  await expect(page.locator("#msg")).toHaveText("Check your email to confirm your account, then sign in.");
+  await expect(page.locator("#msg")).toHaveClass(/\bok\b/);
+  await expect(page.locator("#email")).toHaveValue("a@example.com");
+  await expect(page.getByRole("button", { name: "Create Account" })).toHaveCount(0);
   expect(calls.some((c) => c.name === "jc_join")).toBe(false);
+});
+
+test("Create Your Account: one privacy line, the full text a tap away; Create Account on the first screen", async ({ page }) => {
+  await stubBackend(page);
+  await page.goto("account/?view=join");
+  await page.locator("#code").fill("ANY");
+  await page.locator("#go").click();
+  await expect(page.locator("#privacy")).toHaveText("We keep only your email and what you choose to share. No ads, no trackers.");
+  await expect(page.locator("#privacyMore summary")).toHaveText("What we keep");
+  await expect(page.locator("#privacyMore")).not.toHaveAttribute("open", "");
+  await expect(page.locator("#privacyMore p")).toBeHidden();
+  await page.locator("#privacyMore summary").click();
+  await expect(page.locator("#privacyMore p")).toBeVisible();
+  await expect(page.locator("#privacyMore p")).toContainText("First-party only — no ads, no trackers, no third parties.");
+  await page.locator("#privacyMore summary").click();
+  const vh = page.viewportSize().height;
+  await expect.poll(async () => { const b = await page.locator("#go").boundingBox(); return b && b.y + b.height; }).toBeLessThanOrEqual(vh);
 });
 
 test("short password is refused client-side before any request", async ({ page }) => {
@@ -183,6 +231,7 @@ test("signed in but not a member → straight to the code step", async ({ page }
   await signIn(page, "correct-horse");
   await expect(page.locator("#code")).toBeVisible();
   await expect(page.locator(".who")).toContainText("a@example.com");
+  await expect(page.locator("#signOut")).toHaveText("Sign out");   // a text link here (C4); Sign Out buttons keep Title Case
 });
 
 test("forgot password: same answer either way, redirect back to this page", async ({ page, baseURL }) => {
@@ -219,6 +268,41 @@ test("recovery link (same browser) → new password → saved → in", async ({ 
   await page.locator("#go").click();
   await expect(page).toHaveURL(/\/commons\/$/);
   expect(calls.find((c) => c.name === "putUser").args.password).toBe("brand-new-pw");
+});
+
+test("Choose a New Password: the link says what it does (Send me a new link) and opens the reset request", async ({ page }) => {
+  await stubBackend(page);
+  await requestReset(page);
+  await page.goto("account/?code=reset-code-1");
+  await expect(page.locator("h1")).toHaveText("Choose a New Password");
+  await expect(page.locator("#toForgot")).toHaveText("Send me a new link");
+  await page.locator("#toForgot").click();
+  await expect(page.locator("h1")).toHaveText("Reset Your Password");
+});
+
+test("help: a ? on Sign In, Join (both steps) and Reset, each with its own sheet", async ({ page }) => {
+  await stubBackend(page);
+  await page.goto("account/");
+  const sheet = async (title, n) => {
+    await page.locator("#jcHelpBtn").click();
+    await expect(page.locator("#jcHelp h2")).toHaveText(title);
+    await expect(page.locator("#jcHelp li")).toHaveCount(n);
+    await page.locator("#jcHelpClose").click();
+    await expect(page.locator("#jcHelp")).toBeHidden();
+  };
+  await sheet("Signing In", 3);
+  await page.locator("#toJoin").click();
+  await sheet("Joining", 4);
+  await page.locator("#code").fill("ANY");
+  await page.locator("#go").click();
+  await expect(page.locator("h1")).toHaveText("Create Your Account");
+  await sheet("Joining", 4);
+  await page.goto("account/");
+  await page.locator("#toForgot").click();
+  await sheet("Password Reset", 3);
+  await page.locator("#langBtn").click();
+  await page.locator("#jcHelpBtn").click();
+  await expect(page.locator("#jcHelp h2")).toHaveText("استعادة كلمة المرور");
 });
 
 test("reset code opened in a browser that didn't request it → refused, explained", async ({ page }) => {
@@ -281,8 +365,11 @@ test("sign out returns to sign-in", async ({ page }) => {
   await signIn(page, "correct-horse");
   await expect(page).toHaveURL(/\/commons\/$/);  // let the post-sign-in redirect land first
   await page.goto("account/");
+  await expect(page.locator("#signOut")).toBeVisible();
+  await expect(page.locator("#jcHelpBtn")).toHaveCount(0);           // signed in: nothing to explain here (D)
   await page.locator("#signOut").click();
   await expect(page.locator("h1")).toHaveText("Sign In");
+  await expect(page.locator("#jcHelpBtn")).toBeVisible();            // back on Sign In: its help returns
   expect(calls.some((c) => c.name === "logout")).toBe(true);
 });
 
