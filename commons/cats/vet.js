@@ -16,7 +16,7 @@ var wd = null;          /* the vet form's draft: { on, clinic, done {key: true},
 function vetOk(u){ return typeof u === "string" && u.length <= 500 && VET_URL.test(u); }
 /* "Open the document" — only a link the server's rule allows is ever made a link (checked again here) */
 function vetDocLink(u){
-  return vetOk(u) ? '<a class="mini" target="_blank" rel="noopener noreferrer" href="' + esc(u) + '">' + esc(jcT("ca_vt_open_doc")) + '</a>' : '';
+  return vetOk(u) ? '<a target="_blank" rel="noopener noreferrer" href="' + esc(u) + '">' + esc(jcT("ca_vt_open_doc")) + '</a>' : '';
 }
 function vetDone(list){
   return (Array.isArray(list) ? list : []).filter(function(k){ return VET_DONE.indexOf(k) >= 0; }).map(function(k){ return jcT("ca_vt_d_" + k); }).join(" · ");

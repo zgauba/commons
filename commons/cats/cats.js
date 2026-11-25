@@ -213,7 +213,7 @@ var VIEWS = {
     var body;
     if (!prog) {
       var pub = stationsOf(places);
-      body = tab === "cats" ? catsHtml(pubCats, false) + '<div class="panel" id="caSoon"><p>' + esc(jcT("ca_soon")) + '</p></div>' + repCtaHtml()
+      body = tab === "cats" ? catsHtml(pubCats, false) + repCtaHtml()
         : '<p class="help">' + esc(jcT("ca_public_help")) + '</p>' + stationsBlock(places, pub, [], false, "ca_none_public");
     } else body = tab === "areas" ? areasHtml() : tab === "cats" ? catsHtml(reg, true) + repCtaHtml() : tab === "log" ? logTabHtml()
       : tab === "reports" ? reportsTabHtml() : stationsHtml();
@@ -332,7 +332,7 @@ function areasHtml(){
     (list.length ? list.map(function(a){
       var n = typeof a.stations === "number" ? a.stations : 0;
       var lab = ' aria-label="' + esc(jcFmt("ca_area_named", { a: a.name })) + '"';     /* review L3: each row named */
-      var count = '<p class="help">' + esc(a.archived === true ? jcT("ca_area_archived") : jcFmt("ca_area_count", { n: n })) + '</p>';
+      var count = '<p class="help">' + esc(a.archived === true ? jcT("ca_area_archived") : jcFmt(n === 1 ? "ca_area_count_1" : "ca_area_count", { n: n })) + '</p>';
       /* Zee 2026-11-18: the name is plain text until Rename is tapped; then a box with Save / Cancel */
       if (renaming && renaming.id === a.id) {
         return '<form class="panel caArea" data-area="' + esc(a.id) + '" data-renaming' + lab + ' novalidate><label>' + esc(jcT("ca_area_name")) +
@@ -445,7 +445,7 @@ function catsHtml(d, programme){
   var missing = live(d).filter(function(c){ return c.status === "missing"; });
   /* Pets' list order: the urgent group, then search, then the cards (design.md §3) */
   return '<p class="help">' + esc(jcT("ca_cats_help")) + '</p>' +
-    (programme && canEditCats() ? '<div class="row"><button class="btn" type="button" id="caAddCat"' + off + '>' + esc(jcT("ca_add_cat")) + '</button></div>' : '') +
+    (programme && canEditCats() ? '<div class="acts"><button class="btn" type="button" id="caAddCat"' + off + '>' + esc(jcT("ca_add_cat")) + '</button></div>' : '') +
     (missing.length ? '<h2 class="group" id="caMissingHead">' + esc(jcT("ca_missing_h")) + '</h2>' +
       '<ul class="ptgrid wide" id="caMissing">' + missing.map(catCard).join("") + '</ul>' : '') +
     (catsList(d).length ? jcSearchHtml({ id: "caQ", placeholder: jcT("ca_search"), value: catQ }) : '') +
@@ -484,7 +484,7 @@ function catView(){
   var st = programme && c.station_id ? stationsOf(prog).filter(function(s){ return s.id === c.station_id; })[0] : null;
   var hist = programme && Array.isArray(c.status_log) ? c.status_log.filter(hObj) : [];
   var also = programme && Array.isArray(c.merged_from) ? c.merged_from.filter(hObj) : [];
-  var join = function(a){ return a.filter(Boolean).join(" · "); };
+  var join = function(a){ return a.filter(Boolean).join("\u00a0· "); };   /* a wrap never starts a line with the dot */
   var str = function(v){ return typeof v === "string" ? v : ""; };
   /* typed text inside a joined value keeps its own direction (a Latin source in an Arabic line stays in order) */
   var typed = function(v){ v = str(v); return v ? "\u2068" + v + "\u2069" : ""; };

@@ -182,7 +182,7 @@ function repDoneView(){
 function repCtaHtml(){
   return '<h2 class="group" id="rpCtaH">' + esc(jcT("ca_rp_cta_h")) + '</h2><p class="help" id="rpCtaHelp">' + esc(jcT("ca_rp_cta_help")) + '</p>' +
     '<div class="row"><button class="btn ghost" type="button" id="rpOpen"' + (busy ? ' disabled' : '') + '>' + esc(jcT("ca_rp_cta")) + '</button></div>' +
-    '<div id="rpMineBox">' + myRepsHtml() + '</div>';
+    '<div class="jcstack" id="rpMineBox">' + myRepsHtml() + '</div>';
 }
 function wireRepCta(){ on("rpOpen", function(){ openReport(); }); wireMyReps(); }
 function loadMyReps(){

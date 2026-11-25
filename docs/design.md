@@ -263,7 +263,7 @@ Cats today: sex (3), life stage (4), ear tip (3), sterilisation (3) → pills ·
 | | |
 |---|---|
 | Status | `.alarm`: **Shared** (`app.css` + `jcAlarmHtml(id, text, bodyHtml)` in `assets/blocks.js`, DS-4a; Pets + Cats) · `.seenbox`: **Module-only** (`pets/pets.css`) |
-| Markup | `.alarm` (red 2px: missing; optional note `p` + `.acts` row) · `.seenbox` (amber 2px: heads-up) |
+| Markup | `.alarm` (red 2px: missing; optional note `p` + `.acts` row) · `.seenbox` (amber 2px: heads-up) · `.notice.warn` (amber 1px: a heads-up line inside a card, e.g. a feeding visit's problem; **Shared**, `app.css`, Cats UI review 2026-11-25). A plain `.notice` (accent) is never used for a problem |
 | Use / Don't | Above the tabs, on every tab. Red only for a real alarm |
 
 ### Photo + viewer

@@ -74,20 +74,22 @@ function catLinks(list){
    the body, then Link / Hide at the foot. mini: this entry may draw its small map (the newest 10 with a pin) */
 function logItem(it, mini){
   var off = busy ? ' disabled' : '', can = it.can_hide === true, coord = canEditCats(), h = [];
-  if (it.hidden === true) h.push('<div class="head"><span class="chip">' + esc(jcT("ca_l_hidden")) + '</span></div>');
+  var hid = it.hidden === true ? '<span class="chip">' + esc(jcT("ca_l_hidden")) + '</span>' : '';   /* shares the sighting's chip row */
+  if (hid && it.kind !== "sighting") h.push('<div class="head">' + hid + '</div>');
   if (it.kind === "vet") h = h.concat(vetItemHtml(it));                                     /* CC-5, vet.js */
   else if (it.kind === "visit") {
     var checks = ["food", "water", "cleaned"].filter(function(k){ return it[k] === true; }).map(function(k){ return jcT("ca_v_" + k); });
     var counts = [["headcount", "ca_l_headcount"], ["unfamiliar", "ca_l_unfamiliar"], ["kittens", "ca_l_kittens"]].filter(function(p){
-      return typeof it[p[0]] === "number"; }).map(function(p){ return jcFmt(p[1], { n: it[p[0]] }); });
+      return typeof it[p[0]] === "number"; }).map(function(p){
+      return jcFmt(it[p[0]] === 1 && p[0] !== "unfamiliar" ? p[1] + "_1" : p[1], { n: it[p[0]] }); });
     if (checks.length) h.push('<div>' + esc(checks.join(" · ")) + '</div>');
     if (counts.length) h.push('<div>' + esc(counts.join(" · ")) + '</div>');
     var cats = Array.isArray(it.cats) ? it.cats : [];
     if (cats.length) h.push('<div class="head"><span class="meta">' + esc(jcT("ca_l_recognised")) + '</span>' + catLinks(cats) + '</div>');
-    if (typeof it.problem === "string" && it.problem) h.push('<p class="notice caProblem" dir="auto"><b>' + esc(jcT("ca_l_problem")) + ':</b> ' + esc(it.problem) + '</p>');
+    if (typeof it.problem === "string" && it.problem) h.push('<p class="notice warn caProblem" dir="auto"><b>' + esc(jcT("ca_l_problem")) + ':</b> ' + esc(it.problem) + '</p>');
   } else {
-    if (hObj(it.cat)) h.push('<div class="head">' + catLinks([it.cat]) + (it.linked === true ? '<span class="meta">' + esc(jcT("ca_l_linked")) + '</span>' : '') + '</div>');
-    else h.push('<div class="head"><span class="chip" data-unid>' + esc(jcT("ca_l_unid")) + '</span></div>');
+    if (hObj(it.cat)) h.push('<div class="head">' + hid + catLinks([it.cat]) + (it.linked === true ? '<span class="meta">' + esc(jcT("ca_l_linked")) + '</span>' : '') + '</div>');
+    else h.push('<div class="head">' + hid + '<span class="chip" data-unid>' + esc(jcT("ca_l_unid")) + '</span></div>');
     if (typeof it.description === "string" && it.description) h.push('<div dir="auto">' + esc(it.description) + '</div>');
   }
   if (typeof it.note === "string" && it.note) h.push('<div dir="auto">' + esc(it.note) + '</div>');
