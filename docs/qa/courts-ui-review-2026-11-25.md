@@ -72,3 +72,24 @@ Verdict APPROVE: 0 critical, 0 high, 0 medium, 2 low.
 
 **Round 1 → fixes:** row 1 fixed at the cause. `/shot` reaches Courts now (see Verification), and its `member-no-home`
 picture shows the List. Row 7 waits for the PR's CI. Contract unchanged.
+
+### Round 2 (HEAD 3ccdd2c): READY (PASS 7 · FAIL 0 · DEFERRED 0 · HUMAN 0)
+
+Contract unchanged since abe7010. No test weakened: the no-home NO_HOME path moved to the new "by a court link" test.
+
+| # | Check (short) | Verdict | Evidence |
+|---|---|---|---|
+| 1 | No-home resident: no See times, sentence once | PASS | `courts.spec.js:495` ✓; `/shot bookings/ member-no-home` EN + AR show the Courts List: the sentence once in a notice, Go to My Home, no See times on Court 1 or Hoops. |
+| 2 | Free slot = one row | PASS | `courts.spec.js:250` ✓ (centres within 4px, ≤ 64px, "Free"); the sweep picture shows every free row 11:00–22:00 on one line. |
+| 3 | Message, off notice, rules line don't touch | PASS | `admin-courts.spec.js:396` ✓ (≥ 11.5px); the picture shows clear gaps. |
+| 4 | Quiet precedence on the tabs, `.notice` on the court page | PASS | `courts.spec.js:109` ✓, `:250` ✓; pictures: plain text on List / My Bookings, bordered on the court page. |
+| 5 | Cancelled booking = Past cancelled card, no amber | PASS | `courts.spec.js:230` ✓; the picture shows a muted neutral card with the reason. |
+| 6 | "Places" / "الملاعب" | PASS | `admin-courts.spec.js:74` ✓, `:460` ✓. |
+| 7 | Regression + CI | PASS | Local 98 passed incl. axe en/ar; PR #216 on 3ccdd2c: design-guard, e2e, e2e-webkit, review-saved, plan-followed (+ repo-rules, secret-scan, Pages) all pass. |
+
+Evaluator's notes (proof drift, not a fail): row 2 checks centres within 4px rather than "tops equal"; row 3 allows
+11.5px for sub-pixel rounding.
+
+**Tuning record:** round 1 FAIL on row 1 was correct. The named proof couldn't run (`/shot` had Courts off), and fixing
+the cause made `/shot` useful for every later Courts review. Evaluator agreed: pending Zeeshan (merged on his
+standing "fix all and merge", 2026-11-25).
