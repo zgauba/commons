@@ -142,12 +142,12 @@ test("supply: set a level, then Clear Supply (exact args); the pressed level sen
   const { calls } = await openSignups(page, { liveFeatures: { giant_switch: true, supply: true } });
   await card(page, "12").locator('[data-su="supply"]').click();
   const panel = page.locator("[data-supply-panel]");
-  await expect(panel.locator("[data-level]")).toHaveText(["Plenty", "Some left", "Running low", "Almost out"]);
+  await expect(panel.locator("[data-level]")).toHaveText(["Plenty", "Some Left", "Running Low", "Almost Out"]);
   await expect(panel.locator("[data-supclear]")).toHaveCount(0);                  // nothing to clear yet
   await panel.locator('[data-level="2"]').click();
-  await expect(page.locator("#msg")).toHaveText("Villa 12: Some left.");
+  await expect(page.locator("#msg")).toHaveText("Villa 12: Some Left.");
   expect(lastCall(calls, "jc_admin_entry_live_set").args).toEqual({ p_entry: "a1", p_state: null, p_supply: 2, p_supply_clear: false });
-  await expect(card(page, "12").locator(".flags")).toContainText("Supply: Some left");
+  await expect(card(page, "12").locator(".flags")).toContainText("Supply: Some Left");
   await card(page, "12").locator('[data-su="supply"]').click();
   await expect(panel.locator('[data-level="2"]')).toHaveAttribute("aria-pressed", "true");
   await panel.locator('[data-level="2"]').click();

@@ -95,6 +95,9 @@ test("pin: saving sends the map center; My Home shows it pinned", async ({ page 
   await expect(page.locator(".pinmap [data-no-autoreload], .pinmap[data-no-autoreload]")).toHaveCount(1);
   await page.locator("#savePin").click();
   await expect(page.locator(".status.ok")).toHaveText("Pinned on the map");
+  // said once: the card's status line, no second green box repeating it (Home UI review H3)
+  await expect(page.getByText("Pinned on the map", { exact: true })).toHaveCount(1);
+  await expect(page.locator("#msg")).toBeHidden();
   const a = calls.find((c) => c.name === "jc_home_pin_set").args;
   expect(Math.abs(a.p_lat - 24.53)).toBeLessThan(0.01);
   expect(Math.abs(a.p_lng - 54.43)).toBeLessThan(0.01);
@@ -226,6 +229,40 @@ test("invite outcomes: over the cap → pending; dead link → explained", async
   await page.goto("home/?invite=TOKEN_zzzzzzzzzzzzzzzz");
   await page.locator("#inviteYes").click();
   await expect(page.locator("#msg")).toHaveText("This invite link isn't valid anymore. Ask for a new one.");
+});
+
+test("Account tab: Sign Out apart from the name form; Leave and Delete in separate danger boxes", async ({ page }) => {
+  const hb = homeBackend(MEMBER);
+  await stubBackend(page, { rpc: hb.rpc });
+  await signIn(page);
+  await page.goto("home/?tab=account");
+  await expect(page.locator("#delete")).toBeVisible();
+  // H2: Sign Out never sits in the display-name box
+  await expect(page.locator(".panel:has(#dname) #signOut")).toHaveCount(0);
+  await expect(page.locator(".panel:has(#signOut)")).toContainText("Signed in as");
+  // H1: the delete text + DELETE box belong to Delete's box only, never Leave's
+  await expect(page.locator(".panel.danger-zone:has(#leave)")).toHaveCount(1);
+  await expect(page.locator(".panel.danger-zone:has(#leave) #delete")).toHaveCount(0);
+  await expect(page.locator(".panel.danger-zone:has(#leave)")).not.toContainText("deletes your account");
+  await expect(page.locator(".panel.danger-zone:has(#delete)")).toContainText("This deletes your account for good.");
+  await expect(page.locator(".panel.danger-zone:has(#delete) #delConfirm")).toHaveCount(1);
+});
+
+test("Fix House Details: Cancel beside Save (no Back link); Cancel goes back without saving", async ({ page }) => {
+  const hb = homeBackend(MEMBER);
+  const { calls } = await stubBackend(page, { rpc: hb.rpc });
+  await signIn(page);
+  await page.goto("home/");
+  await page.locator("#toEdit").click();
+  await expect(page.locator("h1")).toHaveText("Fix Your House Details");
+  await expect(page.locator(".links")).toHaveCount(0);
+  await expect(page.locator("#back")).toHaveText("Cancel");
+  await expect(page.locator("#back")).toHaveClass(/\bbtn\b.*\bghost\b/);
+  await expect(page.locator(".row:has(#go) #back")).toHaveCount(1);   // same row as Save, like Pin Your Home
+  await page.locator("#number").fill("99");
+  await page.locator("#back").click();
+  await expect(page.locator(".homehead b")).toHaveText("Villa 12");
+  expect(calls.some((c) => c.name === "jc_home_edit")).toBe(false);
 });
 
 test("leave this home (confirmed) → back to claim", async ({ page }) => {

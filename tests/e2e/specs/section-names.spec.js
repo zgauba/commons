@@ -220,7 +220,7 @@ test("community admin renames Courts: exact RPC, bar + tab follow at once, count
   await openNames(page);
   // first the list of sections (one long scroll was hard to use — Zee 2026-11-11); no boxes until one is picked
   await expect(page.locator("[data-mnpick] .nm")).toHaveText(["Events", "Bookings", "Pets", "The Community"]);
-  await expect(page.locator("[data-mnpick] .cur")).toHaveText(["Usual name", "Usual name", "Usual name", "Usual name"]);
+  await expect(page.locator("[data-mnpick] .cur")).toHaveText(["Usual Name", "Usual Name", "Usual Name", "Usual Name"]);
   await expect(page.locator("form[data-mn]")).toHaveCount(0);
   await page.locator('[data-mnpick="bookings"]').click();
   await expect(page.locator("form[data-mn]")).toHaveCount(1);

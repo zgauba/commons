@@ -80,8 +80,7 @@ var VIEWS = {
       rpc("jc_home_pin_set", { p_lat: p.lat, p_lng: p.lng }).then(function(m){
         state.me = m;
         if (NEXT) { location.href = NEXT; return; }   /* back to the event's sign-up */
-        show("myhome");
-        showOk(jcT("mh_pin_set"));
+        show("myhome");   /* its status line already says "Pinned on the map" — no second flash (H3) */
       }, function(e){ busy("savePin", false); showErr(e.code); });
     });
   },
@@ -109,13 +108,17 @@ var VIEWS = {
       var organizer = jcIsAdmin(m);
       body =
         (organizer ? '<a class="btn" id="toAdmin" href="../admin/">' + esc(jcT("mh_organizer")) + '</a>' : '') +
+        /* who you are + Sign Out together, like the Account page; the name form is its own box so
+           Sign Out never reads as a step of saving the name (Home UI review H2, 2026-11-25) */
         '<div class="panel">' +
-          '<p class="who"><b>' + esc(acct.email || state.email || "") + '</b></p>' +
+          '<p class="who">' + esc(jcT("acct_signed_in_as")) + ' <b>' + esc(acct.email || state.email || "") + '</b></p>' +
+          '<button class="btn ghost" type="button" id="signOut">' + esc(jcT("acct_sign_out")) + '</button>' +
+        '</div>' +
+        '<div class="panel section">' +
           '<label>' + esc(jcT("mh_name")) +
             '<input id="dname" type="text" maxlength="40" autocomplete="nickname"></label>' +
           '<p class="help">' + esc(jcT("mh_name_help")) + '</p>' +
           '<button class="btn ghost" type="button" id="saveName">' + esc(jcT("mh_save")) + '</button>' +
-          '<button class="btn ghost" type="button" id="signOut">' + esc(jcT("acct_sign_out")) + '</button>' +
         '</div>' +
         shellHtml() +
         /* T5.3 feedback: goes to the person who runs Commons, with this home (said up front) */
@@ -127,12 +130,17 @@ var VIEWS = {
           '<p class="help">' + esc(jcFmt("fb_disclosure", { h: homeTitle() })) + '</p>' +
           '<button class="btn" type="submit" id="fbSend">' + esc(jcT("fb_send")) + '</button>' +
         '</form></div>' +
-        '<div class="section"><div class="panel">' +
-          '<button class="btn ghost danger" type="button" id="leave">' + esc(jcT("mh_leave")) + '</button>' +
-          '<p class="help">' + esc(jcT("mh_delete_help")) + '</p>' +
-          '<input id="delConfirm" type="text" autocomplete="off" autocapitalize="characters" spellcheck="false" aria-label="DELETE">' +
-          '<button class="btn ghost danger" type="button" id="delete">' + esc(jcT("mh_delete_btn")) + '</button>' +
-        '</div></div>' +
+        /* two danger zones: the delete text + DELETE box belong to Delete only, never read as Leave's (H1) */
+        '<div class="section">' +
+          '<div class="panel danger-zone">' +
+            '<button class="btn ghost danger" type="button" id="leave">' + esc(jcT("mh_leave")) + '</button>' +
+          '</div>' +
+          '<div class="panel danger-zone">' +
+            '<p class="help">' + esc(jcT("mh_delete_help")) + '</p>' +
+            '<input id="delConfirm" type="text" autocomplete="off" autocapitalize="characters" spellcheck="false" aria-label="DELETE">' +
+            '<button class="btn ghost danger" type="button" id="delete">' + esc(jcT("mh_delete_btn")) + '</button>' +
+          '</div>' +
+        '</div>' +
         (organizer ? '' : '<p class="help orglink"><a id="toAdmin" href="../admin/">' + esc(jcT("mh_have_code")) + '</a></p>');
     } else {
       body =
@@ -235,9 +243,11 @@ function claimForm(editing){
       '<label><span id="numLabel">' + esc(jcT(claimSel.type === "apartment" ? "claim_number_apt" : "claim_number")) + '</span>' +
         '<input id="number" type="text" inputmode="text" maxlength="12" autocomplete="off" required></label>' +
       msgBox() +
+      /* editing: Save + Cancel side by side, like Pin Your Home (H4) */
+      (editing ? '<div class="row">' : '') +
       '<button class="btn" id="go" type="submit">' + esc(jcT(editing ? "edit_save" : "claim_continue")) + '</button>' +
-    '</form>' +
-    (editing ? '<div class="links"><button type="button" id="back">' + esc(jcT("acct_back")) + '</button></div>' : '');
+      (editing ? '<button class="btn ghost" id="back" type="button">' + esc(jcT("pin_cancel")) + '</button></div>' : '') +
+    '</form>';
   if (editing) {
     el("building").value = el("building").defaultValue = h.building || "";
     el("number").value = el("number").defaultValue = h.number || "";

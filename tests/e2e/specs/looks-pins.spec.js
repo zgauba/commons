@@ -381,12 +381,12 @@ test("supply: the key explains the four bars; the popup and list show the gauge"
   await openKey(page);
   await expect(page.locator(".legend h3").last()).toHaveText("How much is left");
   const levels = page.locator(".legend .row").last().locator(".chip");
-  await expect(levels).toHaveText(["Plenty", "Some left", "Running low", "Almost out"]);
+  await expect(levels).toHaveText(["Plenty", "Some Left", "Running Low", "Almost Out"]);
   expect(await levels.evaluateAll((cs) => cs.map((c) => c.querySelectorAll(".gauge i.on").length))).toEqual([4, 3, 2, 1]);
   await page.locator("#labelsClose").click();
   await page.locator("#map .leaflet-marker-icon").first().dispatchEvent("click");
   const sup = page.locator(".leaflet-popup .supply");
-  await expect(sup).toHaveText("Supply: Running low");
+  await expect(sup).toHaveText("Supply: Running Low");
   await expect(sup.locator(".gauge i.on")).toHaveCount(2);
   await expect(sup.locator(".gauge i")).toHaveCount(4);
 });

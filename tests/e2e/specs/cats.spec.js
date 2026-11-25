@@ -572,7 +572,7 @@ test("a volunteer logs a feeding visit at a station: station cats first, problem
   await page.goto("cats/");
   await page.locator("#caTab_stations").click();
   await page.locator(`[data-visit="${S1}"]`).click();
-  await expect(page.locator("h1")).toHaveText("Log activity");                                // DS-4b: one Log activity screen
+  await expect(page.locator("h1")).toHaveText("Log Activity");                                // DS-4b: one Log activity screen
   await expect(page.locator("#caKind_visit")).toHaveAttribute("aria-pressed", "true");
   await expect(page.locator("#caVStLine")).toHaveText("S-001 · Behind the souk");             // from a station: named, not asked
   await expect(page.locator("#caVSt")).toHaveCount(0);
@@ -607,7 +607,7 @@ test("Activity tab: entries, chips ask the server, older pages send the exact cu
   await page.goto("cats/");
   await page.locator("#caTab_log").click();
   const v = page.locator(`.caLog[data-log="${V1}"]`);
-  await expect(v).toContainText("Feeding visit");
+  await expect(v).toContainText("Feeding Visit");
   await expect(v).toContainText("S-001 · Behind the souk · by Vera");
   await expect(v.locator(".caProblem")).toHaveText("Problem: Bowl broken");
   await expect(v.locator(`[data-lcat="${K1}"]`)).toHaveText("Caramel");
@@ -629,7 +629,7 @@ test("Activity tab: entries, chips ask the server, older pages send the exact cu
   await expect(page.locator(`[data-llink="${SI1}"]`)).toBeFocused();
   const reads = sink.activity.length;
   await page.locator(`[data-lhide="sighting:${SI1}"]`).click();
-  await expect(page.locator(`[data-lhide="sighting:${SI1}"]`)).toHaveText("Show again");
+  await expect(page.locator(`[data-lhide="sighting:${SI1}"]`)).toHaveText("Show Again");
   expect(sink.hide).toEqual({ p_kind: "sighting", p_id: SI1, p_hidden: true });
   await expect(page.locator(`.caLog[data-log="${SI1}"]`)).toHaveAttribute("data-hidden", "");
   expect(sink.activity.length).toBe(reads);
@@ -811,7 +811,7 @@ test("DS-4b: one Log activity — a visit asks for its station; switching kinds 
   await signIn(page);
   await page.goto("cats/");
   await page.locator("#caTab_log").click();
-  await expect(page.locator("#caLogAct")).toHaveText("Log activity");
+  await expect(page.locator("#caLogAct")).toHaveText("Log Activity");
   await expect(page.locator("#caAddSight, [data-visit]")).toHaveCount(0);                  // D10: one entry point on the tab
   await page.locator("#caLogAct").click();
   await expect(page.locator("#caKind_visit")).toHaveAttribute("aria-pressed", "true");
@@ -909,7 +909,7 @@ test("DS-4b: activity entries are the shared dated list — actions at the foot,
   await page.locator("#caTab_cats").click();
   await page.locator(`[data-cat="${K1}"]`).click();
   await page.locator("#caPg_log").click();
-  await expect(page.locator("#caCatSeen")).toHaveText("Report seeing Caramel");            // D4: Pets' wording
+  await expect(page.locator("#caCatSeen")).toHaveText("Report Seeing Caramel");            // D4: Pets' wording
   await expect(page.locator("#caCatLog h2")).toHaveCount(0);
   if (process.env.SHOT_DIR) await page.screenshot({ path: process.env.SHOT_DIR + "/ds4b-cat-activity.png", fullPage: true });
 });
@@ -1097,7 +1097,7 @@ test("CC-5: vet entries in Activity — Vet chip asks the server; coordinators s
   await page.locator("#caLk_vet").click();
   await expect.poll(() => sink.activity.at(-1).p_kind).toBe("vet");
   const v = page.locator(`.caLog[data-log="${VT1}"]`);
-  await expect(v).toContainText("Vet visit");
+  await expect(v).toContainText("Vet Visit");
   await expect(v).toContainText(/\u2068?Jubail Vet\u2069? · by Cora/);              // the clinic is typed text: isolated
   await expect(v).toContainText("Sterilisation · Vaccination");
   await expect(v).toContainText(/Rabies · \u2068?Rabisin\u2069? · next dose due/);   // typed name keeps its own direction
@@ -1284,7 +1284,7 @@ test("UI review #3: a missing cat's banner offers Report seeing to the programme
   await page.goto("cats/");
   await page.locator(`[data-cat="${K2}"]`).click();
   await expect(page.locator("#caAlarm b")).toHaveText("C-002 is missing");
-  await expect(page.locator("#caAlarm #caAlarmSeen")).toHaveText("Report seeing C-002");    // on About, not one tab away
+  await expect(page.locator("#caAlarm #caAlarmSeen")).toHaveText("Report Seeing C-002");    // on About, not one tab away
   await expect(page.locator("#caSeenRep")).toHaveCount(0);
   await page.locator("#caAlarmSeen").click();
   await expect(page.locator("#caSCat")).toHaveValue(K2);

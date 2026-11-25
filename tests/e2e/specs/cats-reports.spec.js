@@ -113,7 +113,7 @@ async function photo(page) {
 test("a resident reports a stray cat from the Cats tab: no species, a place is enough, the photo prompt, My reports", async ({ page }) => {
   const b = backend([]);
   const { calls } = await open(page, b);
-  await expect(page.locator("#rpOpen")).toHaveText("Report a stray cat");
+  await expect(page.locator("#rpOpen")).toHaveText("Report a Stray Cat");
   await page.locator("#rpOpen").click();
   await expect(page.locator("h1")).toHaveText("Report a stray cat");
   await expect(page.locator("#rpOther")).toContainText("Stray dog or another animal");
@@ -151,7 +151,7 @@ test("a resident reports a stray cat from the Cats tab: no species, a place is e
   await expect(page.locator("[data-rpnum]")).toHaveCount(0);
 });
 
-// the Pets tab's "Report a stray cat" link (CC-7c: was on the Strays tab) is ../cats/?report=1 — pets.spec.js checks the link
+// the Pets tab's "Report a Stray Cat" link (CC-7c: was on the Strays tab) is ../cats/?report=1 — pets.spec.js checks the link
 test("?report=1 (the Pets tab's link) opens the Cats form; Back returns to the Cats tab", async ({ page }) => {
   const b = backend([]);
   await open(page, b, "cats/?report=1");
@@ -482,7 +482,7 @@ test("code review: the cat saved but the close failed → says so (use Already k
   await page.locator("#caCName").fill("Ginger");
   await page.locator("#caCatForm button[type=submit]").click();
   await expect(page.locator("#msg")).toContainText("Ginger was added, but the report is still open");
-  await expect(page.locator("#msg")).toContainText("Already known");
+  await expect(page.locator("#msg")).toContainText("Already Known");
   expect(b.st.cats.some((c) => c.id === K2)).toBe(true);
 });
 
@@ -509,7 +509,7 @@ test("UI review #1: I've seen ⟨cat⟩ on a missing cat opens the report form n
   b.st.cats.push(catRow(K2, "C-002", "Smudge", { status: "missing" }));
   const { calls } = await open(page, b);
   await page.locator(`[data-cat="${K2}"]`).click();
-  await expect(page.locator("#caAlarm #caSeenRep")).toHaveText("I've seen Smudge");
+  await expect(page.locator("#caAlarm #caSeenRep")).toHaveText("I've Seen Smudge");
   await expect(page.locator("#caAlarmSeen")).toHaveCount(0);                                 // residents: no programme sighting
   await page.locator("#caSeenRep").click();
   await expect(page.locator("h1")).toHaveText("I've seen Smudge");

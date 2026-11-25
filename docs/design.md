@@ -37,6 +37,7 @@ Every component uses the same fields (shape borrowed from shadcn-html's per-comp
 | Logical properties only | `margin-inline`, `padding-inline`, `inset-inline`, `text-align:start`; Arabic mirrors from `dir`. Exception: map controls (Leaflet zoom is physically top-left) |
 | Mirrored icons | Back, chevrons, prev/next: `transform:scaleX(-1)` under `[dir=rtl]` |
 | User-typed text | `dir="auto"` (keeps Latin letters in order) **plus** `text-align:right` under `html[dir=rtl]` so it lines up with the Arabic: card and hero names, `dl.facts dd` (`app.css`, DS-3b; `design/pet-stray-ar.jpg`). `.care .note` and `.jcpage .desc` too (DS-4a). Inside a joined value (`A · B`), wrap the typed part in U+2068 … U+2069 so a Latin source in an Arabic line keeps its order (Cats facts) |
+| Button labels are Title Case | Every `<button>`, `.btn`, `.mini` and choice-button label in English: "Add a Cat", "Cancel Booking", "Something's Wrong". Lowercase only a/an/the/and/or/nor/but/of/to/in/on/at/for/by/as/with/from/per/via/vs after the first word. Text links stay sentence case ("Have an organizer code?"). Arabic has no case. Enforced by `tests/e2e/specs/button-case.spec.js` (Zeeshan, Home UI review 2026-11-25) |
 | Type scale | `h1` 22px/800 · `h2.group` 12.5px caps muted · body 15px · `.meta` 12.5–13px muted · `.help` 12.5px faint |
 | Inputs ≥ 16px text | iOS zooms on focus below 16px |
 | Touch targets | ≥ 44px for anything primary; `.mini` 36px, inside cards only |
