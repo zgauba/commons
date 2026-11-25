@@ -83,12 +83,29 @@ PASS 9 · FAIL 0 · DEFERRED 0 · HUMAN 0 · CI-LATER 0 → READY
 
 Evaluator notes (not verdicts): the pictures for rows 1, 3, 4, 6 and 7 come from the branch's own tests (`SHOT_DIR`), because main's app-check has no Cats flow. The contract was committed in the same commit as the code, not before it (CLAUDE.md §14). Row 8's test covers the Status line only; the `join` change applies to every joined fact line on the cat page.
 
-**Tuning record:** Round 1 FAIL #6 was correct: the check ran before the body drew, so it couldn't detect the notice (my own "fails on main" run had been right on uncommitted code but didn't prove the committed test). Round 1 FAILs #3, #4 and #7 were correct: the contract named pictures and no test produced them. Round 2 FAIL #4/#8/#9 was correct: a real race (boundingBox does not wait). Also noted: the contract arrived with the code, not before it. Evaluator agreed: pending Zeeshan.
+**Tuning record:** Round 1 FAIL #6 was correct: the check ran before the body drew, so it couldn't detect the notice (my own "fails on main" run had been right on uncommitted code but didn't prove the committed test). Round 1 FAILs #3, #4 and #7 were correct: the contract named pictures and no test produced them. Round 2 FAIL #4/#8/#9 was correct: a real race (boundingBox does not wait). Also noted: the contract arrived with the code, not before it. Evaluator agreed: yes (Zeeshan, 2026-11-25).
 
 ## After the final round: CI flake in my own test (fixed)
 CI on abffe06 (a docs-only commit after evaluator round 3) failed one test in e2e shard 1: `cats.spec.js:1361` "Cats UI review #4 + #8", `TypeError: Cannot read properties of null (reading 'width')`. The round-2 fix (wait for visible, then one `boundingBox()`) still raced: the tab draws more than once as its data arrives. Fix: the width is read inside `expect.poll` (retries; a missing box counts as Infinity, so it can never pass by accident). Proof: 40 / 40 repeats with 8 workers; against origin/main's `commons/` it still fails (`Expected < 195, Received 354`). **This test change came after the evaluator's READY round 3 (the 3-round limit): round 4 is Zeeshan's call.**
 
+### Round 4 (final, authorised by Zeeshan past the 3-round limit), HEAD ed228ce, contract 9b3e90f7 — READY
+| # | Check (short) | Verdict | Evidence |
+|---|---|---|---|
+| 1 | Problem line is amber (`--jc-warn`), not accent green | PASS | Branch: "Cats UI review #1 + #7" among 121 passed. Main's `commons/` with the branch's tests: `Expected: "rgb(242, 179, 60)" Received: "rgb(62, 155, 118)"`. `cats-problem-amber.png`: amber border and label |
+| 2 | Singular "1 active station / 1 cat seen / 1 kitten" (EN + AR) | PASS | "Cats UI review #2" + 5 strings-parity passed. Main: `Expected: "1 active station" Received: "1 active stations"`. `_1` keys in EN and AR |
+| 3 | "Deleted 30 days" line never touches the card above | PASS | Passed. Main: `Expected: >= 8 Received: 0`. `cats-my-reports.png`: clear gap |
+| 4 | Add a cat is the compact primary button | PASS | Passed. Main: `Expected: < 195 Received: 354`. `cats-add-cat-compact.png`; same `.acts` wrapper as `caAdd` (cats.js:305) and `caLogAct` (log.js:180) |
+| 5 | Vet "Open the document (Google Drive)" is a plain link, not `mini` | PASS | CC-5 vet entries test passed with `not.toHaveAttribute("class", /mini/)`; vet.js drops `class="mini"` |
+| 6 | "Moving here step by step" notice gone (markup + EN/AR strings) | PASS | Passed. Main: `#caSoon Expected: 0 Received: 1`. `ca_soon` count 0 on the branch (2 on main). `cats-resident-list.png`: no notice |
+| 7 | Hidden and Not identified yet chips share one row | PASS | Passed. Main's snapshot shows the chips in separate `.head`s. `cats-hidden-chips.png`: one line |
+| 8 | A wrapped Status line never starts with "·" | PASS | Passed. Raw-text regex needs `\u00a0· `, forbids ` ·`; main joins with `" · "` |
+| 9 | Regression: cats, cats-reports, strings-parity, a11y; design guard; PR CI green | PASS | Local 121 passed, 0 failed. Design guard OK, exit 0. PR #223: 13 checks COMPLETED/SUCCESS, all 6 runs headSha ed228ce = HEAD |
+
+PASS 9 · FAIL 0 · DEFERRED 0 · HUMAN 0 · CI-LATER 0 → READY
+
+Since round 3: no `commons/` change; the only test change is #4's `boundingBox` read inside `expect.poll` (Playwright's own retrying check), still failing on main. Contract Check / Proof cells identical to 08a220c (its hash changed only because the Pass/Fail column was filled after round 3). Evaluator agreed (round 4): yes (Zeeshan, 2026-11-25).
+
 ## Merge evidence
 TIER: 2
-EVALUATOR: READY head=249565afd65757bc202da917c5518c607a998b07 contract=20fe926d
+EVALUATOR: READY head=ed228ce7ff7ae2a20402f6d3085d72ef1d1202c4 contract=9b3e90f7
 CODE-REVIEW: critical=0 high=0 head=ff0c7c7cb005d580fda005724148160ffff76e15
