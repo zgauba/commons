@@ -533,6 +533,9 @@ test("care v2: new sightings (last 7 days) sit at the top of Manage; older ones 
   await expect(page.locator("#pmSightNewH")).toHaveText("New sightings (last 7 days)");
   await expect(page.locator("#pmSightNew [data-sighting]")).toHaveCount(1);
   await expect(page.locator('#pmSightNew [data-sighting="41"]')).toContainText("Under the blue car");
+  // UI review P3: the hide help never touches the list under it
+  const gap = await page.locator("#pmSightNew").evaluate((ul) => ul.getBoundingClientRect().top - ul.previousElementSibling.getBoundingClientRect().bottom);
+  expect(gap).toBeGreaterThanOrEqual(11.5);
   await expect(page.locator('#pmSight [data-sighting="42"]')).toHaveCount(1);
   const order = await page.locator("#pmSightNewH, #pmSight, #pmArch").evaluateAll((ls) => ls.map((l) => l.id));
   expect(order).toEqual(["pmSightNewH", "pmSight", "pmArch"]);                           // new sightings first

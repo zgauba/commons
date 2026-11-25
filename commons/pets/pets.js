@@ -408,7 +408,10 @@ function sightHtml(p){
   /* an owned pet at home: "Seen Rex out on their own?" — and who will see the report, said before it is sent */
   var title = jcFmt(outAlone(p) ? "pt_sight_out" : "pt_sight", { n: p.name });
   if (sheet !== "sight") {
-    return '<div class="acts"><button class="btn ghost" type="button" id="ptSight">' + esc(title) + '</button></div>';
+    /* UI review P4: a pet at home just reported — said, not offered again this visit (a missing pet: report again) */
+    if (outAlone(p) && sent !== null) return '<p class="help" id="ptSightDone">' + esc(jcT("pt_out_reported")) + '</p>';
+    /* UI review P2: helping find a missing pet is the module's main job — the filled button; at home, outlined */
+    return '<div class="acts"><button class="btn' + (p.missing === true ? '' : ' ghost') + '" type="button" id="ptSight">' + esc(title) + '</button></div>';
   }
   var s = sight || { note: "", lat: null, lng: null };
   return '<div class="panel" id="ptSightForm"><b>' + esc(title) + '</b>' +
@@ -450,7 +453,7 @@ function drawPicker(p){
 var MINI_MAX = 10;                                    /* small maps on the newest 10 sightings with a location */
 function sightingsHtml(p){
   var minisLeft = typeof L !== "undefined" ? MINI_MAX : 0;
-  return jcEntriesHtml({ heading: jcT("pt_sightings"), id: "ptSightings",
+  return jcEntriesHtml({ id: "ptSightings",                 /* inside the Sightings tab: no heading that repeats it (D1, UI review P1) */
     /* the household's own pet at home: where neighbours' "out on their own" reports land */
     empty: outAlone(p) && p.mine === true ? jcFmt("pt_out_none", { n: p.name }) : jcT("pt_sightings_none"),
     items: p.sightings.length ? sightList(p).map(function(s){
@@ -649,7 +652,9 @@ VIEWS.edit = function(){
        : f.id && f.photo_path ? '<button class="btn ghost danger" type="button" id="ptPhotoRemove"' + (ptBusy ? ' disabled' : '') + '>' + esc(jcT("pt_photo_remove")) + '</button>' : '') +
       '</div></div>' +
       '<p class="help" id="ptPhotoHelp" role="status">' + esc(jcT(f.shrinking ? "working" : f.photo ? "pt_photo_ready" : "pt_photo_help")) + '</p>' +
-      '<p class="help" id="ptPhotoWho">' + esc(jcT("pt_photo_who")) + '</p></fieldset>' +
+      /* UI review P5: the disclosure stays on this screen — one line, the rest a tap away */
+      '<p class="help" id="ptPhotoWho">' + esc(jcT("pt_photo_who")) + '</p>' +
+      '<details class="more" id="ptPhotoMore"><summary>' + esc(jcT("pt_photo_more")) + '</summary><p class="help">' + esc(jcT("pt_photo_more_body")) + '</p></details></fieldset>' +
     '<fieldset><legend>' + esc(jcT("pt_species")) + '</legend><div class="opts" id="ptSpecies">' + SPECIES.map(function(s){
       return '<button type="button" data-sp="' + s + '" aria-pressed="' + (f.species === s) + '">' + esc(jcT("pt_sp_" + s)) + '</button>';
     }).join("") + '</div></fieldset>' +

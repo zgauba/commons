@@ -160,6 +160,6 @@ li[data-event] .chip.draft{display:table; margin:3px 0 2px}
 .mnform + .mnform{margin-top:12px}
 .desc{margin:0 0 4px; font-size:14.5px; line-height:1.5}
 /* OT-3: the switched-off notice above the Pets group row */
-.notice + .setrows{margin-top:12px}
+.notice + .setrows, .help + .sulist{margin-top:12px}   /* nothing touches (UI review P3: Manage's hide help → sightings) */
 /* a live event's title opens its page (UI review E8: replaces the View button) */
 .evtitle-link{color:inherit; text-decoration-color:var(--jc-line); text-underline-offset:3px}

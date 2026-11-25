@@ -188,6 +188,7 @@ test("a neighbor's pet at home: 'Seen Rex out on their own?' — household-only 
   await expect(page.locator("#ptShare")).toHaveCount(0);                     // nothing to share until something was seen
   expect(named(calls, "jc_pets_group_get")).toEqual([]);
   await expect(page.locator("#ptSight")).toHaveText("Seen Rex out on their own?");
+  await expect(page.locator("#ptSight")).toHaveClass(/\bghost\b/);            // UI review P2: at home, the outlined one
   await page.locator("#ptSight").click();
   await expect(page.locator("#ptSightPrivacy")).toHaveText("Only Rex's household and the community's pet admins see this report. If they report Rex missing within a day, neighbors helping to search see it too. It never shows who you are. We delete the record of who sent it within 48 hours, and the report itself after 30 days.");
   await page.locator("#ptSightNote").fill("By the canal");
@@ -195,6 +196,9 @@ test("a neighbor's pet at home: 'Seen Rex out on their own?' — household-only 
   await expect(page.locator("#msg")).toHaveText("Thanks. Rex's household will see your report.");
   expect(lastCall(calls, "jc_pet_sighting_add").args).toEqual({ p_pet: ID(1), p_note: "By the canal", p_lat: null, p_lng: null });
   await expect(page.locator("#ptSightings")).toHaveCount(0);                 // still the household's only
+  // UI review P4: reported — said, and not offered again this visit
+  await expect(page.locator("#ptSight")).toHaveCount(0);
+  await expect(page.locator("#ptSightDone")).toHaveText("Reported just now.");
   const url = new URL(page.url()).origin + "/commons/pets/?pet=" + ID(1);
   await expect(page.locator("#ptWaText")).toHaveText("Is this Rex (Dog)? I just saw them out on their own: By the canal. Details on Commons: " + url);
   await expect(page.locator("#ptWaOut")).toHaveText("Sharing is your choice: this message goes to everyone in the chat, not only Rex's household.");
@@ -256,6 +260,10 @@ test.describe("a sighting", () => {
     await expect(page.locator("#ptPosClear")).toBeFocused();
     await page.locator("#ptSightGo").click();
     await expect(page.locator("#msg")).toHaveText("Thanks. Your sighting was sent.");
+    // UI review P4: a missing pet still offers Report seeing again (a second sighting elsewhere helps); no "reported" line
+    await expect(page.locator("#ptSight")).toHaveText("Report seeing Luna");
+    await expect(page.locator("#ptSight")).not.toHaveClass(/\bghost\b/);
+    await expect(page.locator("#ptSightDone")).toHaveCount(0);
     expect(lastCall(calls, "jc_pet_sighting_add").args).toEqual({ p_pet: ID(2), p_note: "Under a car on Marsa road", p_lat: 24.53123, p_lng: 54.43299 });
     const url = new URL(page.url()).origin + "/commons/pets/?pet=" + ID(2);
     const text = "I just saw Luna (Cat): Under a car on Marsa road. Details on Commons: " + url;
@@ -331,6 +339,12 @@ test("a neighbour's missing pet: no care record / territory / log; sightings wit
   await expect(s.nth(2)).toContainText("Sleeping in the shade");
   await expect(s.nth(2)).not.toContainText("your report");               // reporter erased: never guessed as mine
   await expect(page.locator("#ptSight")).toHaveText("Report seeing Ginger");
+  // UI review P2: on a missing pet, the filled (primary) button
+  await expect(page.locator("#ptSight")).toHaveClass(/\bbtn\b/);
+  await expect(page.locator("#ptSight")).not.toHaveClass(/\bghost\b/);
+  // UI review P1: no heading inside the Sightings tab repeating its name (D1)
+  await expect(page.locator('[role="tabpanel"] h2.group', { hasText: /^Sightings$/i })).toHaveCount(0);
+  await expect(page.locator("#ptSightings")).toBeVisible();
   await expect(page.locator("#ptWaText")).toContainText("Missing: Ginger (Cat). Seen them?");
 });
 
@@ -973,7 +987,14 @@ test("R5c review: says who sees the photo; a file over 25 MB is refused before i
   const b = backend();
   const { calls } = await open(page, b, { q: "?pet=" + ID(6) });
   await page.locator("#ptEdit").click();
-  await expect(page.locator("#ptPhotoWho")).toHaveText(/^Neighbors in your community can see this photo\. Keep people, faces, house numbers and car plates out of it\./);
+  // UI review P5: one line on screen; the rest of the disclosure a tap away, still on this screen
+  await expect(page.locator("#ptPhotoWho")).toHaveText("Neighbors in your community can see this photo. Keep people, faces, house numbers and car plates out of it.");
+  const more = page.locator("#ptPhotoMore");
+  await expect(more).not.toHaveAttribute("open", "");
+  await expect(more.locator("summary")).toHaveText("What happens to the photo");
+  await more.locator("summary").click();
+  await expect(more.locator("p")).toBeVisible();
+  await expect(more.locator("p")).toHaveText("Its location data is removed before it's sent. A replaced or removed photo is deleted within a day. If you remove the pet, no one can see its photo, but it's kept for 30 days in case the pet is brought back, then deleted.");
   await page.evaluate(() => {                                                   // count reads: a refused file is never read
     const real = FileReader.prototype.readAsDataURL; window.__reads = 0;
     FileReader.prototype.readAsDataURL = function(f){ window.__reads++; return real.call(this, f); };
