@@ -25,7 +25,7 @@ test("event day: the switch shows both sides, the current one pressed; supply sh
   await expect(tog.nth(1)).toHaveAttribute("aria-pressed", "false");
   await expect(page.locator("#live .seg4 button")).toHaveText(["Plenty", "Some left", "Running low", "Almost out"]);
   await expect(page.locator("#live .seg4 [aria-pressed=true]")).toHaveCount(0);   // not set yet
-  await expect(page.locator("#upd")).toHaveText(/^Updated \d{1,2}:\d{2}\s?[AP]M · refreshes every 2 minutes$/);
+  await expect(page.locator("#upd")).toHaveText(/^Updated \d{2}:\d{2} · refreshes every 2 minutes$/);   // UI review E2: 24-hour, as Courts
 });
 
 test("Out of Treats: one call with the state only, the pressed side moves, supply hides, the pin turns ✕", async ({ page }) => {
@@ -157,6 +157,16 @@ test("reported household: banner on every tab; We're Not Out clears it", async (
   await expect(banner).toHaveCount(0);
   await expect(page.locator("#msg")).toHaveText(/reports cleared/);
   expect(rpcCalls(calls, "jc_entry_reports_clear").map((c) => c.args)).toEqual([{ p_event: DAY_ID }]);
+  // UI review E1: the message never touches what's above or below it (≥ 12px, half a pixel for rounding)
+  const gapAround = async (sel) => page.evaluate((s) => {
+    const m = document.querySelector(s), r = m.getBoundingClientRect();
+    const sib = (n, dir) => { do { n = dir < 0 ? n.previousElementSibling : n.nextElementSibling; } while (n && !n.getClientRects().length); return n; };
+    const p = sib(m, -1), n = sib(m, 1);
+    return [p ? r.top - p.getBoundingClientRect().bottom : 99, n ? n.getBoundingClientRect().top - r.bottom : 99];
+  }, sel);
+  const [above, below] = await gapAround("#msg");                                   // "Updated …" above, the search below
+  expect(above).toBeGreaterThanOrEqual(11.5);
+  expect(below).toBeGreaterThanOrEqual(11.5);
 });
 
 test("reported household: Yes, We're Out sets done and the banner goes", async ({ page }) => {
@@ -225,6 +235,18 @@ test("switching language with a popup open and a redraw waiting: no error, the p
   await expect(page.locator("#tab-map")).toHaveText("الخريطة");
   await expect(page.locator("#map .leaflet-marker-icon")).toHaveCount(6);
   expect(errors).toEqual([]);
+});
+
+test("code review M: By Number, tap Nearest Me, a refresh redraws the list, then the phone answers → Nearest Me stands", async ({ page }) => {
+  const { db } = await openDay(page, { refreshMs: 300 }, "list");
+  await page.locator("#sortNum").click();
+  await page.evaluate(() => { navigator.geolocation.getCurrentPosition = (ok) => { window.fix = ok; }; });
+  await page.locator("#sortHere").click();
+  const gets = db.st.gets;
+  await expect.poll(() => db.st.gets).toBeGreaterThan(gets + 1);                // the list was redrawn under the request
+  await page.evaluate(() => window.fix({ coords: { latitude: 24.5310, longitude: 54.4310 } }));
+  await expect(page.locator("#sortHere")).toHaveAttribute("aria-pressed", "true");
+  await expect(page.locator("#sortNum")).toHaveAttribute("aria-pressed", "false");
 });
 
 test("when the event ends, the controls go without a reload", async ({ page }) => {

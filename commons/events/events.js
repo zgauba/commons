@@ -215,14 +215,17 @@ var VIEWS = {
              : comingLine(e.households_in != null ? e.households_in : (e.homes_in || 0), {}, e.full))
           : jcFmt("ev_homes_in", { n: e.homes_in || 0 })];
         if (isVenue(e) && placeName(e)) line.splice(1, 0, jcFmt("ev_at", { v: placeName(e) }));
-        if (e.status === "archived") line.push(jcT("ev_see_numbers"));
-        else if (ended(e)) line.push(jcT("ev_ended"));
-        else if (!soon && !e.signups_open) line.push(jcT("ev_closed"));
-        if (e.my_status === "in") line.push(jcT("ev_mine"));
+        if (e.status !== "archived") {                   /* a past card says nothing about sign-ups (See the numbers is under it) */
+          if (ended(e)) line.push(jcT("ev_ended"));
+          else if (!soon && !e.signups_open) line.push(jcT("ev_closed"));
+        }
+        if (e.my_status === "in") line.push(jcT(e.status === "archived" ? "ev_mine_past" : "ev_mine"));   /* E7: past tense */
         var info = (soon ? '<span class="soon">' + esc(jcT("coming_soon")) + '</span>' : '') +
           '<b>' + (lookOf(e) ? '<span class="mark" aria-hidden="true">' + LOOK_MARKS[lookOf(e)] + '</span> ' : '') +
           (e.status === "archived" ? esc(title(e)) : '<a class="evopen" href="' + url + '">' + esc(title(e)) + '</a>') +
-          '</b><small>' + esc(line.filter(Boolean).join(" · ")) + '</small>';
+          '</b><small>' + esc(line.filter(Boolean).join(" · ")) + '</small>' +
+          /* E7: the past card is one link; this says where it goes, in link colour */
+          (e.status === "archived" ? '<span class="evmore">' + esc(jcT("ev_see_numbers")) + '</span>' : '');
         /* the card wears its event's look (tokens.css [data-look]) */
         var lk = lookOf(e) ? ' data-look="' + lookOf(e) + '"' : '';
         if (e.status === "archived") {
@@ -322,7 +325,7 @@ var VIEWS = {
           (placeName(ev) ? '<p class="help">' + esc(jcFmt("ev_at", { v: placeName(ev) })) + '</p>' : '')
         : '<div class="big"><div><b>' + esc(st.homes || 0) + '</b><span>' + esc(jcT("st_homes")) + '</span></div>' +
             '<div><b>' + esc(Object.keys(byVillage).length) + '</b><span>' + esc(jcT("st_villages")) + '</span></div>' +
-            '<div><b>' + esc(st.done || 0) + '</b><span>' + esc(jcT("st_done")) + '</span></div></div>' +
+            '<div><b>' + esc(st.done || 0) + '</b><span>' + esc(jcT(treatKey(ev, "st_done"))) + '</span></div></div>' +   /* E6 */
           '<h2 class="group">' + esc(jcT("st_by_village")) + '</h2>' + bars(byVillage, function(k){ return jcVillageName(cfg, k); })) +
       (Object.keys(byType).length ? '<h2 class="group">' + esc(jcT("st_by_type")) + '</h2>' +
         bars(byType, function(k){ return jcT("type_" + k); }) : '');
@@ -349,7 +352,7 @@ function renderMine(){
     html += '<p class="status orgline" role="note">' + esc(jcT("ev_org_removed")) + '</p>';
   }
   if (!h) {
-    html += '<p class="help">' + esc(jcT("ev_no_home")) + '</p><a class="btn" href="../home/">' + esc(jcT("ev_claim")) + '</a>';
+    html += jcNoHomeHtml("evNoHome", "ev_no_home");
   } else if (isIn) {
     html += liveHtml();                          /* event day: the switch + supply, first */
     /* R2b-1: an organizer changed the switch, supply or pin; the household's own tap clears it */
@@ -533,11 +536,9 @@ function supplyLine(e){
   if (!feat(data.event, "supply") || pinState(e) || SUPPLY.indexOf(e.supply_level) < 0) return "";
   return '<div class="supply">' + gaugeHtml(e.supply_level) + esc(jcFmt("ev_supply_line", { s: jcT("ev_supply_" + e.supply_level) })) + '</div>';
 }
-function fmtTime(d){
-  return d.toLocaleTimeString(ar() ? "ar-AE-u-nu-latn" : "en-US",
-    { hour: "numeric", minute: "2-digit", timeZone: (cfg && cfg.tz) || "Asia/Dubai" });
-}
-/* "7:42 PM" today, "4 Nov 7:42 PM" another day; "" for anything unreadable */
+/* 24-hour, the community's clock — the shared jcClock, as Courts and Organizer Tools (UI review E2) */
+function fmtTime(d){ return jcClock(d.toISOString(), cfg); }
+/* "19:42" today, "4 Nov 19:42" another day; "" for anything unreadable */
 function fmtStamp(iso){
   var d = new Date(iso);
   if (isNaN(d.getTime())) return "";
@@ -914,19 +915,17 @@ function drawHomes(entries){
 function renderList(entries, q){
   el("body").innerHTML =
     '<label class="field"><input type="text" id="q" placeholder="' + esc(jcT("ev_search")) + '" autocomplete="off"></label>' +
-    '<div class="seg2" role="group">' +
-      '<button type="button" id="sortNum" aria-pressed="' + (listSort === "number") + '">' + esc(jcT("ev_sort_number")) + '</button>' +
-      '<button type="button" id="sortDist" aria-pressed="' + (listSort === "distance") + '">' + esc(jcT("ev_sort_distance")) + '</button></div>' +
-    (listSort === "distance" ? jcSortedHtml({ id: "evSorted", fallback: "ev_sorted_number" }) : '') +
+    /* one row: By House Number · Nearest My Home · Nearest Me (UI review E3, the shared kit in map.js) */
+    jcSortChoiceHtml({ id: "evSorted", house: "ev_sort_number", mode: listSort === "number" ? "house" : null, fallback: "ev_sorted_number" }) +
     '<div id="groups"></div>';
   var input = el("q");
   input.value = input.defaultValue = q || "";
   function again(){ renderList(entries, input.value); }
-  on("sortNum", function(){ listSort = "number"; again(); });
-  on("sortDist", function(){ listSort = "distance"; again(); });
-  jcSortedWire({ onChange: again, onError: showErr, alive: function(){ return !!el("groups") && el("q") === input; },
+  jcSortChoiceWire({ onHouse: function(){ listSort = "number"; again(); }, onNear: function(){ listSort = "distance"; again(); },
+    onError: showErr, alive: function(){ return !!el("groups") && el("q") === input; },
     /* the list was redrawn (refresh) while the phone answered: redraw the one on screen, if the List is still showing */
-    late: function(){ var q2 = el("q"); if (el("groups") && q2 && q2 !== input) renderList(data.entries || [], q2.value); } });
+    late: function(){ listSort = "distance";                 /* the Nearest Me tap still stands (the kit drops a superseded one) */
+      var q2 = el("q"); if (el("groups") && q2 && q2 !== input) renderList(data.entries || [], q2.value); } });
   function draw(){
     var needle = input.value.trim().toLowerCase();
     var groups = {};

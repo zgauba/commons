@@ -463,6 +463,12 @@ test("no home yet: My Pets asks to claim one, no Add; a deep link to a pet that'
   const b = backend({ me: MEMBER_NO_HOME });
   await open(page, b, { q: "?tab=mine" });
   await expect(page.locator("#ptNoHome")).toHaveText("Claim your home first to add your pets.");
+  // UI review E4: the same no-home piece as Events, Courts and Pets — a filled Claim My Home to My Home
+  const claim = page.getByRole("link", { name: "Claim My Home" });
+  await expect(claim).toHaveAttribute("href", "../home/");
+  await expect(claim).toHaveClass(/\bbtn\b/);
+  await expect(claim).not.toHaveClass(/\bghost\b/);
+
   await expect(page.locator("#ptAdd")).toHaveCount(0);
   await page.goto("pets/?pet=" + ID(9));
   await expect(page.locator("#msg")).toHaveText("That pet isn't listed any more.");
@@ -1045,7 +1051,8 @@ test("R5c-2: a just-picked photo can be dropped before Save; no Remove on a pet 
 test("NF-2 Pets tab: the owned pets' line is the shared one, with no button (their homes never reach the phone)", async ({ page }) => {
   await open(page, backend(), { q: "?tab=pets" });
   await expect(page.locator("#ptSorted")).toHaveText("Sorted by: nearest your home");
-  await expect(page.locator("#sortHereBtn")).toHaveCount(0);
+  await expect(page.locator(".sortopts")).toHaveCount(0);                     // nothing to choose: the status line only
+  await expect(page.locator("#ptSorted")).toBeVisible();
   await page.locator("#jcHelpBtn").click();
   await expect(page.locator("#jcHelp li")).toHaveCount(4);
   await expect(page.locator("#jcHelp")).not.toContainText("Strays");                 // CC-7c: help says where stray cats go now

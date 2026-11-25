@@ -71,6 +71,9 @@ a.btn.ghost, a.btn.ghost:visited{color:var(--jc-ink)}
 .msg{display:none; border-radius:10px; padding:9px 12px; font-size:13.5px; margin:0}
 .msg.err{display:block; background:var(--jc-surface-2); border:1px solid var(--jc-danger); color:var(--jc-danger)}
 .msg.ok{display:block; background:var(--jc-surface-2); border:1px solid var(--jc-good); color:var(--jc-good)}
+/* a shown message never touches its neighbours (UI review E1). Pages on the shared stack (main.jcpage) get it from the
+   12px gap; the others (Events, Organizer Tools, My Home, Account) from this margin, which collapses with theirs. */
+main:not(.jcpage) .msg.ok, main:not(.jcpage) .msg.err{margin-block:12px}
 /* organizers' banner on member pages (nav.js jcBanner; the hub styles its own #bcast) */
 .bcast{background:var(--jc-danger); color:#2d0808; border-radius:var(--jc-radius); padding:10px 14px;
   font-weight:700; margin-bottom:16px; overflow-wrap:anywhere}

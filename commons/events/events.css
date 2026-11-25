@@ -36,10 +36,6 @@ body.evfit{min-height:0}
 .venueline{margin-top:8px; overflow-wrap:anywhere}
 .spot{margin:0; font-size:17px; font-weight:800; color:var(--jc-ink)}
 body.evfit main{padding-bottom:0}
-.seg2{display:flex; gap:6px; margin:6px 0 12px}
-.seg2 button{flex:1; font:inherit; font-weight:700; cursor:pointer; color:var(--jc-muted); background:var(--jc-surface);
-  border:1px solid var(--jc-line); border-radius:10px; padding:8px}
-.seg2 button[aria-pressed="true"]{color:var(--jc-ink); border-color:var(--jc-accent)}
 .entries{list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:6px}
 .entries li{background:var(--jc-surface); border:1px solid var(--jc-line); border-radius:10px; padding:10px 12px; font-size:14px}
 .entries li.mine{border-color:var(--jc-accent)}
@@ -134,3 +130,5 @@ body.evfit main{padding-bottom:0}
 .status.orgline{color:var(--jc-warn)}
 /* Sign Up tab while this home isn't in: filled like the list card's Sign Up button (events.js) */
 .subtabs button.cta{background:var(--jc-accent); color:var(--jc-accent-ink); border-radius:10px 10px 0 0}
+/* the past card's "See the numbers" (UI review E7): the whole card is the link; this says where it goes */
+.evcard .evmore{display:block; color:var(--jc-accent); font-size:13px; font-weight:700; margin-top:4px}

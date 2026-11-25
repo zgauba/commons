@@ -18,7 +18,7 @@ async function tapWhenStill(page, loc) {
   await loc.dispatchEvent("click");
 }
 
-test("list: live events open from the whole card + Sign up (no status pill), then Past with 'see the numbers'", async ({ page }) => {
+test("list: live events open from the whole card + Sign up (no status pill), then Past with 'See the numbers'", async ({ page }) => {
   const eb = eventsBackend();
   const { calls } = await stubBackend(page, { rpc: eb.rpc });
   await signIn(page);
@@ -33,7 +33,15 @@ test("list: live events open from the whole card + Sign up (no status pill), the
   await expect(live.locator(".evacts a")).toHaveAttribute("href", "?id=" + LIVE_ID + "&tab=mine");
   await expect(live.locator(".badge")).toHaveCount(0);                    // residents: no Admin badge
   await expect(page.locator("h2.group")).toHaveText("Past");
-  await expect(page.locator('[data-event="halloween-2026"] a')).toContainText("see the numbers");
+  // UI review E7: past tense, and where the card goes, in link colour (the whole card is the link)
+  const past = page.locator('[data-event="halloween-2026"] a');
+  await expect(past.locator("small")).toContainText("you took part");
+  await expect(past.locator("small")).not.toContainText("you're in");
+  await expect(past.locator("small")).toHaveText("31 Oct · 124 homes in · you took part");   // nothing about sign-ups
+  await expect(past.locator(".evmore")).toHaveText("See the numbers ›");
+  const [more, accent] = await past.locator(".evmore").evaluate((n) =>
+    [getComputedStyle(n).color, getComputedStyle(document.documentElement).getPropertyValue("--jc-accent").trim()]);
+  expect(more).toBe("rgb(" + accent.match(/\w\w/g).map((h) => parseInt(h, 16)).join(", ") + ")");
   await expect(page.locator('[data-event="halloween-2026"] .evacts')).toHaveCount(0);
   expect(calls.filter((c) => c.name === "jc_hit").map((c) => c.args.p_page)).toContain("events");
 });
@@ -179,6 +187,22 @@ test("no home yet → claim first", async ({ page }) => {
   await expect(page).toHaveURL(/\/commons\/home\/$/);
   await page.goto("events/?id=" + LIVE_ID + "&tab=mine");
   await expect(page.locator("#cta a.btn")).toHaveAttribute("href", "../home/");
+  await expect(page.locator("#evNoHome")).toHaveText("Claim your home first to sign up.");
+  // UI review E4: the same no-home piece as Events, Courts and Pets — a filled Claim My Home to My Home
+  const claim = page.getByRole("link", { name: "Claim My Home" });
+  await expect(claim).toHaveAttribute("href", "../home/");
+  await expect(claim).toHaveClass(/\bbtn\b/);
+  await expect(claim).not.toHaveClass(/\bghost\b/);
+});
+
+test("UI review E6: on a treat night The Numbers says what 'done' means — out of treats by the end", async ({ page }) => {
+  PAST.look = "halloween";
+  try {
+    await stubBackend(page, { rpc: eventsBackend().rpc });
+    await signIn(page);
+    await page.goto("events/?id=" + PAST_ID);
+    await expect(page.locator(".big span").nth(2)).toHaveText("out of treats by the end");
+  } finally { delete PAST.look; }
 });
 
 test("archived event → the numbers: totals, villages by name, answers labelled", async ({ page }) => {
@@ -188,6 +212,7 @@ test("archived event → the numbers: totals, villages by name, answers labelled
   await page.goto("events/?id=" + PAST_ID);
   await expect(page.locator("h1")).toHaveText("Halloween 2026");
   await expect(page.locator(".big b")).toHaveText(["124", "3", "33"]);
+  await expect(page.locator(".big span").nth(2)).toHaveText("done by the end");          // no treat look: the plain words
   await expect(page.locator(".bar span").first()).toHaveText("souk-al-jubail");  // not in CONFIG.villages → key shown
   await expect(page.locator(".bar span", { hasText: "Ain Al Maha" })).toHaveCount(1);
   await expect(page.locator(".bar span", { hasText: "Non food" })).toHaveCount(1);
@@ -349,7 +374,7 @@ test("Find Me answering late, after leaving the map: no message, no dot on the n
   await expect(page.locator("#map path.leaflet-interactive")).toHaveCount(0);   // no "you are here" circle
 });
 
-test("list (NF-2): opens on Nearest First from my home pin, my village first; By House Number in natural order (9 before 10); Use Where I Am", async ({ page, context }) => {
+test("list (NF-2): opens on Nearest Home from my home pin, my village first; By Number in natural order (9 before 10); Nearest Me", async ({ page, context }) => {
   await context.grantPermissions(["geolocation"]);
   await context.setGeolocation({ latitude: 24.5400, longitude: 54.4400 });
   ENTRIES.push(
@@ -362,30 +387,68 @@ test("list (NF-2): opens on Nearest First from my home pin, my village first; By
     await page.goto("events/?id=" + LIVE_ID);
     await page.locator("#tab-list").click();
     const seef = page.locator("h2.group:has-text('Seef') + ul.entries li b");
-    // Nearest First by default, from Villa 12's pin: my village (Ain Al Maha) first even with no pinned home in it
-    await expect(page.locator("#sortDist")).toHaveAttribute("aria-pressed", "true");
-    await expect(page.locator("#evSorted")).toHaveText("Sorted by: nearest your home");
+    // UI review E3: one row, three choices; Nearest Home by default, from Villa 12's pin: my village (Ain Al Maha) first
+    await expect(page.locator(".sortopts [data-sort]")).toHaveText(["By Number", "Nearest Home", "Nearest Me"]);
+    await expect(page.locator("#sortHome")).toHaveAttribute("aria-pressed", "true");
+    await expect(page.locator("#evSorted")).toHaveCount(0);                             // a home pin: nothing to explain
     await expect(page.locator("h2.group").first()).toContainText("Ain Al Maha");
     await expect(seef).toHaveText(["Villa 3", "Villa 10", "Villa 9"]);                  // ~150 m, ~1.3 km, ~1.7 km
     await expect(page.locator(".entries li").filter({ hasText: "Villa 3" })).toContainText("≈ 150 m");
-    // By House Number: natural order, no distances, no "Sorted by" line
+    // By Number: natural order, no distances
     await page.locator("#sortNum").click();
+    await expect(page.locator("#sortNum")).toHaveAttribute("aria-pressed", "true");
     await expect(seef).toHaveText(["Villa 3", "Villa 9", "Villa 10"]);
-    await expect(page.locator("#evSorted")).toHaveCount(0);
     await expect(page.locator("#groups")).not.toContainText("≈");
-    // back to Nearest First, then from the phone: strictly nearest where I am — Seef first, Villa 10 (~15 m) on top
-    await page.locator("#sortDist").click();
-    await page.locator("#sortHereBtn").click();
-    await expect(page.locator("#evSorted")).toHaveText("Sorted by: nearest where you are now");
+    // Nearest Me, straight from By Number: strictly nearest where I am — Seef first, Villa 10 (~15 m) on top
+    await page.locator("#sortHere").click();
+    await expect(page.locator("#sortHere")).toHaveAttribute("aria-pressed", "true");
     await expect(page.locator("h2.group").first()).toContainText("Seef");
     await expect(seef.first()).toHaveText("Villa 10");
-    await expect(page.locator("#sortHereBtn")).toHaveText("Use My Home");
+    // Nearest Home again: my village first
+    await page.locator("#sortHome").click();
+    await expect(page.locator("h2.group").first()).toContainText("Ain Al Maha");
+    await page.locator("#sortHere").click();                                            // the position is kept: no re-ask
+    await expect(seef.first()).toHaveText("Villa 10");
     // the map's popups say where the distance is from
     await page.locator("#tab-map").click();
     await expect(page.locator("#map .leaflet-marker-icon").first()).toBeVisible();
     await page.evaluate(() => document.querySelector("#map .leaflet-marker-icon").click());
     await expect(page.locator(".leaflet-popup")).toContainText("from you");
   } finally { ENTRIES.splice(-2, 2); }
+});
+
+test("UI review E3: Nearest Me refused → the message, the choice back, the order unchanged", async ({ page }) => {
+  await stubBackend(page, { rpc: eventsBackend().rpc });
+  await signIn(page);
+  await page.goto("events/?id=" + LIVE_ID + "&tab=list");
+  await expect(page.locator("#sortHome")).toHaveAttribute("aria-pressed", "true");
+  const before = await page.locator("#groups").innerText();
+  await page.evaluate(() => { navigator.geolocation.getCurrentPosition = (ok, bad) => bad({ code: 1 }); });
+  await page.locator("#sortHere").click();
+  await expect(page.locator("#msg")).toContainText("Location is off for this site");
+  await expect(page.locator("#sortHere")).toBeEnabled();
+  await expect(page.locator("#sortHere")).toHaveAttribute("aria-pressed", "false");
+  await expect(page.locator("#sortHome")).toHaveAttribute("aria-pressed", "true");
+  expect(await page.locator("#groups").innerText()).toBe(before);
+});
+
+test("code review L: on a 320px phone the three sort choices stay inside the screen, EN and AR", async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 640 });
+  await stubBackend(page, { rpc: eventsBackend().rpc });
+  await signIn(page);
+  await page.goto("events/?id=" + LIVE_ID + "&tab=list");
+  for (const lang of ["en", "ar"]) {
+    if (lang === "ar") await page.locator("#langBtn").click();
+    await expect(page.locator(".sortopts [data-sort]")).toHaveCount(3);
+    const fits = await page.evaluate(() => {
+      const row = document.querySelector(".sortopts").getBoundingClientRect();
+      return [...document.querySelectorAll(".sortopts [data-sort]")].every((b) => {
+        const r = b.getBoundingClientRect();
+        return r.left >= row.left - 0.5 && r.right <= row.right + 0.5 && b.scrollWidth <= b.clientWidth + 1;
+      }) && document.documentElement.scrollWidth <= window.innerWidth;
+    });
+    expect(fits, lang).toBe(true);
+  }
 });
 
 test("list (NF-2): Find Me on the Map sorts the List from the phone; the popup says the distance is from you", async ({ page, context }) => {
@@ -400,11 +463,11 @@ test("list (NF-2): Find Me on the Map sorts the List from the phone; the popup s
   await page.evaluate(() => document.querySelector("#map .leaflet-marker-icon").click());
   await expect(page.locator(".leaflet-popup")).toContainText("≈ \u20660 m\u2069 from you")   // the distance bidi-isolated (review L);
   await page.locator("#tab-list").click();
-  await expect(page.locator("#evSorted")).toHaveText("Sorted by: nearest where you are now");
+  await expect(page.locator("#sortHere")).toHaveAttribute("aria-pressed", "true");
   await expect(page.locator("h2.group").first()).toContainText("Seef");               // strictly nearest: not my village first
 });
 
-test("list (NF-2): no home pin → my village first, house-number order, said plainly", async ({ page }) => {
+test("list (NF-2): no home pin → my village first, By Number, Nearest Home off and said why", async ({ page }) => {
   await stubBackend(page, { rpc: Object.assign({}, eventsBackend().rpc, {
     jc_me_get: (a, c) => c.signedIn ? ok(MEMBER_NO_PIN) : raise("NOT_SIGNED_IN") }) });
   await signIn(page);
@@ -412,7 +475,9 @@ test("list (NF-2): no home pin → my village first, house-number order, said pl
   await page.locator("#tab-list").click();
   await expect(page.locator("#evSorted")).toHaveText("Sorted by: house number. Pin your home on My Home to see the nearest first.");
   await expect(page.locator("h2.group").first()).toContainText("Ain Al Maha");
-  await expect(page.locator("#sortHereBtn")).toHaveText("Use Where I Am");
+  await expect(page.locator("#sortNum")).toHaveAttribute("aria-pressed", "true");      // the order it's really in
+  await expect(page.locator("#sortHome")).toBeDisabled();
+  await expect(page.locator("#sortHere")).toBeEnabled();
   await expect(page.locator("#groups")).not.toContainText("≈");
 });
 
@@ -1128,6 +1193,9 @@ test("UI review #5 / #6: the event editor has the top-bar back; Close Event wear
   await stubBackend(page, { rpc: ab.rpc });
   await signIn(page);
   await page.goto("admin/");
+  // UI review E8: a live event's title opens its page; no View button
+  await expect(page.locator('li[data-event="test-event"] b a.evtitle-link')).toHaveAttribute("href", /^\.\.\/events\/\?id=/);
+  await expect(page.locator('li[data-event="test-event"] .acts').getByRole("link", { name: "View" })).toHaveCount(0);
   await expect(page.locator('li[data-event="test-event"] [data-act="close"]')).toHaveClass(/\bdanger\b/);
   await expect(page.locator('li[data-event="test-event"] [data-act="edit"]')).not.toHaveClass(/\bdanger\b/);
   await page.locator('li[data-event="test-event"] [data-act="edit"]').click();

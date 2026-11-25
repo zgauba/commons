@@ -155,6 +155,11 @@ function jcBusy(id, on){
   else { b.textContent = b.dataset.label || b.textContent; b.disabled = false; }
 }
 function jcOn(id, fn){ var n = el(id); if (n) n.addEventListener("click", fn); }
+/* No home yet (UI review E4): the module's sentence + one filled Claim My Home button, the same in Events, Courts, Pets */
+function jcNoHomeHtml(id, key){
+  return '<p class="help" id="' + id + '">' + esc(jcT(key)) + '</p>' +
+    '<div class="row"><a class="btn" href="../home/">' + esc(jcT("home_claim")) + '</a></div>';
+}
 function jcEach(sel, fn, ev){
   Array.prototype.forEach.call(document.querySelectorAll(sel), function(b){ b.addEventListener(ev || "click", function(){ fn(b); }); });
 }
