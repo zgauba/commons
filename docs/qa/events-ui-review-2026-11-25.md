@@ -109,3 +109,24 @@ Re-agreed row for Zeeshan: #3 labels. He chose them in this session (2026-11-25)
 **Round 2 → fixes:** Cats programme test: Nearest Home pressed with S-001 first; Nearest Me moves S-002 to first; Nearest
 Home brings S-001 back. Courts refusal now checks the card order is unchanged.
 
+### Round 3 (HEAD 8839ff3): READY (PASS 9 · FAIL 0 · DEFERRED 0 · HUMAN 0)
+
+| # | Check (short) | Verdict | Evidence |
+|---|---|---|---|
+| 1 | Message line spacing | PASS | event-day:150, organizer-acts:105 ✓ (≥ 11.5px); pictures show clear gaps |
+| 2 | 24-hour, community time | PASS | event-day:20, organizer-acts:48/:63 ✓; shared `jcClock` (`h23`, `jcTz(cfg)`) |
+| 3 | Sort row (re-agreed labels) | PASS | events:377/:420/:454/:470, courts:669/:693/:704/:724/:746, cats:917/:936/:956 ✓; EN + AR pictures of Events and Courts rows; no-pin picture |
+| 4 | Same no-home piece | PASS | events:179, courts:495, pets:462 ✓; three pictures, the same filled Claim My Home |
+| 5 | Organizer answers list | PASS | admin-signups:20 ✓; picture |
+| 6 | Treat-night Numbers label | PASS | events:198 ✓ (+ :208) |
+| 7 | Past card | PASS | events:21 ✓ |
+| 8 | Title link, no View | PASS | events:1191 ✓ |
+| 9 | Regression + CI | PASS | 606 passed locally; design guard OK (15/15 guard tests); PR #218 CI green on 8839ff3, incl. e2e-webkit |
+
+Re-agreed row: #3 (labels), chosen by Zeeshan in this session. No test weakened. The only contract change is row 3 with
+its Re-agreed line.
+
+**Tuning record:** round 1 FAIL #3a was correct: I changed agreed labels without asking. #3b and #7 were real gaps.
+Round 2 FAIL (Cats Nearest Home unproven) was correct. Evaluator agreed: pending Zeeshan (merged on his standing
+"fix and merge", 2026-11-25).
+
