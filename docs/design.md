@@ -245,7 +245,7 @@ Cats today: sex (3), life stage (4), ear tip (3), sterilisation (3) → pills ·
 |---|---|
 | Status | **Shared** list: `jcEntriesHtml(o)` in `assets/blocks.js` (DS-3b) — the dated-entry list for sightings, care logs and activity (Pets sightings + care log, Cats Activity / station history / a cat's Activity, DS-4b); each module keeps its own data + RPCs and its own report button |
 | Native basis | `button` + `ul` |
-| Markup | ghost `.btn` "Report seeing ⟨name⟩" in `.acts` → `jcEntriesHtml({ heading, id, items: [{ meta, bodyHtml, liAttrs }], empty, emptyAttrs, afterHtml })` = `h2.group` (omit `heading` inside a tab it would repeat) → `ul.bklist` (`.meta` kind · when · where · by, body, optional `jcMiniHtml`, then one `.acts` row at the foot: `jcMapLink` + the entry's buttons) → `afterHtml` (retention line, "Show older") |
+| Markup | `.btn` "Report seeing ⟨name⟩" in `.acts`: **filled while the animal is missing** (finding it is the page's job), ghost otherwise, e.g. "Seen ⟨name⟩ out on their own?" (Pets UI review P2, 2026-11-25); once a pet at home is reported, a "Reported just now" line replaces it for the visit → `jcEntriesHtml({ heading, id, items: [{ meta, bodyHtml, liAttrs }], empty, emptyAttrs, afterHtml })` = `h2.group` (omit `heading` inside a tab it would repeat) → `ul.bklist` (`.meta` kind · when · where · by, body, optional `jcMiniHtml`, then one `.acts` row at the foot: `jcMapLink` + the entry's buttons) → `afterHtml` (retention line, "Show older") |
 | Variants / states | Empty: `p.help` instead of the list |
 | Accessibility | Mini map is `role=img` + label; the link beside it is the real target |
 | Wiring | `jcMinisDraw(st, root)` after `innerHTML` (builds each `.ptmini` once scrolled into view; the page keeps `st = { maps: [], obs: null }` and calls `jcMinisClear(st)` before a redraw). Newest 10 with a pin get a map |
@@ -289,6 +289,14 @@ Cats today: sex (3), life stage (4), ear tip (3), sterilisation (3) → pills ·
 | Markup | `.panel` (surface, 14px radius, 12px gap) → fields → one full-width `.btn` Save **at the bottom of everything**. Destructive actions in a separate `.panel.danger-zone` below (`.btn.ghost.danger`) |
 | Use / Don't | Photos, extra sections, merge go **above** Save, never in boxes after it (D14) |
 | Reference | `design/pet-edit.jpg` |
+
+### Tap-to-open line
+| | |
+|---|---|
+| Status | **Shared** (`app.css`, promoted on its 2nd use, Pets UI review P5, 2026-11-25): Home's install steps, Pets' photo details |
+| Native basis | `details` › `summary` (keyboard and screen readers for free) |
+| Markup | `details.more` › `summary` (accent, bold, ≥ 44px) + the content (`p.help`) |
+| Use / Don't | Long supporting text that must stay on the screen (a disclosure) but shouldn't bury the form: one line visible, the rest a tap away. Never for something the person must act on |
 
 ### Label · fieldset · legend · help
 | | |

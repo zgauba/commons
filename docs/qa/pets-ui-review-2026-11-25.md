@@ -30,4 +30,18 @@ Home, not Pets.
 
 ## Verification
 
-(filled in on the PR branch)
+**Tier 2 (screen logic):** client only, no schema / RPC / auth / PII change (the photo disclosure's words are unchanged
+apart from a split; the PII rule "disclosed on the screen that collects it" still holds: the full text is on the form).
+
+- **Tests:** pets, admin-pets, admin-pet-reports, home (the shared `details` style moved from home.css), strings-parity
+  on mobile (Chromium), run once locally: **141 passed**. WebKit in CI. Design guard: OK (the moved rule is one shared rule, not a copy).
+- **The tests catch the bugs:** the new assertions run against the old `commons/` (5 files): **4 failed**
+  (neighbour pet at home P2 / P4; missing pet P2 → P1; photo P5; Manage P3), 98 passed. Restored: all pass.
+- **Screenshots looked at (after):** missing pet Sightings (filled Report seeing Ginger, no repeated heading); a
+  neighbour's pet after reporting ("Reported just now." in place of the button); Organizer › Manage (help line 12px
+  from the list); Add a Pet in Arabic with What happens to the photo opened.
+- **Wording (P5), for Zeeshan to check:** on screen: "Neighbors in your community can see this photo. Keep people,
+  faces, house numbers and car plates out of it." Under **What happens to the photo**: "Its location data is removed
+  before it's sent. A replaced or removed photo is deleted within a day. If you remove the pet, no one can see its
+  photo, but it's kept for 30 days in case the pet is brought back, then deleted." (The same words as before, split.)
+- **Design doc:** Sightings markup (P2 filled while missing; P4 line) and a new shared "Tap-to-open line".

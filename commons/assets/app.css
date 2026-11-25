@@ -51,6 +51,8 @@ label.check input{width:20px; height:20px; flex:0 0 auto; margin:1px 0 0; accent
    jcFocusKeep) isn't a control: no ring. */
 input:focus-visible, button:focus-visible, a:focus-visible, textarea:focus-visible, select:focus-visible,
 summary:focus-visible, [tabindex]:not([tabindex="-1"]):focus-visible{outline:2px solid var(--jc-accent); outline-offset:2px}
+/* a tap-to-open line (details › summary): Home's install steps, Pets' photo details (UI review P5: the 2nd use, so shared) */
+.install summary, details.more summary{cursor:pointer; font-weight:700; color:var(--jc-accent); min-height:44px; display:flex; align-items:center}
 [tabindex="-1"]:focus{outline:none}
 .sr-only{position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0 0 0 0);
   white-space:nowrap; border:0}

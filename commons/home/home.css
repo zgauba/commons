@@ -40,7 +40,6 @@
 .shellrows button[disabled]{opacity:.4; cursor:not-allowed}
 .starts label.radio{flex-direction:row; align-items:center; gap:10px; font-size:15px; color:var(--jc-ink); min-height:44px}
 .starts input[type=radio]{width:20px; height:20px; accent-color:var(--jc-accent); margin:0}
-.install summary{cursor:pointer; font-weight:700; color:var(--jc-accent); min-height:44px; display:flex; align-items:center}
 .install .helplist{font-size:14px}
 
 /* R5b-1: My Pets link (icon + label) */
