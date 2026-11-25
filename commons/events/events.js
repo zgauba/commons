@@ -924,7 +924,8 @@ function renderList(entries, q){
   jcSortChoiceWire({ onHouse: function(){ listSort = "number"; again(); }, onNear: function(){ listSort = "distance"; again(); },
     onError: showErr, alive: function(){ return !!el("groups") && el("q") === input; },
     /* the list was redrawn (refresh) while the phone answered: redraw the one on screen, if the List is still showing */
-    late: function(){ var q2 = el("q"); if (el("groups") && q2 && q2 !== input) renderList(data.entries || [], q2.value); } });
+    late: function(){ listSort = "distance";                 /* the Nearest Me tap still stands (the kit drops a superseded one) */
+      var q2 = el("q"); if (el("groups") && q2 && q2 !== input) renderList(data.entries || [], q2.value); } });
   function draw(){
     var needle = input.value.trim().toLowerCase();
     var groups = {};

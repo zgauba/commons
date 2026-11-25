@@ -742,6 +742,16 @@ test("NF-2 list: location refused → the message, the choice back; a late fix a
   await expect(pressed(page)).toHaveText("Nearest Me");
 });
 
+test("code review L: Nearest Me asked, then Nearest Home picked before the phone answers → Home stands", async ({ page }) => {
+  await open(page, backend({ courts: NF_COURTS() }));
+  await page.evaluate(() => { navigator.geolocation.getCurrentPosition = (ok) => { window.fix = ok; }; });
+  await page.locator("#sortHere").click();
+  await page.locator("#sortHome").click();
+  await page.evaluate(() => window.fix({ coords: { latitude: 24.5601, longitude: 54.4601 } }));   // on Far Court
+  await expect(pressed(page)).toHaveText("Nearest Home");
+  await expect(names(page)).toHaveText(["Court 1", "Far Court", "Hoops"]);
+});
+
 test("NF-2 list: two courts on the same spot keep the server's order (stable sort)", async ({ page }) => {
   await open(page, backend({ courts: [COURT({ id: C3, name_en: "Zed Court", name_ar: null }), COURT()] }));   // both at Court 1's pin
   await expect(names(page)).toHaveText(["Zed Court", "Court 1"]);

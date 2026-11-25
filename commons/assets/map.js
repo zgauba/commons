@@ -221,20 +221,22 @@ function jcSortChoiceHtml(o){
    onError(code): LOCATE_DENIED / LOCATE_FAILED. alive(): false once the page has moved on (a late fix still keeps the
    position, but nothing is redrawn or shown). late(): run instead of onNear when a fix lands after a redraw replaced
    this row (Events' event-night refresh), so the tap isn't lost. */
+var jcSortSeq = 0;        /* every sort tap counts: a position that arrives after a newer choice is dropped (code review M/L) */
 function jcSortChoiceWire(o){
   Array.prototype.forEach.call(document.querySelectorAll(".sortopts [data-sort]"), function(b){
     b.addEventListener("click", function(){
-      var v = b.dataset.sort;
+      var v = b.dataset.sort, seq = ++jcSortSeq;
       if (v === "house") return o.onHouse();
       if (v === "home") { jcHere = null; return o.onNear(); }
       if (jcHere) return o.onNear();                                       /* already have this visit's position */
       jcBusy(b.id, true);
       jcLocate(function(lat, lng){
+        if (seq !== jcSortSeq) return;                                     /* By Number / Nearest Home was picked since */
         jcHere = { lat: lat, lng: lng };
         if (o.alive && !o.alive()) { if (o.late) o.late(); return; }
         o.onNear();
       }, function(code){
-        if (o.alive && !o.alive()) return;
+        if (seq !== jcSortSeq || (o.alive && !o.alive())) return;
         jcBusy(b.id, false);
         if (o.onError) o.onError(code);
       });

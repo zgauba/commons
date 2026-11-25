@@ -417,6 +417,25 @@ test("list (NF-2): opens on Nearest Home from my home pin, my village first; By 
   } finally { ENTRIES.splice(-2, 2); }
 });
 
+test("code review L: on a 320px phone the three sort choices stay inside the screen, EN and AR", async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 640 });
+  await stubBackend(page, { rpc: eventsBackend().rpc });
+  await signIn(page);
+  await page.goto("events/?id=" + LIVE_ID + "&tab=list");
+  for (const lang of ["en", "ar"]) {
+    if (lang === "ar") await page.locator("#langBtn").click();
+    await expect(page.locator(".sortopts [data-sort]")).toHaveCount(3);
+    const fits = await page.evaluate(() => {
+      const row = document.querySelector(".sortopts").getBoundingClientRect();
+      return [...document.querySelectorAll(".sortopts [data-sort]")].every((b) => {
+        const r = b.getBoundingClientRect();
+        return r.left >= row.left - 0.5 && r.right <= row.right + 0.5 && b.scrollWidth <= b.clientWidth + 1;
+      }) && document.documentElement.scrollWidth <= window.innerWidth;
+    });
+    expect(fits, lang).toBe(true);
+  }
+});
+
 test("list (NF-2): Find Me on the Map sorts the List from the phone; the popup says the distance is from you", async ({ page, context }) => {
   await context.grantPermissions(["geolocation"]);
   await context.setGeolocation({ latitude: 24.5310, longitude: 54.4310 });   // on Villa 3

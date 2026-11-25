@@ -56,3 +56,16 @@ Zeeshan agreed with the evaluator's verdicts on #216 (rounds 1–3), 2026-11-25.
 - **Labels shortened to fit one line on a phone:** "By Number · Nearest Home · Nearest Me" (the agreed mock-up said
   "By House Number · Nearest My Home"; at iPhone width that wraps to two lines).
 - **Design doc:** message-line spacing, the sort choice, and the no-home piece are recorded in `docs/design.md`.
+
+## Code review (code-reviewer, 2026-11-25)
+
+0 high, 1 medium, 3 low. All fixed. Each one has a test that fails without the fix (3 failed on the old code) and
+passes with it.
+
+| # | Severity | Finding | Disposition |
+|---|---|---|---|
+| R1 | MEDIUM | Events: By Number, tap Nearest Me, then a refresh redraws the list before the phone answers. `late()` redrew with By Number still pressed, so the tap was lost. (Before, the button only existed in distance mode.) | **Fixed:** every sort tap is numbered (`jcSortSeq`). A position that arrives after a newer choice is dropped. `late()` sets Nearest Me, because it only runs for a tap that still stands. Test: `event-day` "code review M". |
+| R2 | LOW | Courts / Cats: Nearest Home picked while a Nearest Me request was pending. The late position then switched the list to Nearest Me. | **Fixed** by the same numbering. Test: `courts.spec` "code review L". |
+| R3 | LOW | `pets.spec` still checked `#sortHereBtn` has count 0. That id no longer exists, so the check passed no matter what. | **Fixed:** it now checks there's no `.sortopts` and that `#ptSorted` is visible. |
+| R4 | LOW | Three never-wrapping buttons could clip on a 320px phone (EN / AR). | **Fixed:** equal widths that wrap when the content can't fit (`min-width:fit-content`). Test: `events.spec` 320px, EN + AR, nothing overflows. |
+

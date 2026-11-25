@@ -1051,7 +1051,8 @@ test("R5c-2: a just-picked photo can be dropped before Save; no Remove on a pet 
 test("NF-2 Pets tab: the owned pets' line is the shared one, with no button (their homes never reach the phone)", async ({ page }) => {
   await open(page, backend(), { q: "?tab=pets" });
   await expect(page.locator("#ptSorted")).toHaveText("Sorted by: nearest your home");
-  await expect(page.locator("#sortHereBtn")).toHaveCount(0);
+  await expect(page.locator(".sortopts")).toHaveCount(0);                     // nothing to choose: the status line only
+  await expect(page.locator("#ptSorted")).toBeVisible();
   await page.locator("#jcHelpBtn").click();
   await expect(page.locator("#jcHelp li")).toHaveCount(4);
   await expect(page.locator("#jcHelp")).not.toContainText("Strays");                 // CC-7c: help says where stray cats go now

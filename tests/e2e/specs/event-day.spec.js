@@ -237,6 +237,18 @@ test("switching language with a popup open and a redraw waiting: no error, the p
   expect(errors).toEqual([]);
 });
 
+test("code review M: By Number, tap Nearest Me, a refresh redraws the list, then the phone answers → Nearest Me stands", async ({ page }) => {
+  const { db } = await openDay(page, { refreshMs: 300 }, "list");
+  await page.locator("#sortNum").click();
+  await page.evaluate(() => { navigator.geolocation.getCurrentPosition = (ok) => { window.fix = ok; }; });
+  await page.locator("#sortHere").click();
+  const gets = db.st.gets;
+  await expect.poll(() => db.st.gets).toBeGreaterThan(gets + 1);                // the list was redrawn under the request
+  await page.evaluate(() => window.fix({ coords: { latitude: 24.5310, longitude: 54.4310 } }));
+  await expect(page.locator("#sortHere")).toHaveAttribute("aria-pressed", "true");
+  await expect(page.locator("#sortNum")).toHaveAttribute("aria-pressed", "false");
+});
+
 test("when the event ends, the controls go without a reload", async ({ page }) => {
   // Ends 60 s after the page opens, on the page's own clock: a slow first draw (CI WebKit, PR #216) can no longer
   // land after the end, which the old 1.5 s real-time window allowed.
