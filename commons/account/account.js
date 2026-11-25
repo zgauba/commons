@@ -16,6 +16,7 @@ var NEXT = jcSafeNext(params.get("next"));
 var joinCode = "";      /* code step → account step; memory only */
 var joinName = "";      /* optional display name, account step → after jc_join; memory only */
 var signinEmail = "";   /* sign-up → Sign In hand-off (email taken / confirm first); memory only, used once */
+var handedEmail = "";   /* the email that hand-off was for: a different one signing in drops the typed name (shared phone) */
 var state = null;       /* last jcState() */
 
 /* Supabase Auth errors → our codes (err_* strings). Codes first, messages as a
@@ -58,7 +59,7 @@ var VIEWS = {
         '<button class="btn" id="go" type="submit">' + esc(jcT("acct_signin_btn")) + '</button>' +
       '</form>' +
       '<div class="links">' + linkBtn("toForgot", "acct_forgot") + linkBtn("toJoin", "acct_join_prompt") + '</div>';
-    if (signinEmail) { el("email").value = signinEmail; signinEmail = ""; }
+    if (signinEmail) { el("email").value = handedEmail = signinEmail; signinEmail = ""; }
     on("toForgot", function(){ show("forgot"); });
     on("toJoin", function(){ show("code"); });
     onSubmit(doSignIn);
@@ -188,10 +189,13 @@ function afterAuth(){
 }
 
 function doSignIn(){
+  /* the display name typed at sign-up belongs to the email it was handed over with — never to someone else's account */
+  if (handedEmail && val("email").toLowerCase() !== handedEmail.toLowerCase()) joinName = "";
   busy("go", true);
   jcDb.auth.signInWithPassword({ email: val("email"), password: el("password").value })
     .then(function(r){
       if (r.error) throw jcErr(authCode(r.error), r.error);
+      handedEmail = "";                /* kept across failed tries, so a retry with another email still drops the name */
       return afterAuth();
     })
     .catch(function(e){ busy("go", false); showErr(e.code || "UNKNOWN"); });
@@ -199,6 +203,7 @@ function doSignIn(){
 
 function doSignUp(){
   var pw = el("password").value, email = val("email");
+  el("takenRow").hidden = true;      /* only the latest attempt's answer decides whether Sign In is offered */
   joinName = el("dname").value.trim();
   if (pw.length < 8) return showErr("WEAK_PASSWORD");
   busy("go", true);
@@ -268,7 +273,7 @@ function doRecover(){
 }
 
 function doSignOut(){
-  joinName = "";      /* a shared phone: never carry one person's typed name into the next account */
+  joinName = ""; joinCode = ""; handedEmail = "";   /* a shared phone: never carry one person's typed name or code into the next account */
   jcDb.auth.signOut().then(function(){ state = { status: "signed_out" }; show("signin"); });
 }
 

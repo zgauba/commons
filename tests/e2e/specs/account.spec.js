@@ -160,6 +160,44 @@ test("email already registered → offer sign-in", async ({ page }) => {
   await expect(page.locator("#password")).toBeFocused();
 });
 
+test("email taken, then a too-short password: the Sign In offer goes away (only the latest answer counts)", async ({ page }) => {
+  await stubBackend(page, { auth: { signup: () => ({ status: 422, body: {
+    code: "user_already_exists", error_code: "user_already_exists", msg: "User already registered" } }) } });
+  await page.goto("account/?view=join");
+  await page.locator("#code").fill("ANY");
+  await page.locator("#go").click();
+  await page.locator("#email").fill("a@example.com");
+  await page.locator("#password").fill("long-enough-pw");
+  await page.locator("#go").click();
+  await expect(page.locator("#toSigninTaken")).toBeVisible();
+  await page.locator("#password").fill("short");
+  await page.locator("#go").click();
+  await expect(page.locator("#msg")).toContainText("8");
+  await expect(page.locator("#takenRow")).toBeHidden();
+});
+
+test("shared phone: a display name typed for one email is never saved to a different account that signs in", async ({ page }) => {
+  const { calls } = await stubBackend(page, {
+    rpc: joinFlowRpc(() => ok(MEMBER_NO_HOME)),
+    auth: { signup: () => ({ status: 422, body: { code: "user_already_exists", error_code: "user_already_exists", msg: "User already registered" } }) },
+  });
+  await page.goto("account/?view=join");
+  await page.locator("#code").fill("ABCD-EFGH-JK");
+  await page.locator("#go").click();
+  await page.locator("#email").fill("a@example.com");
+  await page.locator("#password").fill("long-enough-pw");
+  await page.locator("#dname").fill("Sam");
+  await page.locator("#go").click();
+  await page.locator("#toSigninTaken").click();
+  await page.locator("#email").fill("someone-else@example.com");      // a different person signs in on this phone
+  await page.locator("#password").fill("correct-horse");
+  await page.locator("#go").click();
+  await expect(page.locator("h1")).toHaveText("Join Your Community");
+  await page.locator("#go").click();                                   // joins with the kept community code
+  await expect(page).toHaveURL(/\/commons\/home\/$/);
+  expect(calls.some((c) => c.name === "jc_display_name_set")).toBe(false);
+});
+
 test("email taken → Sign In → the code typed before is kept (straight back to the code step)", async ({ page }) => {
   await stubBackend(page, {
     rpc: joinFlowRpc(() => ok(MEMBER_NO_HOME)),
