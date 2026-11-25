@@ -963,12 +963,21 @@ test("DS-4c: the programme's stations — private pins too, popup opens the hist
   await page.locator("#caTab_stations").click();
   await expect(page.locator("#caMap .bklabel")).toHaveCount(2);
   await expect(page.locator("#caMap .bklabel")).toContainText(["S-002 · Next door"]);
+  // Nearest Home first (Villa 12's pin: S-001 ≈ 200 m, S-002 ≈ 1.3 km)
+  await expect(page.locator("#sortHome")).toHaveAttribute("aria-pressed", "true");
+  await expect(page.locator("#caStList > li").first()).toHaveAttribute("data-station", S1);
   await page.locator("#sortHere").click();
   await expect(page.locator("#sortHere")).toHaveAttribute("aria-pressed", "true");
   await expect(page.locator("#caStList > li").first()).toHaveAttribute("data-station", S2);
   await expect(page.locator(`#caStList > li[data-station="${S2}"] .meta`).nth(1)).toContainText("≈");
   await expect(page.locator(`#caStList > li[data-station="${S2}"] [data-private]`)).toHaveText("Private location");
   await expect(page.locator(`#caStList > li[data-station="${S2}"] > :last-child`)).toHaveClass(/acts/);   // actions at the foot
+  // and back: Nearest Home puts the home's nearest first again (UI review E3, evaluator round 2)
+  await page.locator("#sortHome").click();
+  await expect(page.locator("#sortHome")).toHaveAttribute("aria-pressed", "true");
+  await expect(page.locator("#caStList > li").first()).toHaveAttribute("data-station", S1);
+  await page.locator("#sortHere").click();                                                  // the position is kept: no re-ask
+  await expect(page.locator("#caStList > li").first()).toHaveAttribute("data-station", S2);
   if (process.env.SHOT_DIR) await page.screenshot({ path: process.env.SHOT_DIR + "/ds4c-programme-stations.png", fullPage: true });
   await page.locator("#caMap .leaflet-interactive").first().click({ force: true });
   await page.locator(".leaflet-popup [data-popopen]").click();

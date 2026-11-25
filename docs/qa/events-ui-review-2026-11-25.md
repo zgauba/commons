@@ -90,3 +90,22 @@ passes with it.
 - **Row 3b:** new tests. Events: Nearest Me refused → message, choice back, order unchanged. Cats: no pin → Home disabled + the reason line; refused → message, order unchanged.
 - **Row 3a:** Zeeshan chose the short labels (one line on an iPhone). Re-agreed line added to the contract.
 
+### Round 2 (HEAD 18f7059): NOT READY (PASS 8 · FAIL 1)
+
+| # | Check (short) | Verdict | Evidence |
+|---|---|---|---|
+| 1 | Message line spacing | PASS | event-day:150, organizer-acts:105 ✓; pictures with clear gaps |
+| 2 | 24-hour, community time | PASS | event-day:20, organizer-acts:48/:63 ✓; browser forced to UTC, 08:00Z shows "Updated 12:00" (Dubai) |
+| 3 | Sort row (re-agreed labels) | FAIL | Events and Courts fully proven; Cats no-pin, refusal and Nearest Me ✓. No Cats test shows the order or pressed state under **Nearest Home**. Minor: Courts refusal didn't check the card order. |
+| 4 | Same no-home piece | PASS | events:179, courts:495, pets:462 ✓; three pictures |
+| 5 | Organizer answers list | PASS | admin-signups:20 ✓; picture |
+| 6 | Treat-night Numbers label | PASS | events:198 ✓ (+ :208 plain label) |
+| 7 | Past card | PASS | events:21 ✓ ("you took part", "See the numbers ›", accent colour) |
+| 8 | Title link, no View | PASS | events:1191 ✓ |
+| 9 | Regression + CI | PASS | 807 passed locally; design guard OK; PR #218 CI green on 18f7059 |
+
+Re-agreed row for Zeeshan: #3 labels. He chose them in this session (2026-11-25).
+
+**Round 2 → fixes:** Cats programme test: Nearest Home pressed with S-001 first; Nearest Me moves S-002 to first; Nearest
+Home brings S-001 back. Courts refusal now checks the card order is unchanged.
+

@@ -731,6 +731,7 @@ test("NF-2 list: location refused → the message, the choice back; a late fix a
   await expect(page.locator("#sortHere")).toBeEnabled();
   await expect(page.locator("#sortHere")).toHaveText("Nearest Me");
   await expect(pressed(page)).toHaveText("Nearest Home");                       // nothing changed
+  await expect(names(page)).toHaveText(["Court 1", "Far Court", "Hoops"]);      // the order neither
   // ask again, then leave for My Bookings before the phone answers
   await page.locator("#sortHere").click();
   await page.locator("#bktab-mine").click();
