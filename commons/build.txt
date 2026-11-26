@@ -1,0 +1,2 @@
+repo: zgauba/commons
+served-by: Cloudflare Pages project commons-app (since the 2026-11-26 split)
