@@ -537,12 +537,10 @@ No switch.
     again. Today only the resident can change their own name; an admin's only lever is removing the member.
   - Show the masked email beside the name in organizer rows (lookalike names: "Zee G.").
 - Teardown of `e2e` test data when Zee says testing is done.
-- **Commons into its own private repo** (Zee 2026-11-14), done with the commons.ae move (a custom domain means its own
-  repo anyway); Cloudflare Pages deploys from private repos. Why: this repo is public, and `docs/qa/` reviews plus the
-  manifest's "Known gaps" list accepted / deferred weaknesses; the plans show product direction. A history scan
-  (2026-11-14, 345 commits) found no secrets: publishable keys only, and none of the 84 test codes matches a live code.
-  Making it private later doesn't erase what was public, so nothing secret goes in meanwhile. `zgauba.github.io`
-  stays public (personal pages, Halloween site).
+- ~~**Commons into its own repo**~~ ✓ **Done 2026-11-26** as a **public** repo, `zgauba/commons` (contract `docs/plans/SPLIT-commons-repo-contract.md`): full history, commons.ae moved to Cloudflare project `commons-app`, zgauba.github.io keeps the personal page + Halloween site and forwards `/commons/` links. Going private moved to R8 (below). Leftovers:
+  - Delete the old Cloudflare Pages project `commons` (on zgauba.github.io, auto-deploys paused) once commons.ae has run a week on `commons-app`.
+  - Remove the `https://zgauba.github.io/commons/**` entry from Supabase Auth Redirect URLs (nothing is served there any more; the 404 page forwards before any auth step).
+  - **Flaky e2e test:** `admin-admins.spec.js:348` "NOT_ADMIN while on Admins goes back through the re-check" timed out once (30 s waiting for `[data-admake="events"]`) on PR #3, passed on main's full run the same hour. Find the race and fix it; no retries.
 - **Structural audit of the grant model** (synthesis S4, KG 14) — `/structural-audit` over `supabase/commons/`
   after the last migration (R6), then one hardening migration via `/db-rehearse`.
 - **Free-tier decision** (synthesis S5, KG 8) — pricing checked 2026-11-06: egress is fine on Free (5 GB vs
@@ -553,6 +551,7 @@ No switch.
 
 ### R8 — Launch gate (last)
 From `docs/qa/SYNTHESIS-2026-11-03.md` T6, plus items found since:
+- **Make Commons private** (Zee 2026-11-26: public first, private at launch). Decide first: Actions minutes (measured ~4,900/month vs 2,000 free on private Free: move WebKit off per-PR runs, accept overage, or GitHub Pro) and the server-side merge lock / push protection that private-on-Free loses. Then flip visibility; Cloudflare keeps deploying (it has access to all repos). Re-run `/gate-probe` after.
 - Privacy policy + the promise rewritten everywhere it appears (never silent).
 - Native Arabic review (strings; **Haq al Laila wording + design by an Emirati speaker**).
 - Fresh Jubail codes (join, community admin) — never the Halloween code; rotate at invite time.
