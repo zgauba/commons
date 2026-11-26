@@ -38,7 +38,8 @@ const MAX_BYTES = 2_000_000, MAX_PER_FILE = 20;
 // nothing under these is skipped (Pages serves vendor/ and node_modules/ too) — security review 2026-11-23
 const ROOT_DIRS = ['jubail', 'jubail-halloween', 'commons', 'supabase'];
 // zero-output guard: a check that read nothing must not pass
-export const MIN = { migrations: 40, personal: 2, copy: 5, credit: 5 };
+// personal: 0 — the personal page lives in zgauba.github.io since the split (2026-11-26); its copy of this file keeps 2
+export const MIN = { migrations: 40, personal: 0, copy: 5, credit: 5 };
 
 // URLs blanked (same length, so line numbers hold): LinkedIn and newsletter IDs look like numbers
 const noUrls = (t) => t.replace(/(?:https?:)?\/\/[^\s"'<>)]+|\b[\w-]+(?:\.[\w-]+)*\.[a-z]{2,}\/[^\s"'<>)]*/gi, (u) => ' '.repeat(u.length));
