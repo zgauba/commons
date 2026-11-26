@@ -1,0 +1,16 @@
+# SPLIT — contract
+Status: agreed 2026-11-26 (Zee: "lets move Commons", repo name "agree with the name commons")
+Plan: /plan-change in session, 2026-11-26 (move Commons into its own PUBLIC repo `zgauba/commons` now; going private is a separate R8 launch-gate step)
+
+Steps: A = new repo + CI + preview (this repo) · B = commons.ae cutover · C = old repo cleanup (zgauba.github.io) · D = Claude tooling (claude-config). Each row is proved in the step that delivers it.
+
+| # | Check | Proof | Pass/Fail |
+|---|---|---|---|
+| 1 | Post-merge (B): commons.ae is served from this repo: a change merged here shows on commons.ae within ~2 min, and the anti-framing headers are still sent | Live: marker commit + `curl -s https://commons.ae/ \| grep <marker>`; `curl -sI https://commons.ae/admin/` shows `frame-ancestors 'none'` + `X-Frame-Options: DENY` | |
+| 2 | (A) This repo is public, main requires the 5 checks server-side, push protection is on, and the gates pass good PRs and block bad ones | `gh repo view --json visibility` = PUBLIC; `gh api repos/zgauba/commons/branches/main/protection` lists the 5 contexts; `/gate-probe` should-pass PR (all green) + should-fail PR (review-saved blocks a `commons/` change with no review) | |
+| 3 | Post-merge (C): old Commons links still land in the right place: `zgauba.github.io/commons/events/?x=1#y` opens `commons.ae/events/?x=1#y` | Live Playwright or curl against github.io after the old repo cleanup | |
+| 4 | Post-merge (C): the personal page, `/jubail/` redirect and `/jubail-halloween/` still load on zgauba.github.io, and that repo's remaining CI is green | Live `curl -o /dev/null -w '%{http_code}'` on all three; `gh run list` on the cleanup PR | |
+| 5 | Post-merge (B): sign-in and password reset still work on commons.ae (Supabase Auth settings untouched) | Manual: e2e test account signs in and completes a reset email on commons.ae | |
+| 6 | Post-merge (C): nothing Commons-only is left in the public website repo going forward (only the redirect stub) | `git ls-files` in zgauba.github.io shows no `supabase/commons/`, `docs/qa/`, `docs/plans/`, `tests/`, and `commons/` holds only the redirect stub | |
+| 7 | (A/D) Claude tooling follows the move: `/resume` in `~/code/commons` briefs the commons workstream and the Commons memories are there | `node ~/.claude/scripts/session-log.js resume` in the new folder; `diff -rq` old vs new memory folder | |
+| 8 | (C) Going private later is on the launch gate, not just in memory | ROADMAP R8 has a "Make Commons private: minutes vs Pro, merge lock" line (grep) | |
