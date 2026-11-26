@@ -538,7 +538,7 @@ No switch.
   - Show the masked email beside the name in organizer rows (lookalike names: "Zee G.").
 - Teardown of `e2e` test data when Zee says testing is done.
 - ~~**Commons into its own repo**~~ ✓ **Done 2026-11-26** as a **public** repo, `zgauba/commons` (contract `docs/plans/SPLIT-commons-repo-contract.md`): full history, commons.ae moved to Cloudflare project `commons-app`, zgauba.github.io keeps the personal page + Halloween site and forwards `/commons/` links. Going private moved to R8 (below). Leftovers:
-  - Delete the old Cloudflare Pages project `commons` (on zgauba.github.io, auto-deploys paused) once commons.ae has run a week on `commons-app`.
+  - Old Cloudflare Pages project `commons` (was on zgauba.github.io): disconnect it from Git so it stops posting a failing "Cloudflare Pages" check on zgauba.github.io PRs. Deleting it is optional: Cloudflare's delete needs its bulk-deployment-delete script for projects with many deployments; an idle project costs nothing.
   - Remove the `https://zgauba.github.io/commons/**` entry from Supabase Auth Redirect URLs (nothing is served there any more; the 404 page forwards before any auth step).
   - **Flaky e2e test:** `admin-admins.spec.js:348` "NOT_ADMIN while on Admins goes back through the re-check" timed out once (30 s waiting for `[data-admake="events"]`) on PR #3, passed on main's full run the same hour. Find the race and fix it; no retries.
 - **Structural audit of the grant model** (synthesis S4, KG 14) — `/structural-audit` over `supabase/commons/`
