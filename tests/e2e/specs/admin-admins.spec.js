@@ -67,6 +67,9 @@ async function openAdmins(page) {
   await page.goto("admin/?tab=community");
   await page.locator("#adOpen").click();
   await expect(page.locator("h1")).toHaveText("Admins");
+  // the heading is drawn with "One moment…" before the lists arrive: wait for them, or a test that changes the
+  // backend next races the reads still in flight (the flake on PR #3)
+  await expect(page.locator("#view")).not.toContainText("One moment");
 }
 
 test("community admin: Admins lists every level with chips (Pets too, R5d-1); two-admin warning", async ({ page }) => {
@@ -339,7 +342,7 @@ test("code review L1: lists that can't be read say so, with Try Again", async ({
   await page.locator("#adOpen").click();
   await expect(page.locator("#adRetry")).toBeVisible();
   await expect(page.locator("#msg")).toHaveText("Something went wrong. Try again in a moment.");
-  await expect(page.locator("#view")).not.toContainText("Working");
+  await expect(page.locator("#view")).not.toContainText("One moment");
   fails = false;
   await page.locator("#adRetry").click();
   await expect(page.locator("h2.group")).toHaveCount(4);
@@ -347,6 +350,10 @@ test("code review L1: lists that can't be read say so, with Try Again", async ({
 
 test("NOT_ADMIN while on Admins goes back through the re-check (no stale screen)", async ({ page }) => {
   const b = backend();
+  // one level's list answers late (as on a slow network): the grant must end only after the screen has loaded
+  const list = b.rpc.jc_module_admins_list;
+  b.rpc.jc_module_admins_list = (a) => (a.p_scope === "cats_vol"
+    ? new Promise((resolve) => setTimeout(() => resolve(list(a)), 300)) : list(a));
   await stubBackend(page, { rpc: b.rpc });
   await signIn(page);
   await openAdmins(page);
