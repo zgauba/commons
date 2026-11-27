@@ -540,7 +540,7 @@ No switch.
 - ~~**Commons into its own repo**~~ ✓ **Done 2026-11-26** as a **public** repo, `zgauba/commons` (contract `docs/plans/SPLIT-commons-repo-contract.md`): full history, commons.ae moved to Cloudflare project `commons-app`, zgauba.github.io keeps the personal page + Halloween site and forwards `/commons/` links. Going private moved to R8 (below). Leftovers:
   - Old Cloudflare Pages project `commons` (was on zgauba.github.io): disconnect it from Git so it stops posting a failing "Cloudflare Pages" check on zgauba.github.io PRs. Deleting it is optional: Cloudflare's delete needs its bulk-deployment-delete script for projects with many deployments; an idle project costs nothing.
   - Remove the `https://zgauba.github.io/commons/**` entry from Supabase Auth Redirect URLs (nothing is served there any more; the 404 page forwards before any auth step).
-  - **Flaky e2e test:** `admin-admins.spec.js:348` "NOT_ADMIN while on Admins goes back through the re-check" timed out once (30 s waiting for `[data-admake="events"]`) on PR #3, passed on main's full run the same hour. Find the race and fix it; no retries.
+  - ~~**Flaky e2e test:** `admin-admins.spec.js:348`~~ ✓ **Fixed 2026-11-27** (contract `docs/plans/flaky-admin-admins-contract.md`): `openAdmins` now waits for the lists to load before a test changes the backend; the test holds one list read back so the race runs every time.
 - **Structural audit of the grant model** (synthesis S4, KG 14) — `/structural-audit` over `supabase/commons/`
   after the last migration (R6), then one hardening migration via `/db-rehearse`.
 - **Free-tier decision** (synthesis S5, KG 8) — pricing checked 2026-11-06: egress is fine on Free (5 GB vs
