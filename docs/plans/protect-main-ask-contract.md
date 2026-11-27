@@ -9,8 +9,8 @@ Tier 1 (cosmetic): one config file, no app code, no data.
 
 | # | Check | Proof | Pass/Fail |
 |---|---|---|---|
-| 1 | The branch's `.claude/protect-main` has exactly `ask` as its first non-blank, non-comment line | `git show HEAD:.claude/protect-main \| grep -v '^[[:space:]]*#' \| grep -v '^[[:space:]]*$' \| head -1` prints `ask` | |
-| 2 | Baseline: before the merge, a commit on Commons main is blocked | smoke command (below) on main before the merge: exit=2 + block message | |
+| 1 | The branch's `.claude/protect-main` has exactly `ask` as its first non-blank, non-comment line | `git show HEAD:.claude/protect-main \| grep -v '^[[:space:]]*#' \| grep -v '^[[:space:]]*$' \| head -1` prints `ask` | **Pass**: printed `ask` at 1293d5a |
+| 2 | Baseline: before the merge, a commit on Commons main is blocked | smoke command (below) on main before the merge: exit=2 + block message | **Pass**: 2026-11-27, main = origin/main = ffa3fbd: `git-guard: this would land on main in commons, which is protected (.claude/protect-main). …` `exit=2` |
 | 3 | Required CI checks are green on the PR | `gh pr checks <n>` all pass | |
 | 4 | Post-merge: PR merged with `ask` as the first non-comment line on main | PR link + `git show origin/main:.claude/protect-main` | |
 | 5 | Post-merge: local main matches origin/main in ~/code/commons | `git status -sb` on main shows no ahead/behind | |
