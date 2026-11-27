@@ -14,6 +14,6 @@ Tier 1: test file only, no app code.
 
 | # | Check | Proof | Pass/Fail |
 |---|---|---|---|
-| 1 | The race is reproducible on demand: with one list read answering 300 ms late, the unfixed test fails at the same line as CI | local run on the unfixed helper, `--repeat-each=3`, Chromium: 3 failed at the `[data-admake="events"]` click | |
-| 2 | With the fix, the delayed test passes every time in both browsers | `--repeat-each=10 --project=mobile --project=webkit`: 20 passed | |
+| 1 | The race is reproducible on demand: with one list read answering 300 ms late, the unfixed test fails at the same line as CI | local run on the unfixed helper, `--repeat-each=3`, Chromium: 3 failed at the `[data-admake="events"]` click | **Pass**: 2026-11-27, 3 failed, `locator.click` timeout waiting for `[data-admake="events"]` (page on the Organizer Tools lock screen) |
+| 2 | With the fix, the delayed test passes every time in both browsers | `--repeat-each=10 --project=mobile --project=webkit`: 20 passed | **Pass**: 20 passed at f6f15e9 |
 | 3 | The whole spec passes locally in both browsers and CI is green | local `admin-admins.spec.js` both projects all pass; `gh pr checks <n>` all pass | |
